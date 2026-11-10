@@ -1,0 +1,6 @@
+NearEast single-database migrations.
+
+Settings come from NEAREAST_* environment variables or the project .env.
+Models are registered in src/neareast_api/db/metadata.py using the shared Base.
+There are no revision scripts yet. API startup never runs migrations.
+See ../docs/development.md for the generate/review/apply workflow.

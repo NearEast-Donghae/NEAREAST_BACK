@@ -1,0 +1,1 @@
+"""NearEast application package."""
