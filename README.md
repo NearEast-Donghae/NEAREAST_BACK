@@ -1,176 +1,151 @@
-# NearEast backend — initial scaffold
+# NearEast Backend
 
-Python 3.12 / FastAPI / PostgreSQL 17 로컬 개발 시작점입니다.
-Compose 명령 하나로 백엔드와 DB를 띄우고 Swagger에서 연결 상태를 확인합니다.
-업무 테이블·마이그레이션 이력·업무 Endpoint는 없으며 상태 확인 API 두 개만 제공합니다.
-SQLAlchemy 공통 Base와 Alembic 설정은 준비되어 있습니다. 실행 시 DB 구조를 자동 변경하지 않습니다.
-앱 자체는 DB 연결 없이 시작할 수 있지만 DB가 응답해야 readiness가 성공합니다.
-`/`의 404는 정상이며 Swagger 주소는 `/docs`입니다.
+Python 3.12 · FastAPI · PostgreSQL 17 · pgvector(1536) · Alembic.
+이메일/닉네임/비밀번호 가입, 쿠키 로그인, 사용자별 대화방과 메시지, 여행 조건·여행 계획 이력을 제공합니다.
+장소·지식·열차 데이터는 PostgreSQL에서 읽습니다. 서비스 실행에 JSON/Markdown 데이터 파일은 필요하지 않습니다.
 
-이 폴더만 독립 Git 저장소로 사용합니다. 상위 폴더의 기획서는 포함하지 않습니다.
-구체적인 서비스 기능과 DB 모델은 아직 구현하지 않았습니다.
+## Docker로 실행
 
-## Compose로 실행 — Git Bash
-
-Docker Desktop의 Linux 컨테이너 엔진을 켜고 이 README가 있는 폴더에서 실행합니다.
-현재 작업 폴더에는 개발용 `.env`도 준비했습니다. 다른 곳에 새로 clone했다면
-최초 한 번 `cp .env.example .env`를 실행합니다. 기존 `.env`는 덮어쓰지 않습니다.
+Docker Desktop의 Linux 엔진을 실행합니다. 새 clone에서는 `.env.example`을 `.env`로 복사합니다.
+기존 `.env`는 덮어쓰지 않습니다. 로컬 Uvicorn이 8012 포트를 쓰고 있으면 먼저 종료합니다.
 
 ```bash
-docker compose up --build -d
-docker compose ps
+docker compose -p neareast-dev up -d db
+docker compose -p neareast-dev build backend
+docker compose -p neareast-dev run --rm backend alembic upgrade head
+docker compose -p neareast-dev up -d backend
 ```
 
-첫 실행에는 이미지·패키지 다운로드 시간이 필요합니다. `-d`는 백그라운드 시작이며,
-명령이 끝난 순간 모든 준비가 끝났다는 뜻은 아닙니다. `ps`에서 두 서비스가
-`healthy`가 되는지 확인합니다. 준비 완료까지 명령에서 기다리려면 `--wait`를 추가합니다.
+실행 중인 backend 컨테이너에서 마이그레이션을 적용하려면 다음을 사용합니다.
+
+```bash
+docker compose -p neareast-dev exec backend alembic upgrade head
+```
 
 - Swagger: http://localhost:8012/docs
-- API 생존 확인: http://localhost:8012/health/live → HTTP 200, `{"status":"ok"}`
-- API + DB 연결 확인: http://localhost:8012/health/ready → HTTP 200, `{"status":"ok","database":"ok"}`
+- Liveness: http://localhost:8012/health/live
+- DB readiness: http://localhost:8012/health/ready
+- 신규 환경의 호스트 DB 포트 기본값은 5432이며 `.env`에서 변경할 수 있습니다. 컨테이너 내부에서는 db:5432를 사용합니다.
+- API는 시작할 때 테이블을 자동 생성하지 않습니다. 먼저 Alembic을 실행해야 합니다.
+- named volume이 DB 데이터를 보관합니다. 일반 종료는 `docker compose -p neareast-dev down`입니다.
 
-Swagger의 **Health → GET /health/ready → Try it out → Execute**로도 확인할 수 있습니다.
-DB 연결 실패·인증 실패·쿼리 실패 시 readiness는 HTTP 503과
-`{"status":"error","database":"unavailable"}`을 반환합니다. liveness는 DB 장애와 무관합니다.
-나중에 Kubernetes에 올릴 때도 DB 장애 때문에 앱을 반복 재시작시키지 않도록 둘을 구분합니다.
+## 선택: 백엔드를 로컬 Python으로 실행
+
+테스트·디버깅 시 DB만 Docker로 실행하고 백엔드는 로컬에서 실행할 수도 있습니다.
+이 경우 `.env`의 DB 호스트/포트는 Docker가 호스트에 공개한 주소와 일치해야 합니다.
 
 ```bash
-curl -f http://localhost:8012/health/ready
-docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1 AS ok;"'
-docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\dt public.*"'
-```
-
-마지막 명령은 새 볼륨에서 사용자 테이블이 없음을 보여줍니다. PostgreSQL 자체의 시스템
-카탈로그와 기본 스키마는 존재합니다. 앱은 `SELECT 1`만 실행하며 테이블을 자동 생성하지 않습니다.
-
-로그 확인은 `docker compose logs --tail=100 backend db`, 종료는 `docker compose down`입니다.
-DB는 named volume에 보관되므로 다시 실행해도 데이터가 유지됩니다. `.env`의 DB 이름·계정·비밀번호는
-**빈 볼륨의 최초 초기화에만** 반영됩니다. 나중에 값을 바꾸더라도 기존 DB 계정이 자동 변경되지는 않습니다.
-`down -v`는 DB 데이터를 삭제하므로 일반 종료 명령으로 사용하지 않습니다.
-
-포트 충돌이면 `.env`의 `NEAREAST_HTTP_PORT` 또는 `NEAREAST_DB_PORT`를 변경한 후 다시 실행합니다.
-이전 수동 실행 컨테이너가 같은 포트를 쓰는지도 확인합니다.
-
-## 구조
-
-```text
-NearEast_Backend/
-├── src/neareast_api/
-│   ├── main.py              # 앱 생성, 설정 적용, 라우터 조립
-│   ├── api/router.py        # /api/v1 아래 기능 라우터를 명시적으로 등록
-│   ├── api/health.py        # 생존·DB 연결 확인
-│   ├── core/config.py       # 실행 환경 설정과 검증
-│   ├── core/database.py     # SELECT 1과 연결 종료만 수행
-│   ├── db/base.py           # 모든 기능 모델이 공유할 ORM Base
-│   ├── db/metadata.py       # 기능별 모델의 명시적 등록 위치
-│   ├── db/url.py            # 공통 설정으로 DB 접속 URL 구성
-│   └── modules/             # 합의된 기능을 Python 패키지로 추가할 위치
-├── alembic/                # 마이그레이션 환경과 비어 있는 versions/
-├── alembic.ini             # 비밀번호 없는 Alembic 설정
-├── tests/                  # 앱·Health·마이그레이션 설정 검증
-├── docs/development.md      # 모듈 경계와 HTTP API 작성 기준
-├── pyproject.toml           # 의존성, 패키지 메타데이터
-├── .env.example
-├── .dockerignore
-├── compose.yaml            # 개발용 backend + db, 상태 확인, DB 볼륨
-└── Dockerfile              # 이 FastAPI 앱의 실행 이미지
-```
-
-## Docker 밖에서 Python 직접 실행 — 선택 사항
-
-아래 명령은 모두 **이 README가 있는 프로젝트 루트**에서 실행합니다.
-Python 3.12가 필요합니다. 다른 Python 버전은 이번 초기 검증 범위에 포함하지 않았습니다.
-패키지 최초 설치에는 인터넷 또는 별도 패키지 저장소가 필요합니다.
-이 방식에서는 DB만 `docker compose up -d db`로 먼저 실행합니다.
-Compose 백엔드도 이미 실행 중이라면 동일한 HTTP 포트를 동시에 사용할 수 없습니다.
-
-### Windows PowerShell
-
-가상환경 활성화나 PowerShell 실행 정책 변경 없이 실행할 수 있습니다.
-
-```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-.\.venv\Scripts\python.exe -m uvicorn neareast_api.main:create_app --factory --env-file .env --reload --host 127.0.0.1 --port 8012
+.venv/Scripts/python.exe -m pip install -e ".[dev]"
+.venv/Scripts/python.exe -m alembic upgrade head
+.venv/Scripts/python.exe -m uvicorn neareast_api.main:create_app --factory --env-file .env --host 127.0.0.1 --port 8012
 ```
 
-### macOS / Linux
+## Swagger에서 로그인 후 확인
 
-```sh
-python3.12 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev]'
-[ -f .env ] || cp .env.example .env
-.venv/bin/python -m uvicorn neareast_api.main:create_app --factory --env-file .env --reload --host 127.0.0.1 --port 8012
-```
+1. `POST /api/v1/auth/signup`: `email`, `nickname`, `password`를 보내면 가입 후 자동 로그인합니다.
+2. 재접속은 `POST /api/v1/auth/login`: `email`, `password`를 보냅니다.
+3. 응답의 `csrfToken`을 복사합니다. 인증 쿠키는 브라우저가 자동 저장합니다.
+4. 조회 API는 그대로 실행합니다. POST/PATCH/PUT/DELETE는 `X-CSRF-Token` 입력란에 토큰을 넣습니다.
+5. `GET /api/v1/users/me`로 로그인 사용자와 CSRF 토큰을 다시 받을 수 있습니다.
 
-`http://127.0.0.1:8012/docs`에서 Health API 두 개를 확인할 수 있습니다.
-종료는 실행 중인 터미널에서 Ctrl+C입니다. `--reload`는 로컬 개발에만 사용합니다.
+비밀번호는 Argon2id로 해싱하고 세션 토큰도 해시만 DB에 저장합니다.
+이메일 인증은 없으며 형식·중복·비밀번호 길이는 검증합니다.
+장소·지도·열차 조회는 비로그인으로 사용할 수 있습니다. 챗봇·대화 기록·여행 계획의 모든 기능은 로그인이 필요합니다.
+Health와 개발용 API 문서는 공개입니다.
+브라우저에서 `localhost`와 `127.0.0.1`을 섞으면 쿠키가 공유되지 않으므로 하나로 통일합니다.
 
-## 설정
+## API
 
-| 변수 | 기본값 | 의미 |
+기본 경로 `/api/v1`. 새 DTO는 camelCase이며 기존 PR의 DTO 키는 호환성을 위해 유지했습니다.
+
+| 리소스 | 메서드 | 용도 |
 | --- | --- | --- |
-| `NEAREAST_DOCS_ENABLED` | 로컬 `true`, Dockerfile `false` | 자동 문서와 OpenAPI 노출 여부 |
-| `NEAREAST_HTTP_PORT` | `8012` | Compose가 호스트에 공개할 백엔드 포트 |
-| `NEAREAST_DB_HOST` | `127.0.0.1` | Python 직접 실행 시 DB 주소. Compose 내부는 항상 `db` |
-| `NEAREAST_DB_PORT` | `5432` | 호스트의 DB 포트 / Python 직접 실행 시 접속 포트. Compose 내부는 항상 `5432` |
-| `NEAREAST_DB_NAME` | `.env.example`: `neareast` | 최초 생성 DB 이름 |
-| `NEAREAST_DB_USER` | `.env.example`: `neareast` | 개발용 DB 계정 |
-| `NEAREAST_DB_PASSWORD` | `.env.example`의 개발용 값 | Compose에서는 필수. 앱 설정에 없으면 readiness 실패 |
+| `/auth/signup`, `/auth/login`, `/auth/logout` | POST | 가입·로그인·로그아웃 |
+| `/users/me` | GET | 현재 사용자·CSRF 토큰 |
+| `/conversations` | GET, POST | 사용자 대화방 목록·생성 |
+| `/conversations/{conversationId}` | GET, PATCH, DELETE | 조회·제목 변경·삭제 |
+| `/conversations/{conversationId}/messages` | GET, POST | 대화 기록·메시지 전송 |
+| `/planning-requests` | GET, POST | 여행 조건 목록·생성 |
+| `/planning-requests/{requestId}` | GET, PATCH, DELETE | 여행 조건 조회·교체·삭제 |
+| `/planning-requests/{requestId}/generations` | POST | 루트 생성기 연결 지점; 미연결 시 503 |
+| `/itineraries` | GET, POST | 저장된 여행 목록·저장 |
+| `/itineraries/{itineraryId}` | GET, PUT, DELETE | 여행 조회·교체·삭제 |
+| `/itineraries/{itineraryId}/revisions` | GET | 여행 수정 이력 |
+| `/places`, `/places/{place_id}` | GET | 장소 목록·상세 |
+| `/stations/{station_id}/trains` | GET | 역 정차·통과 열차 |
+| `/trains`, `/trains/{train_no}` | GET | 구간 검색·열차 상세 |
+| `/chat/persona`, `/chat/messages` | GET, POST | 기존 PR 챗봇 계약 유지 |
 
-앱은 생성 시 프로세스 환경변수를 읽고 검증합니다. 잘못된 bool 값은 시작 오류로 처리합니다.
-앱 자체가 `.env`를 탐색하거나 로딩하지 않습니다. 로컬에서는 명령의 `--env-file .env`,
-Compose에서는 YAML의 `environment` 항목으로 전달합니다. `.env`가 자동으로 컨테이너에 복사되는 것은 아닙니다.
-Uvicorn의 `.env` 로딩은 이미 설정된 프로세스 환경변수를 덮어쓰지 않습니다.
-Python 직접 실행의 HTTP 포트는 Uvicorn 명령의 `--port`로 지정합니다.
-Alembic CLI도 같은 `NEAREAST_DB_*` 설정을 사용하며 프로젝트 `.env`를 명시적으로 읽습니다.
-Compose는 백엔드와 DB 포트를 호스트의 `127.0.0.1`에만 공개합니다.
-이 계정과 비밀번호는 로컬 개발용이며 운영 설정이 아닙니다. `.env`는 Git과 이미지에서 제외합니다.
+대화 저장에는 `/conversations/{id}/messages`를 사용합니다. 기존 `/chat/messages`는 요청에 담긴
+history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다른 사용자의 리소스는 404를 반환합니다.
+목록에는 `limit`, `offset`을 지원합니다. 메시지는 시간순, 여행·대화방 목록은 최신순입니다.
+여행·여행 조건 수정에는 `expectedRevision`을 보내며 이전 버전이면 409를 반환합니다.
+
+## 저장 구조
+
+13개 테이블: `users`, `auth_sessions`, `places`, `knowledge_documents`, `knowledge_chunks`,
+`timetable_snapshots`, `train_services`, `train_stops`, `conversations`, `messages`,
+`planning_requests`, `itineraries`, `itinerary_revisions`.
+
+사용자·소유권·외래키·검색 기준은 컬럼으로 관리합니다. 생성 결과와 수정 이력의 중첩 DTO,
+원천 시간표 세부 필드는 JSONB로 저장합니다. JSONB는 PostgreSQL 컬럼이며 Git의 JSON 파일이 아닙니다.
+지식 원문은 `knowledge_documents.body`, 임베딩은 `knowledge_chunks.embedding vector(1536)`에 저장합니다.
+
+`0001_service_storage`는 테이블과 vector 확장, `0002_reference_content`는 기존 PR의 최초 자료를 적재합니다.
+초기 seed SQL은 새 DB 재현용 이력입니다. 서버 요청 중에 읽지 않으며 새 데이터를 넣을 때마다 Git에 갱신하지 않습니다.
+모델 변경 후 `alembic revision --autogenerate -m "..."`로 새 이력을 만들고 검토 후 적용합니다.
+이미 적용한 마이그레이션은 수정하지 않습니다.
+
+## 데이터 수집·임베딩
+
+```bash
+# 공공데이터 운행 기록 수집 후 PostgreSQL 적재; 원본 응답은 data/raw/에 임시 캐시
+.venv/Scripts/python.exe scripts/fetch_timetable.py
+# 원본 캐시를 재사용하지 않을 때
+.venv/Scripts/python.exe scripts/fetch_timetable.py --refresh
+# PostgreSQL 원문의 변경 여부만 확인(유료 API 호출 없음)
+docker compose -p neareast-dev exec backend python scripts/ingest.py --dry-run
+# 변경된 문서만 OpenAI 임베딩 후 DB에 적재
+docker compose -p neareast-dev exec backend python scripts/ingest.py
+```
+
+철도 수집은 현재 로컬 Python 스크립트 기준이며 DB는 Docker의 PostgreSQL에 적재합니다.
+컨테이너에서 수집하려면 해당 작업에 키와 쓰기 가능한 원본 캐시 경로를 별도로 제공해야 합니다.
+`NEAREAST_DATA_GO_KR_KEY`는 한국철도공사 개발계정 디코딩 키입니다.
+OpenAI는 `NEAREAST_OPENAI_API_KEY` 또는 `OPENAI_API_KEY`를 사용하며, 앞의 값이 비어 있지 않으면 우선합니다.
+실제 LLM 응답은 `NEAREAST_CHAT_MOCK=false`, 기본 테스트 모드는 `true`입니다.
+`text-embedding-3-small` 1536차원을 사용합니다. 원문/모델/벡터 유무를 비교해 필요한 문서만 재임베딩합니다.
+임베딩을 바꾼 문서는 재적재 전까지 오래된 벡터 검색에서 제외됩니다.
+현재 작은 문서 20개를 제목+본문 단위로 임베딩하며, 기존 챗봇의 검색 순서와 점수 계산은 유지합니다.
+대규모 문서 분할·DB 내부 유사도 검색·자연어 여행 조건 수집은 별도 고도화 대상입니다.
 
 ## 검증
 
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe -m pip check
+```bash
+.venv/Scripts/python.exe -m unittest discover -s tests
+.venv/Scripts/python.exe -m alembic check
+# 실제 OpenAI 호출: 테스트 계정 생성 후 정리하며 API 토큰을 사용합니다.
+.venv/Scripts/python.exe scripts/verify_live.py
 ```
 
-macOS/Linux에서는 실행 파일 부분을 `.venv/bin/python`으로 바꿉니다.
-테스트는 실제 DB나 외부 서비스 연결 없이 실행합니다.
-현재는 앱 시작·설정·라우터 조립·DB 성공/실패 응답과 연결 종료를 검증하며,
-Alembic은 임시 폴더에서 설정과 SQL 초안 생성을 검증합니다.
-DB 테스트의 연결 객체는 대역입니다. 향후 업무 API의 REST 동작이나 실제 DB 배포 통합을
-검증한 것으로 간주하지 않습니다.
+실제 PostgreSQL 통합 테스트는 PowerShell에서 다음과 같이 실행합니다. 임의 이름의 전용 테스트 스키마만 생성·제거합니다.
 
-의존성은 `pyproject.toml`의 버전 범위로 선언했습니다. 잠금 파일은 아직 없으므로
-설치 시점에 선택되는 정확한 버전이 달라질 수 있습니다.
-공유 배포 환경을 정할 때 의존성을 잠그고 해당 버전으로 테스트를 다시 실행합니다.
+```powershell
+$env:NEAREAST_RUN_POSTGRES_TESTS='1'
+.venv/Scripts/python.exe -m unittest discover -s tests -p test_postgres_storage.py -v
+Remove-Item Env:NEAREAST_RUN_POSTGRES_TESTS
+```
 
+현재 데이터 한계·검증 결과는 [검증 기록](docs/verification.md),
+프론트 연동과 기존 PR 영향은 [백엔드 연동 계약](docs/backend-integration.md),
+코드 기준은 [개발 기준](docs/development.md)을 참고합니다.
 
-## Docker와 배포 범위
+## 배포 설정
 
-Compose는 프로젝트 루트를 백엔드 빌드 컨텍스트로 사용하고, DB는 공식 PostgreSQL 이미지를 사용합니다.
-PostgreSQL은 17 계열과 `/var/lib/postgresql/data` 볼륨 경로를 함께 지정했습니다.
-Compose는 DB가 준비된 뒤 백엔드를 시작합니다. 실행 중 DB 장애는 backend healthcheck가 감지하지만,
-`unhealthy` 표시 자체가 컨테이너를 자동 재시작시키지는 않습니다.
-백엔드 컨테이너는 비루트 사용자로 Uvicorn 프로세스 하나를 실행하고 종료 신호를 직접 받습니다.
-프록시 헤더 신뢰는 기본적으로 꺼 두었습니다. 실제 프록시가 정해지면 신뢰 대상을 명시해 설정합니다.
-
-Dockerfile 한 개는 **이 앱의 이미지**를 뜻합니다. 전체 NearEast의 컨테이너 수를 정하지 않습니다.
-현재 Compose의 두 서비스는 로컬 개발 편의를 위한 구성입니다.
-AWS, Kubernetes, 복제 수, GPU, 운영 저장소는 배포 구성이 확정되면 별도로 설정합니다.
-
-## 개발 시작
-
-[개발 기준](docs/development.md)에 따라 `modules/<기능>/`을 추가하고
-`api/router.py`에 라우터를 등록합니다. 빈 기능별 폴더나 DB 클래스를 미리 여러 개 생성할 필요는 없습니다.
-
-DB 모델을 만들 때는 `db/base.py`의 `Base`를 상속하고 `db/metadata.py`에 등록합니다.
-Alembic의 초기 환경은 이미 생성했으므로 `alembic init`을 다시 실행하지 않습니다.
-모델 추가 후의 revision 생성·검토·적용 명령은 [개발 기준](docs/development.md#alembic과-모델-추가)을 참고합니다.
-현재는 revision이 없어 `alembic heads`와 `history`의 출력이 비어 있는 것이 정상입니다.
-Docker 이미지에도 Alembic 설정과 이력 파일이 포함되지만 자동으로 실행하지는 않습니다.
-
-참고: [FastAPI 여러 파일 구성](https://fastapi.tiangolo.com/tutorial/bigger-applications/),
-[FastAPI Docker 배포](https://fastapi.tiangolo.com/deployment/docker/),
-[Python 프로젝트 설정](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/).
+HTTPS에서는 `NEAREAST_COOKIE_SECURE=true`. 프론트는 `credentials: "include"`를 사용하고
+상태 변경 요청에 `X-CSRF-Token`을 보냅니다. CORS에는 정확한 프론트 origin만 등록합니다.
+동일 사이트 배포 또는 프론트 도메인의 `/api` reverse proxy를 사용합니다.
+서로 무관한 도메인에 배포하면 현재 SameSite=Lax 쿠키 계약을 별도로 조정해야 합니다.
+운영에서는 `NEAREAST_DOCS_ENABLED=false` 및 비밀관리 환경변수 사용을 권장합니다.
+개발 Compose는 127.0.0.1에만 포트를 노출하므로 외부 공개는 배포 환경에서 별도로 구성합니다.

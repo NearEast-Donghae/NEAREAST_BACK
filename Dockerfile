@@ -13,6 +13,7 @@ RUN python -m pip install .
 
 COPY alembic.ini ./
 COPY alembic ./alembic
+COPY scripts ./scripts
 
 USER 10001:10001
 EXPOSE 8000
