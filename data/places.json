@@ -1,25 +1,26 @@
 {
   "_meta": {
-    "description": "지도 마커와 챗봇 knowledge 문서가 공유하는 장소 id 목록. 프론트 지도 마커 id는 이 파일과 같아야 한다.",
-    "as_of": "2026-11-19",
-    "id_rule": "station_* 역(임시승강장·화물역 포함) / poi_* 관광지 / heritage_* 폐역·유산 / spot_* 사용자가 찍는 지점(이 파일에는 없음)",
-    "passenger_stop": "역: true 여객 승하차 가능 / false 승하차 불가(통과·화물·폐역, 관찰만) / null 미확인. poi는 해당 없음(null)",
-    "coordinates": "lat/lng는 아직 미입력(null). 확인된 좌표만 채운다"
+      "description": "지도 마커와 챗봇 knowledge 문서가 공유하는 장소 id 목록. 프론트 지도 마커 id는 이 파일과 같아야 한다.",
+      "as_of": "2026-11-19",
+      "id_rule": "station_* 역(임시승강장·화물역 포함) / poi_* 관광지 / heritage_* 폐역·유산 / spot_* 사용자가 찍는 지점(이 파일에는 없음)",
+      "passenger_stop": "역: true 여객 승하차 가능 / false 승하차 불가(통과·화물·폐역, 관찰만) / null 미확인. poi는 해당 없음(null)",
+      "coordinates": "lat/lng는 아직 미입력(null). 확인된 좌표만 채운다",
+      "aliases": "질문에서 이 장소로 알아듣는 다른 표현(줄임말 포함). 지도 표시용 이름은 name"
   },
   "places": [
-    {"id": "station_donghae", "name": "동해역", "kind": "station", "passenger_stop": true, "lat": null, "lng": null},
-    {"id": "station_mukho", "name": "묵호역", "kind": "station", "passenger_stop": true, "lat": null, "lng": null},
-    {"id": "station_chuam", "name": "추암역", "kind": "station", "passenger_stop": true, "lat": null, "lng": null},
-    {"id": "station_mangsang", "name": "망상역", "kind": "station", "passenger_stop": false, "lat": null, "lng": null},
-    {"id": "station_mangsang_beach", "name": "망상해수욕장 임시승강장", "kind": "station", "passenger_stop": null, "lat": null, "lng": null},
-    {"id": "station_samhwa", "name": "삼화역", "kind": "station", "passenger_stop": false, "lat": null, "lng": null},
-    {"id": "station_mukhohang", "name": "묵호항역", "kind": "station", "passenger_stop": false, "lat": null, "lng": null},
-    {"id": "heritage_pyeongneung", "name": "평능역", "kind": "heritage", "passenger_stop": false, "lat": null, "lng": null},
-    {"id": "poi_nongoldam", "name": "논골담길", "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
-    {"id": "poi_chotdaebawi", "name": "촛대바위", "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
-    {"id": "poi_dojjebigol", "name": "도째비골 스카이밸리", "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
-    {"id": "poi_mangsang_beach", "name": "망상해수욕장", "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
-    {"id": "poi_cheongok_cave", "name": "천곡황금박쥐동굴", "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
-    {"id": "poi_bukpyeong_market", "name": "북평민속시장", "kind": "poi", "passenger_stop": null, "lat": null, "lng": null}
+    {"id": "station_donghae", "name": "동해역", "aliases": ["동해"], "kind": "station", "passenger_stop": true, "lat": null, "lng": null},
+    {"id": "station_mukho", "name": "묵호역", "aliases": ["묵호"], "kind": "station", "passenger_stop": true, "lat": null, "lng": null},
+    {"id": "station_chuam", "name": "추암역", "aliases": ["추암"], "kind": "station", "passenger_stop": true, "lat": null, "lng": null},
+    {"id": "station_mangsang", "name": "망상역", "aliases": ["망상"], "kind": "station", "passenger_stop": false, "lat": null, "lng": null},
+    {"id": "station_mangsang_beach", "name": "망상해수욕장 임시승강장", "aliases": ["망상해수욕장역", "임시승강장"], "kind": "station", "passenger_stop": null, "lat": null, "lng": null},
+    {"id": "station_samhwa", "name": "삼화역", "aliases": ["삼화"], "kind": "station", "passenger_stop": false, "lat": null, "lng": null},
+    {"id": "station_mukhohang", "name": "묵호항역", "aliases": ["묵호항"], "kind": "station", "passenger_stop": false, "lat": null, "lng": null},
+    {"id": "heritage_pyeongneung", "name": "평능역", "aliases": ["평능"], "kind": "heritage", "passenger_stop": false, "lat": null, "lng": null},
+    {"id": "poi_nongoldam", "name": "논골담길", "aliases": ["논골담"], "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
+    {"id": "poi_chotdaebawi", "name": "촛대바위", "aliases": ["추암 촛대바위"], "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
+    {"id": "poi_dojjebigol", "name": "도째비골 스카이밸리", "aliases": ["도째비골", "스카이밸리"], "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
+    {"id": "poi_mangsang_beach", "name": "망상해수욕장", "aliases": ["망상해변"], "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
+    {"id": "poi_cheongok_cave", "name": "천곡황금박쥐동굴", "aliases": ["천곡동굴", "황금박쥐동굴"], "kind": "poi", "passenger_stop": null, "lat": null, "lng": null},
+    {"id": "poi_bukpyeong_market", "name": "북평민속시장", "aliases": ["북평시장", "북평장"], "kind": "poi", "passenger_stop": null, "lat": null, "lng": null}
   ]
 }

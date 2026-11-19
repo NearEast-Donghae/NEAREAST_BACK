@@ -37,6 +37,13 @@ class ContentIntegrityTests(unittest.TestCase):
                 self.assertIn(prefix, {"station", "poi", "heritage", "spot"})
                 self.assertEqual(prefix, place.kind)
 
+    def test_aliases_do_not_collide_with_other_places(self):
+        labels = {}
+        for place in self.content.places.values():
+            for label in (place.name, *place.aliases):
+                self.assertNotIn(label, labels, f"{label}: {place.id} vs {labels.get(label)}")
+                labels[label] = place.id
+
     def test_every_place_has_a_document_with_the_same_id(self):
         missing = set(self.content.places) - set(self.content.docs)
         self.assertEqual(missing, set())
@@ -93,6 +100,24 @@ class SearchTests(unittest.TestCase):
 
     def test_place_in_text_prefers_earliest_then_longest_name(self):
         self.assertEqual(self.content.place_in_text("묵호항역이랑 동해역").id, "station_mukhohang")
+
+    def test_short_names_are_understood(self):
+        expected = {
+            "묵호 열차 언제 와?": "station_mukho",
+            "동해 열차 리듬": "station_donghae",
+            "추암 근처": "station_chuam",
+            "천곡동굴 어때?": "poi_cheongok_cave",
+        }
+        for text, place_id in expected.items():
+            with self.subTest(text):
+                self.assertEqual(self.content.place_in_text(text).id, place_id)
+
+    def test_aliases_do_not_swallow_longer_names_or_city_names(self):
+        self.assertEqual(self.content.place_in_text("묵호항역 화물").id, "station_mukhohang")
+        self.assertEqual(self.content.place_in_text("망상해수욕장 가고 싶어").id, "poi_mangsang_beach")
+        self.assertEqual(self.content.place_in_text("추암 촛대바위").id, "poi_chotdaebawi")
+        self.assertIsNone(self.content.place_in_text("동해시 관광지 알려줘"))
+        self.assertIsNone(self.content.place_in_text("부산역 맛집"))
 
     def test_vector_step_needs_matching_model(self):
         doc = self.content.docs["rail_lines"]

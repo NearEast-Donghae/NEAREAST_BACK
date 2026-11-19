@@ -330,6 +330,16 @@ class LLMResponderTests(unittest.TestCase):
         self.assertIsNone(response.json()["tool_used"])
         self.assertIn("지도에서 역을 열어", sent(chat, 1)[-1]["content"])
 
+    def test_short_station_name_puts_the_station_in_play(self):
+        tool = {"name": "station_rhythm", "station_id": "station_mukho", "place_id": None,
+                "after": None}
+        response, _ = self.ask(
+            [draft(intent="train_lookup", tool=tool),
+             draft("(예시 데이터) 묵호역은 10:30에 열차가 와요.", intent="train_lookup")],
+            message="묵호 열차 언제 와?",
+        )
+        self.assertEqual(response.json()["tool_used"], "station_rhythm")
+
     def test_list_markers_and_line_breaks_become_prose(self):
         response, _ = self.ask([draft(
             "목록이에요.\n\n- 논골담길이 있어요\n- 도째비골도 있어요\n1. 끝이에요", intent="smalltalk")])

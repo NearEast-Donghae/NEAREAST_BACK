@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import math
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -34,6 +35,7 @@ class Place:
     name: str
     kind: str  # station | poi | heritage | spot
     passenger_stop: bool | None = None  # False: pass/freight, observe only; None: unknown
+    aliases: tuple[str, ...] = ()  # other ways people say it ("묵호" for 묵호역)
 
 
 @dataclass(frozen=True)
@@ -80,9 +82,17 @@ class Content:
         return self.places.get(place_id)
 
     def place_in_text(self, text: str) -> Place | None:
-        """Earliest catalog place whose name appears in free text (chips name places)."""
-        found = [(text.find(p.name), -len(p.name), p) for p in self.places.values() if p.name in text]
-        return min(found, key=lambda f: f[:2])[2] if found else None
+        """Earliest catalog place named in free text, by name or alias; at the same
+        position the longest match wins ("묵호항역" over the alias "묵호")."""
+        found = []
+        for place in self.places.values():
+            for label in (place.name, *place.aliases):
+                # An alias must not be the start of a city name: "동해시" is not 동해역.
+                pattern = re.escape(label) + ("" if label == place.name else "(?!시)")
+                match = re.search(pattern, text)
+                if match:
+                    found.append((match.start(), -len(label), place.id, place))
+        return min(found, key=lambda f: f[:3])[3] if found else None
 
     def search(
         self,
@@ -180,7 +190,9 @@ def load_places(root: Path) -> dict[str, Place]:
     try:
         raw = json.loads((root / PLACES_FILE).read_text("utf-8"))["places"]
         places = [
-            Place(p["id"], p["name"], p["kind"], p.get("passenger_stop")) for p in raw
+            Place(p["id"], p["name"], p["kind"], p.get("passenger_stop"),
+                  tuple(p.get("aliases", ())))
+            for p in raw
         ]
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise ContentError(f"cannot load {root / PLACES_FILE}: {exc}") from exc
