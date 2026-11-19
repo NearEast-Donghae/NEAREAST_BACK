@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi import APIRouter
@@ -52,6 +53,21 @@ class BootstrapTests(unittest.TestCase):
         with TestClient(create_app(Settings())) as client:
             response = client.get("/health/live", headers={"Origin": "http://localhost:5173"})
             self.assertNotIn("access-control-allow-origin", response.headers)
+
+    def test_every_setting_reaches_compose_and_env_example(self):
+        # A setting that Compose does not pass is silently ignored in the container.
+        root = Path(__file__).resolve().parents[1]
+        compose = (root / "compose.yaml").read_text("utf-8")
+        example = (root / ".env.example").read_text("utf-8")
+        not_in_compose = {"content_dir", "chat_reasoning_effort"}  # explained in compose.yaml
+        for name in Settings.model_fields:
+            env = f"NEAREAST_{name.upper()}"
+            with self.subTest(env):
+                self.assertIn(env, example)
+                if name in not_in_compose:
+                    self.assertNotIn(f"{env}:", compose)
+                else:
+                    self.assertIn(f"{env}:", compose)
 
     def test_docs_can_be_disabled_from_environment(self):
         with patch.dict(os.environ, {"NEAREAST_DOCS_ENABLED": "false"}):
