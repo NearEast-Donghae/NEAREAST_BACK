@@ -362,6 +362,28 @@ class LLMResponderTests(unittest.TestCase):
         response, _ = self.ask(self.FOLLOW_UP, message="그럼 오후 열차는?")
         self.assertIsNone(response.json()["tool_used"])  # nothing to recall: ask for a station
 
+    def test_replaced_replies_are_logged_with_the_original_text(self):
+        cases = (
+            ("부산역 맛집 알려줘", draft("부산역 주변이라면 북평민속시장이 좋아요."), "no documents"),
+            ("열차 언제 와?", draft("동해역은 09:13에 열차가 와요.", intent="train_lookup"),
+             "unverified time"),
+            ("건널목 안에서 찍어도 돼?", draft("가능할 수도 있어요.", intent="safety"), "safety"),
+        )
+        for message, reply, rule in cases:
+            with self.subTest(rule), self.assertLogs(
+                "neareast_api.modules.chat.service", "WARNING"
+            ) as logs:
+                self.ask([reply], message=message)
+            self.assertIn(rule, logs.output[0])
+            self.assertIn(reply["reply"], logs.output[0])
+
+    def test_untouched_replies_are_not_logged(self):
+        with self.assertNoLogs("neareast_api.modules.chat.service", "WARNING"):
+            self.ask([draft("동해역은 분기역이에요.", sources=["station_donghae"])],
+                     focused="station_donghae")
+            self.ask([draft("건널목 안 촬영은 권하지 않아요. 승강장에서 보세요.", intent="safety")],
+                     message="건널목 안에서 찍어도 돼?")
+
     def test_long_reply_is_cut_at_a_sentence_boundary(self):
         sentence = "논골담길은 묵호역 근처에 있어서 걸어서 다녀오기 좋아요."
         response, _ = self.ask([draft(" ".join([sentence] * 40), intent="smalltalk")])

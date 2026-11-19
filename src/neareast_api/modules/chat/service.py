@@ -254,6 +254,11 @@ def _passing_is_relevant(
     )
 
 
+def _log_replaced(rule: str, original: str) -> None:
+    """Keep what the responder actually said, so "why did it answer that?" can be traced."""
+    logger.warning("rule replaced the reply [%s]; original: %r", rule, original[:300])
+
+
 def _clip(reply: str) -> str:
     """A chat bubble stays short: whole sentences up to MAX_REPLY_CHARS."""
     if len(reply) <= MAX_REPLY_CHARS:
@@ -304,7 +309,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     cited = "\n".join(content.docs[s].body for s in sources)
     unverified = unverified_time_claims(reply, f"{draft.evidence}\n{cited}", draft.train_count)
     if unverified:
-        logger.warning("dropped unverified time claims: %s", ", ".join(unverified))
+        _log_replaced(f"unverified time ({', '.join(unverified)})", reply)
         reply = NO_TIME_WITHOUT_TOOL
     # Knowledge only from documents: an ungrounded answer becomes the fixed no-info reply.
     # A proposal-intent answer counts as grounded when the model did propose catalog places
@@ -316,7 +321,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     )
     if ungrounded and reply != NO_TIME_WITHOUT_TOOL:
         if reply != NO_INFO:
-            logger.warning("replaced an answer without documents (%s)", draft.intent)
+            _log_replaced(f"no documents ({draft.intent})", reply)
         reply = NO_INFO
         chips = [c for c in chips if content.place_in_text(c) is not None]
     # Safety (principle 6): a clear "not recommended" plus a public alternative, always.
@@ -324,7 +329,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     # happened to label "safety" (e.g. photos on the platform) keeps its real answer.
     if draft.intent == "safety" and any(w in context.message for w in RISK_WORDS):
         if "권하지 않아요" not in reply:  # hedged answers ("가능할 수도…") are replaced
-            logger.warning("replaced a safety answer without a clear refusal")
+            _log_replaced("safety without a clear refusal", reply)
             reply = SAFETY_NO
         if not any(w in reply for w in ALTERNATIVE_WORDS):
             reply = f"{reply.rstrip()} {SAFETY_ALTERNATIVE}"
