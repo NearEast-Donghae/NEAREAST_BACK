@@ -42,7 +42,7 @@ def ingest(
     embed: BatchEmbedder | None,
 ) -> dict[str, list[str]]:
     """Update the cache; embed=None only reports. Returns ids by outcome."""
-    docs = load_docs(content_dir)
+    docs = load_docs(content_dir, strict=True)  # never embed a half-readable corpus
     path = content_dir / EMBEDDINGS_FILE
     cache = json.loads(path.read_text("utf-8")) if path.exists() else {}
     old = cache.get("docs", {}) if cache.get("model") == model else {}

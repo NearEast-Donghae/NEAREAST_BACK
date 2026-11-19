@@ -202,15 +202,23 @@ def load_places(root: Path) -> dict[str, Place]:
     return by_id
 
 
-def load_docs(root: Path) -> dict[str, Doc]:
+def load_docs(root: Path, strict: bool = True) -> dict[str, Doc]:
+    """strict=False (the server) skips a broken document and logs it, so one bad file
+    does not take the whole chat down; strict=True (tests, ingest) raises."""
     directory = root / KNOWLEDGE_DIR
     if not directory.is_dir():
         raise ContentError(f"missing {directory}")
     docs: dict[str, Doc] = {}
     for path in sorted(directory.glob("*.md")):
-        doc = parse_doc(path.read_text("utf-8"), str(path))
-        if doc.id != path.stem:
-            raise ContentError(f"{path}: id {doc.id!r} must match the file name")
+        try:
+            doc = parse_doc(path.read_text("utf-8"), str(path))
+            if doc.id != path.stem:
+                raise ContentError(f"{path}: id {doc.id!r} must match the file name")
+        except (ContentError, OSError, UnicodeDecodeError) as exc:
+            if strict:
+                raise ContentError(str(exc)) from exc
+            logger.error("skipping broken knowledge document: %s", exc)
+            continue
         docs[doc.id] = doc
     return docs
 
@@ -242,7 +250,7 @@ def _load_vectors(root: Path, docs: dict[str, Doc]) -> tuple[str | None, dict | 
 @lru_cache(maxsize=4)
 def _load(root: Path) -> Content:
     places = load_places(root)
-    docs = load_docs(root)
+    docs = load_docs(root, strict=False)
     model, vectors = _load_vectors(root, docs)
     return Content(places, docs, model, vectors)
 

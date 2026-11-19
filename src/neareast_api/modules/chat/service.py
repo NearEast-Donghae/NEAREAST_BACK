@@ -137,6 +137,19 @@ def persona() -> PersonaResponse:
     )
 
 
+def warm_up(settings: Settings) -> None:
+    """Load chat content at startup so a broken file shows in the deploy log, not in the
+    first user's request. Never raises: the API (health, docs) must still start."""
+    try:
+        content = retrieval.load_content(settings.content_dir)
+    except retrieval.ContentError as exc:
+        logger.error("chat content unavailable, chat will answer 503: %s", exc)
+        return
+    logger.info("chat content loaded: %d places, %d documents", len(content.places), len(content.docs))
+    if not settings.chat_mock and not settings.openai_api_key.get_secret_value():
+        logger.warning("NEAREAST_CHAT_MOCK=false but no API key: answers will be fallback")
+
+
 def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
     try:
         content = retrieval.load_content(settings.content_dir)

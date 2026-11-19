@@ -140,6 +140,48 @@ class ContentFailureTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertNotIn(empty, response.text)
 
+    def broken_copy(self, tmp):
+        root = Path(tmp)
+        shutil.copytree(ROOT / "data", root / "data")
+        shutil.copytree(ROOT / "knowledge", root / "knowledge")
+        (root / "knowledge" / "station_mukho.md").write_text("front matter is gone", "utf-8")
+        return root
+
+    def test_one_broken_document_does_not_take_chat_down(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.broken_copy(tmp)
+            client = TestClient(create_app(Settings(content_dir=str(root))))
+            with self.assertLogs("neareast_api.modules.chat.retrieval", "ERROR") as logs:
+                response = client.post(URL, json={"message": "평능역은 어떤 곳이야?"})
+            self.assertIn("station_mukho.md", logs.output[0])
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["sources"], ["heritage_pyeongneung"])
+            with self.assertRaises(retrieval.ContentError):  # tests and ingest stay strict
+                retrieval.load_docs(root, strict=True)
+
+    def test_repository_documents_all_load_strictly(self):
+        docs = retrieval.load_docs(ROOT, strict=True)
+        self.assertEqual(len(docs), len(list((ROOT / "knowledge").glob("*.md"))))
+
+    def test_startup_reports_content_problems_without_stopping_the_api(self):
+        with tempfile.TemporaryDirectory() as empty:
+            app = create_app(Settings(content_dir=empty))
+            with self.assertLogs("neareast_api.modules.chat.service", "ERROR") as logs:
+                with TestClient(app) as client:  # runs the lifespan
+                    self.assertEqual(client.get("/health/live").status_code, 200)
+            self.assertIn("chat content unavailable", logs.output[0])
+
+    def test_startup_is_quiet_when_content_is_fine(self):
+        app = create_app(Settings(content_dir=str(ROOT)))
+        with self.assertNoLogs("neareast_api.modules.chat", "WARNING"):
+            with TestClient(app) as client:
+                self.assertEqual(client.get("/health/live").status_code, 200)
+        llm_without_key = create_app(Settings(content_dir=str(ROOT), chat_mock=False))
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING") as logs:
+            with TestClient(llm_without_key):
+                pass
+        self.assertIn("no API key", logs.output[0])
+
     def test_document_id_must_match_file_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
