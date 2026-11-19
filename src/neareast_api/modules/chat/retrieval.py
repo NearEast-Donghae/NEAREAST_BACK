@@ -18,24 +18,16 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from neareast_api.modules.places.service import Place, PlacesError, load_places
+
 logger = logging.getLogger(__name__)
 
-PLACES_FILE = Path("data") / "places.json"
 KNOWLEDGE_DIR = Path("knowledge")
 EMBEDDINGS_FILE = Path("data") / "embeddings.json"
 
 
 class ContentError(Exception):
     """Content files are missing or malformed."""
-
-
-@dataclass(frozen=True)
-class Place:
-    id: str
-    name: str
-    kind: str  # station | poi | heritage | spot
-    passenger_stop: bool | None = None  # False: pass/freight, observe only; None: unknown
-    aliases: tuple[str, ...] = ()  # other ways people say it ("묵호" for 묵호역)
 
 
 @dataclass(frozen=True)
@@ -186,22 +178,6 @@ def parse_doc(text: str, origin: str = "<doc>") -> Doc:
     )
 
 
-def load_places(root: Path) -> dict[str, Place]:
-    try:
-        raw = json.loads((root / PLACES_FILE).read_text("utf-8"))["places"]
-        places = [
-            Place(p["id"], p["name"], p["kind"], p.get("passenger_stop"),
-                  tuple(p.get("aliases", ())))
-            for p in raw
-        ]
-    except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise ContentError(f"cannot load {root / PLACES_FILE}: {exc}") from exc
-    by_id = {p.id: p for p in places}
-    if len(by_id) != len(places):
-        raise ContentError(f"{PLACES_FILE}: duplicate place id")
-    return by_id
-
-
 def load_docs(root: Path, strict: bool = True) -> dict[str, Doc]:
     """strict=False (the server) skips a broken document and logs it, so one bad file
     does not take the whole chat down; strict=True (tests, ingest) raises."""
@@ -249,7 +225,10 @@ def _load_vectors(root: Path, docs: dict[str, Doc]) -> tuple[str | None, dict | 
 
 @lru_cache(maxsize=4)
 def _load(root: Path) -> Content:
-    places = load_places(root)
+    try:
+        places = load_places(root)  # the catalog belongs to modules/places
+    except PlacesError as exc:
+        raise ContentError(str(exc)) from exc
     docs = load_docs(root, strict=False)
     model, vectors = _load_vectors(root, docs)
     return Content(places, docs, model, vectors)

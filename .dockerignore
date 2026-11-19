@@ -14,3 +14,4 @@ docs
 .ruff_cache
 .mypy_cache
 *.log
+data/raw

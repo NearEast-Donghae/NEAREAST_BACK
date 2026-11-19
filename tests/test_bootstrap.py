@@ -27,6 +27,9 @@ class BootstrapTests(unittest.TestCase):
                     "/health/ready",
                     "/api/v1/chat/messages",
                     "/api/v1/chat/persona",
+                    "/api/v1/stations/{station_id}/trains",
+                    "/api/v1/trains",
+                    "/api/v1/trains/{train_no}",
                 },
             )
             self.assertEqual(client.get("/docs").status_code, 200)
