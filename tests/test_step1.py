@@ -4,7 +4,7 @@ import json
 import httpx
 import pytest
 
-from backend.app.services.public_data import DataApiError, PublicData, parse_page
+from backend.app.services.public_data import DataApiError, PublicData, parse_page, read_page
 from scripts.build_dataset import build
 from scripts.fetch_tourism import fetch as fetch_tourism
 from scripts.fetch_transport import fetch as fetch_transport
@@ -56,9 +56,66 @@ def test_parse_page_collection_variants():
 def test_key_missing_never_requests(monkeypatch, tmp_path):
     monkeypatch.setattr("backend.app.services.public_data.ROOT", tmp_path)
     monkeypatch.delenv("TAGO_SERVICE_KEY", raising=False)
+    monkeypatch.delenv("DATA_GO_KR_API_KEY", raising=False)
     with pytest.raises(DataApiError, match="TAGO_SERVICE_KEY"):
         PublicData("tago", None, ledger=tmp_path / "missing.sqlite3")
     assert not (tmp_path / "missing.sqlite3").exists()
+
+
+@pytest.mark.parametrize("service,key_var,url_var,url,format_var", [
+    ("tago", "TAGO_SERVICE_KEY", "TAGO_API_URL",
+     "https://apis.data.go.kr/1613000/TrainInfo", "_type"),
+    ("tourapi", "TOURAPI_SERVICE_KEY", "TOUR_API_URL",
+     "https://apis.data.go.kr/B551011/KorService2", "_type"),
+    ("donghae", "DONGHAE_SERVICE_KEY", "DONGHAE_API_URL",
+     "https://apis.data.go.kr/4210000/DonghaeTrafficFacilityInfoService", "resultType"),
+])
+def test_shared_key_and_service_override(monkeypatch, tmp_path, caplog, service, key_var,
+                                         url_var, url, format_var):
+    monkeypatch.setattr("backend.app.services.public_data.ROOT", tmp_path)
+    for name in ("DATA_GO_KR_API_KEY", key_var, url_var):
+        monkeypatch.delenv(name, raising=False)
+    env = tmp_path / ".env"
+    common = f'DATA_GO_KR_API_KEY="fixture%2B%2F"\n{url_var}={url}/\n'
+    env.write_text(common, encoding="utf-8-sig")
+    caplog.set_level("INFO", logger="httpx")
+    keys = []
+
+    def respond(request):
+        keys.append(request.url.params["serviceKey"])
+        assert request.url.path == httpx.URL(url).path + "/example"
+        assert request.url.params[format_var] == "json"
+        return httpx.Response(200, json=page("", 0))
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as http:
+        ledger = tmp_path / "quota.sqlite3"
+        assert PublicData(service, http, ledger=ledger).rows("example", {}) == []
+        monkeypatch.setenv("DATA_GO_KR_API_KEY", "process-fixture")
+        env.write_text(common + f"{key_var}=service-fixture # optional override\n", encoding="utf-8")
+        assert PublicData(service, http, ledger=ledger).rows("example", {}) == []
+        monkeypatch.setenv(url_var, "https://example.invalid/")
+        with pytest.raises(DataApiError, match=url_var):
+            PublicData(service, http, ledger=ledger)
+    assert keys == ["fixture+/", "service-fixture"]
+    assert not caplog.records
+
+
+def test_xml_success_and_http_error_code():
+    response = httpx.Response(200, text="<response><header><resultCode>00</resultCode></header>"
+                              "<body><items><item><citycode>32</citycode></item></items>"
+                              "<totalCount>1</totalCount><numOfRows>1</numOfRows></body></response>")
+    parsed = read_page(response)
+    assert parsed.response_format == "xml"
+    assert parsed.rows == [{"citycode": "32"}]
+    assert parsed.http_status == 200 and parsed.api_code == "00"
+
+    error_body = {"response": {"header": {"resultCode": "30", "resultMsg": "fixture secret echo"}}}
+    with pytest.raises(DataApiError) as captured:
+        read_page(httpx.Response(403, json=error_body))
+    assert captured.value.http_status == 403 and captured.value.api_code == "30"
+    assert captured.value.response_format == "json"
+    assert captured.value.reason == "unregistered API key"
+    assert "fixture secret echo" not in str(captured.value)
 
 
 def test_api_pagination_budget_and_redaction(monkeypatch, tmp_path):

@@ -9,7 +9,7 @@ ENDPOINT = "getDonghaeTrafficFacilityInfoList"
 
 
 def fetch(client, params):
-    records = client.rows(ENDPOINT, params, format_key="resultType")
+    records = client.rows(ENDPOINT, params)
     if any(not item.get("GRID_ID") for item in records):
         raise DataApiError("교통시설 응답에 격자 ID가 없습니다.")
     return client.snapshot(ENDPOINT, params, records)

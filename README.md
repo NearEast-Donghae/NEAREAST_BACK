@@ -39,13 +39,18 @@ python -m venv .venv
 
 ## API 인증 및 수집
 
-공공데이터포털에서 서비스별 활용 신청을 승인받은 뒤 `.env.example`을 `.env`로 복사하고 필요한 키만 입력합니다.
-URL과 요청 파라미터는 공식 명세에 맞게 클라이언트에 있습니다. 키는 출력이나 스냅샷에 저장되지 않습니다.
-환경변수가 우선 적용됩니다. `.env`와 원본 및 생성 결과는 Git에서 제외됩니다.
+공공데이터포털에서 대상 API별 활용 신청을 승인받은 뒤 프로젝트의 `.env`에 `DATA_GO_KR_API_KEY`를 설정합니다.
+별도 키가 있으면 `TAGO_SERVICE_KEY`, `TOURAPI_SERVICE_KEY`, `DONGHAE_SERVICE_KEY`로 지정합니다.
+API별 키가 우선하고, 같은 변수의 값은 프로세스 환경변수가 파일보다 우선합니다.
+`TAGO_API_URL`, `TOUR_API_URL`, `DONGHAE_API_URL`을 지정하면 공식 HTTPS 기본 주소와 대조합니다.
+`.env`와 원본 및 생성 결과는 Git에서 제외됩니다.
+
+세 API의 JSON·XML 응답 검사는 아래 명령으로 실행합니다. 요약은 `data/reports/api_connectivity.json`에 저장합니다.
+검사용 응답의 행은 수집 데이터에 포함되지 않습니다.
 
 ```powershell
-Copy-Item -LiteralPath .env.example -Destination .env -NoClobber
 git check-ignore -v .env
+.\.venv\Scripts\python -m scripts.check_public_apis
 .\.venv\Scripts\python -m scripts.fetch_tourism
 .\.venv\Scripts\python -m scripts.fetch_transport --dong-name 삼화동
 .\.venv\Scripts\python -m scripts.fetch_train_data cities
