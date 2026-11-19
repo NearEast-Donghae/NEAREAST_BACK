@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 
 from neareast_api.core.config import Settings
 from neareast_api.modules.chat import llm, prompts, retrieval, tools
+from neareast_api.modules.trains import service as timetable_service
 from neareast_api.modules.chat.schemas import (
     Certainty,
     PersonaLoading,
@@ -53,6 +54,7 @@ NO_TIME_WITHOUT_TOOL = (
 )
 NO_INFO = "아직 확인된 정보가 없어요. 지도에서 궁금한 역이나 장소를 열어 두고 다시 물어봐 주세요."
 MOCK_NOTE = "(예시 데이터)"
+BASIS_MARK = "토요일 3주"  # present in the timetable's basis summary
 PASSING_NOTE = "이 역은 여객열차가 서지 않아 타고 내릴 수 없고, 열차는 관찰만 할 수 있어요."
 PASSING_DOC = "safety_passing_station"
 DEFAULT_CHIPS = ["동해역 열차 리듬", "동해역 근처"]
@@ -94,7 +96,8 @@ class Draft:
     sources: list[str] = field(default_factory=list)
     tool_used: ToolName | None = None
     tool_certainty: Certainty | None = None
-    tool_source: str | None = None  # "mock" when the tool answered from example data
+    tool_source: str | None = None  # "mock": example data / "snapshot": shared timetable
+    tool_basis: str | None = None  # what snapshot times rest on; always shown to the user
     tool_place: str | None = None  # place the tool was run for (subject of the answer)
     evidence: str = ""  # tool result as text; times in the reply are checked against it
     train_count: int | None = None  # trains in the tool result, bounds "N편" claims
@@ -116,6 +119,7 @@ class ResolvedContext:
     recalled: retrieval.Place | None = None
     unknown_already_told: bool = False  # an earlier reply already carried the notice
     first_turn: bool = True  # no earlier turns: the only time the persona greets
+    timetable: timetable_service.Timetable | None = None  # None: train tools use example data
 
     @property
     def known_ids(self) -> list[str]:
@@ -179,7 +183,10 @@ def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
     except retrieval.ContentError:
         logger.exception("chat content unavailable")
         raise ChatUnavailableError from None
-    context = _resolve(request.context, content, request.message, request.history)
+    context = dataclasses.replace(
+        _resolve(request.context, content, request.message, request.history),
+        timetable=timetable_service.load_or_none(settings.content_dir),
+    )
     if settings.chat_mock:
         return _finalize(_mock_draft(request.message, context), context, "mock")
 
@@ -413,8 +420,12 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
         if "safety_track_crossing" in content.docs and "safety_track_crossing" not in sources:
             sources.insert(0, "safety_track_crossing")
     # Example data is always labelled.
-    if draft.tool_source == "mock" and MOCK_NOTE not in reply:
+    if draft.tool_source == tools.MOCK and MOCK_NOTE not in reply:
         reply = f"{MOCK_NOTE} {reply}"
+    # Snapshot times are estimates: the answer always says what they rest on.
+    if (draft.tool_source == tools.SNAPSHOT and draft.tool_basis and not unverified
+            and BASIS_MARK not in reply):
+        reply = f"{reply.rstrip()} {draft.tool_basis}"
     # Passing stations: no boarding, observation only, with the rule as a source.
     subject = _subject(draft, context)
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
@@ -547,6 +558,7 @@ def _llm_draft(
         draft.tool_used = run.name
         draft.tool_certainty = run.certainty
         draft.tool_source = run.source
+        draft.tool_basis = run.result.get("basis")
         draft.tool_place = run.place_id
         draft.evidence = json.dumps(run.result, ensure_ascii=False, default=str)
         draft.train_count = len(run.result["trains"]) if "trains" in run.result else None
@@ -619,6 +631,22 @@ def _normalize_after(value: object) -> str | None:
     return f"{hour:02d}:{minute or 0:02d}"
 
 
+NO_TRAIN_DATA = ("이 역은 여객열차 운행 기록이 없어요. 화물열차 시각은 공식 데이터가 없어 "
+                 "안내할 수 없다고 말한다")
+
+
+def _rhythm_result(rhythm: tools.StationRhythm) -> dict:
+    """Compact text for the model: one line per train keeps a busy station affordable."""
+    return {
+        "station_id": rhythm.station_id,
+        "hourly": {f"{hour:02d}": count for hour, count in sorted(rhythm.hourly.items())},
+        "gaps": [f"{g.start}~{g.end}" for g in rhythm.gaps],
+        "trains": [t.label() for t in rhythm.trains],
+        "source": rhythm.source,
+        "basis": rhythm.basis,
+    }
+
+
 def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
     """Run one requested tool. Certainty comes from the result, never from the model."""
     name = request.get("name")
@@ -644,25 +672,29 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
         if station is None or station.kind != "station":
             return ToolRun(None, {"tool": name, "error": "기준 역이 없어요. 지도에서 역을 열어 달라고 안내한다"})
         if name == "station_rhythm":
-            rhythm = tools.station_rhythm(station.id, date)
+            rhythm = tools.station_rhythm(station.id, date, context.timetable)
             if rhythm is None:
-                return ToolRun(None, {"tool": name, "error": "이 역의 열차 정보가 아직 없어요"},
-                               place_id=station.id)
+                return ToolRun(None, {"tool": name, "error": NO_TRAIN_DATA}, place_id=station.id)
             certainty = _weakest(g.certainty for g in rhythm.gaps) or _weakest(
                 t.certainty for t in rhythm.trains
             )
-            result = dataclasses.asdict(rhythm)
+            result = _rhythm_result(rhythm)
             # Candidates for filling a gap, so proposals can name a real place.
             result["nearby"] = _nearby_candidates(station.id, context)
         else:
             after = _normalize_after(request.get("after"))
-            trains = tools.search_trains(date, station=station.id, after=after)
+            whole = tools.station_rhythm(station.id, date, context.timetable)
+            if whole is None:
+                return ToolRun(None, {"tool": name, "error": NO_TRAIN_DATA}, place_id=station.id)
+            trains = tools.search_trains(date, station=station.id, after=after,
+                                         timetable=context.timetable)
             certainty = _weakest(t.certainty for t in trains)
-            result = {"station_id": station.id, "trains": [dataclasses.asdict(t) for t in trains],
-                      "source": tools.SOURCE}
+            result = {"station_id": station.id, "after": after,
+                      "trains": [t.label() for t in trains],
+                      "source": whole.source, "basis": whole.basis}
         result.update(tool=name, station_name=station.name,
                       passenger_stop=station.passenger_stop)
-        return ToolRun(name, result, certainty, station.id, tools.SOURCE)
+        return ToolRun(name, result, certainty, station.id, result["source"])
 
     if name == "nearby_spots":
         default_place = context.mentioned or context.anchor or context.recalled
@@ -779,33 +811,36 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
             intent="train_lookup",
             chips=["동해역 열차 리듬", "묵호역 열차 리듬", "추암역 열차 리듬"],
         )
-    rhythm = tools.station_rhythm(station.id, context.raw.date)
+    rhythm = tools.station_rhythm(station.id, context.raw.date, context.timetable)
     if rhythm is None or not rhythm.trains:
         return Draft(
-            reply=f"{station.name}의 열차 정보는 아직 준비되지 않았어요.",
+            reply=f"{station.name}은 여객열차 운행 기록이 없어요. "
+                  "화물열차 시각은 공식 데이터가 없어서 안내하지 못해요.",
             intent="train_lookup",
             chips=["동해역 열차 리듬", f"{station.name} 근처"],
         )
-    evidence = json.dumps(dataclasses.asdict(rhythm), ensure_ascii=False, default=str)
+    evidence = json.dumps(_rhythm_result(rhythm), ensure_ascii=False)
+    note = f"{MOCK_NOTE} " if rhythm.source == tools.MOCK else ""
     if "목록" in message:
-        trains = tools.search_trains(context.raw.date, station=station.id)
-        listed = ", ".join(
-            f"{t.time} {t.kind}({t.direction}{'' if t.stops else ', 통과'})" for t in trains[:6]
-        )
+        trains = tools.search_trains(context.raw.date, station=station.id,
+                                     timetable=context.timetable)
+        listed = ", ".join(t.label() for t in trains[:6])
+        more = f" 등 {len(trains)}편" if len(trains) > 6 else ""
         return Draft(
-            reply=f"{MOCK_NOTE} {station.name} 열차: {listed}.",
+            reply=f"{note}{station.name} 열차: {listed}{more}.",
             intent="train_lookup",
             chips=[f"{station.name} 열차 리듬", f"{station.name} 근처"],
             evidence=evidence,
             train_count=len(rhythm.trains),
             tool_used="search_trains",
-            tool_source=tools.SOURCE,
+            tool_source=rhythm.source,
+            tool_basis=rhythm.basis,
             tool_place=station.id,
         )
     busiest_hour = max(rhythm.hourly, key=lambda h: (rhythm.hourly[h], -h))
     draft = Draft(
         reply=(
-            f"{MOCK_NOTE} {station.name}은 {busiest_hour}시대에 열차가 가장 많아요"
+            f"{note}{station.name}은 {busiest_hour}시대에 열차가 가장 많아요"
             f"({rhythm.hourly[busiest_hour]}편)."
         ),
         intent="train_lookup",
@@ -813,7 +848,8 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
         evidence=evidence,
         train_count=len(rhythm.trains),
         tool_used="station_rhythm",
-        tool_source=tools.SOURCE,
+        tool_source=rhythm.source,
+        tool_basis=rhythm.basis,
         tool_place=station.id,
     )
     if rhythm.gaps:

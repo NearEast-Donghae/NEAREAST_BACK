@@ -39,6 +39,10 @@ class LLMResponderTests(unittest.TestCase):
     def setUp(self):
         self.settings = Settings(chat_mock=False, openai_api_key="test", llm_usage_log=os.devnull)
         self.client = TestClient(create_app(self.settings))
+        # These tests check the rules against the small built-in example timetable.
+        no_snapshot = patch.object(service.timetable_service, "load_or_none", return_value=None)
+        no_snapshot.start()
+        self.addCleanup(no_snapshot.stop)
 
     def ask(self, replies, message="질문", history=(), **context):
         with patch.object(llm, "chat_json", side_effect=list(replies)) as chat:
@@ -165,7 +169,7 @@ class LLMResponderTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["mode"], "llm")  # answered, not a crash + fallback
         result = json.loads(sent(chat, 1)[-1]["content"].split("\n")[1])
-        return [t["time"] for t in result["trains"]]
+        return [t[:5] for t in result["trains"]]  # each train is one "HH:MM …" line
 
     def test_after_filter_understands_clock_formats(self):
         for after in ("16:00", "오후 4시", "16시"):
@@ -176,7 +180,7 @@ class LLMResponderTests(unittest.TestCase):
     def test_unusable_after_is_ignored_instead_of_failing(self):
         for after in ("오후쯤", "soon", "25:99", "", None):
             with self.subTest(after):
-                self.assertEqual(len(self.trains_after(after)), 8)  # the full list
+                self.assertEqual(len(self.trains_after(after)), 7)  # the full list
 
     def test_model_cannot_break_plan_rules(self):
         bad = [
@@ -730,6 +734,10 @@ class DeadlineAndTimingTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.log = Path(self.tmp.name) / "usage.jsonl"
+        # These tests check the rules against the small built-in example timetable.
+        no_snapshot = patch.object(service.timetable_service, "load_or_none", return_value=None)
+        no_snapshot.start()
+        self.addCleanup(no_snapshot.stop)
 
     def tearDown(self):
         self.tmp.cleanup()

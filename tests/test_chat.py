@@ -21,6 +21,10 @@ def post(client, message, **context):
 
 class ChatHttpTests(unittest.TestCase):
     def setUp(self):
+        # These tests check the contract against the small built-in example timetable.
+        no_snapshot = patch.object(service.timetable_service, "load_or_none", return_value=None)
+        no_snapshot.start()
+        self.addCleanup(no_snapshot.stop)
         self.client = TestClient(create_app(Settings()))
 
     def test_contract_example_round_trips(self):
