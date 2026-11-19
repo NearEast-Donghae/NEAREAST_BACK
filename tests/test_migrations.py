@@ -9,9 +9,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import importlib.util
+
 from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from alembic.util import CommandError
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from alembic import command
@@ -96,6 +101,77 @@ class MigrationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "test connection failure"):
                 command.current(self.config)
         engine.dispose.assert_called_once()
+
+
+class PlaceCoordinatesMigrationTests(unittest.TestCase):
+    """0003 fills coordinates for places that 0002 seeded without them."""
+
+    REVISION = "0003_place_coordinates"
+
+    def setUp(self):
+        path = PROJECT_ROOT / "alembic" / "versions" / f"{self.REVISION}.py"
+        spec = importlib.util.spec_from_file_location(self.REVISION, path)
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        # A database as 0002 leaves it: the tables and the reference seed.
+        self.engine = create_engine("sqlite://")
+        self.addCleanup(self.engine.dispose)
+        metadata.create_all(self.engine)
+        with self.engine.connect() as connection:
+            connection.connection.driver_connection.executescript(
+                (PROJECT_ROOT / "alembic" / "seed" / "0002_reference.sql").read_text("utf-8"))
+            connection.commit()
+
+    def run_step(self, step):
+        with self.engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)):
+                step()
+
+    def coordinates(self):
+        with self.engine.connect() as connection:
+            return {row.id: (row.lat, row.lng)
+                    for row in connection.execute(text("SELECT id, lat, lng FROM places"))}
+
+    def test_revision_follows_the_reference_seed(self):
+        self.assertEqual(self.migration.revision, self.REVISION)
+        self.assertEqual(self.migration.down_revision, "0002_reference_content")
+        config = Config(str(PROJECT_ROOT / "alembic.ini"))
+        config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), [self.REVISION])
+
+    def test_seed_has_no_coordinates_and_every_listed_place_exists(self):
+        before = self.coordinates()
+        self.assertTrue(all(value == (None, None) for value in before.values()))
+        self.assertLessEqual(set(self.migration.COORDINATES), set(before))
+
+    def test_upgrade_fills_the_listed_places_and_leaves_the_rest_empty(self):
+        self.run_step(self.migration.upgrade)
+        after = self.coordinates()
+        self.assertEqual(after["station_donghae"], (37.4982, 129.1238))
+        self.assertEqual(after["station_mukho"], (37.5461, 129.1082))
+        for place_id, value in after.items():
+            expected = self.migration.COORDINATES.get(place_id, (None, None))
+            self.assertEqual(value, expected, place_id)
+        for lat, lng in self.migration.COORDINATES.values():  # inside Donghae city
+            self.assertTrue(37.3 < lat < 37.7 and 128.9 < lng < 129.3, (lat, lng))
+
+    def test_downgrade_empties_them_again(self):
+        self.run_step(self.migration.upgrade)
+        self.run_step(self.migration.downgrade)
+        self.assertTrue(all(value == (None, None) for value in self.coordinates().values()))
+
+    def test_postgresql_sql_is_plain_updates(self):
+        output = io.StringIO()
+        config = Config(str(PROJECT_ROOT / "alembic.ini"), output_buffer=output)
+        config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+        with patch.dict(os.environ, {}, clear=True), patch("sqlalchemy.create_engine") as engine:
+            command.upgrade(config, f"0002_reference_content:{self.REVISION}", sql=True)
+        engine.assert_not_called()
+        sql = output.getvalue()
+        self.assertIn("UPDATE places SET lat=37.4982, lng=129.1238 WHERE places.id = 'station_donghae'", sql)
+        self.assertIn("UPDATE places SET lat=37.5461, lng=129.1082 WHERE places.id = 'station_mukho'", sql)
+        self.assertNotIn("INSERT INTO places", sql)
+
 
 
 if __name__ == "__main__":
