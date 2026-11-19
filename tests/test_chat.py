@@ -116,12 +116,31 @@ class ChatHttpTests(unittest.TestCase):
         self.assertIn("권하지 않아요", body["reply"])
         self.assertIn("공개된 장소", body["reply"])
 
-    def test_disabled_mock_without_llm_is_503(self):
-        with patch.dict(os.environ, {"NEAREAST_CHAT_MOCK": "false"}):
+    def test_llm_mode_without_key_is_503(self):
+        # No key: must fail fast with 503 and never reach the network.
+        with patch.dict(os.environ, {"NEAREAST_CHAT_MOCK": "false", "NEAREAST_OPENAI_API_KEY": ""}):
             client = TestClient(create_app())
         response = client.post(URL, json={"message": "안녕"})
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"detail": "chat unavailable"})
+
+    def test_persona_gives_name_greeting_and_loading_texts(self):
+        response = self.client.get("/api/v1/chat/persona")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["name"], "니어리")
+        self.assertEqual(body["greeting"], "안녕하세요, 동해 철도 여행을 함께 짜는 니어리예요.")
+        self.assertEqual(
+            set(body["loading"]), {"default", "train", "place", "knowledge", "safety", "slow"}
+        )
+        self.assertIn("{place}", body["loading"]["place"])
+        safety = body["loading"]["safety"]
+        for playful in ("~", "!", "니어리", "ㅎ", "♪"):
+            self.assertNotIn(playful, safety)
+
+    def test_mock_greeting_matches_persona(self):
+        greeting = self.client.get("/api/v1/chat/persona").json()["greeting"]
+        self.assertTrue(post(self.client, "안녕").json()["reply"].startswith(greeting))
 
     def test_openapi_documents_contract_and_503(self):
         schema = self.client.get("/openapi.json").json()

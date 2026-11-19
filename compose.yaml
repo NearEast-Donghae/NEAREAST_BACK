@@ -6,6 +6,11 @@ services:
     environment:
       NEAREAST_DOCS_ENABLED: "${NEAREAST_DOCS_ENABLED:-true}"
       NEAREAST_CHAT_MOCK: "${NEAREAST_CHAT_MOCK:-true}"
+      NEAREAST_OPENAI_API_KEY: "${NEAREAST_OPENAI_API_KEY:-}"
+      NEAREAST_CHAT_MODEL: "${NEAREAST_CHAT_MODEL:-gpt-5.4-nano}"
+      NEAREAST_EMBEDDING_MODEL: "${NEAREAST_EMBEDDING_MODEL:-text-embedding-3-small}"
+      # The app user cannot write /app; keep the usage record in a writable place.
+      NEAREAST_LLM_USAGE_LOG: /tmp/llm_usage.jsonl
       # Container-to-container traffic uses the service name and internal port.
       NEAREAST_DB_HOST: db
       NEAREAST_DB_PORT: "5432"

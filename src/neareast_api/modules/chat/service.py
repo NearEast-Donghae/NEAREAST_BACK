@@ -7,15 +7,22 @@ cannot break them:
 - `certainty` is copied from tool results, never chosen by the responder
 - unknown focused/pin ids are ignored, disclosed in the reply, kept out of sources
 - sources only name knowledge documents that exist
+- a reply that states train times without a tool result is replaced
 """
 
+import dataclasses
+import datetime as dt
 import logging
+import re
 from dataclasses import dataclass, field
+from zoneinfo import ZoneInfo
 
 from neareast_api.core.config import Settings
-from neareast_api.modules.chat import retrieval, tools
+from neareast_api.modules.chat import llm, prompts, retrieval, tools
 from neareast_api.modules.chat.schemas import (
     Certainty,
+    PersonaLoading,
+    PersonaResponse,
     ChatContext,
     ChatRequest,
     ChatResponse,
@@ -27,6 +34,24 @@ from neareast_api.modules.chat.schemas import (
 logger = logging.getLogger(__name__)
 
 MAX_CHIPS = 3
+KST = ZoneInfo("Asia/Seoul")
+# Clock times, "N시", train counts and durations: only tools may supply these.
+TIME_CLAIM = re.compile(r"\d{1,2}:\d{2}|\d{1,2}\s*시(?!즌)|\d+\s*편|\d+\s*분")
+NO_TIME_WITHOUT_TOOL = (
+    "열차 시각과 편수는 확인된 시간표 결과로만 안내할 수 있어요. "
+    "역을 열어 두고 열차 리듬을 물어봐 주세요."
+)
+NO_INFO = "아직 확인된 정보가 없어요. 지도에서 궁금한 역이나 장소를 열어 두고 다시 물어봐 주세요."
+MOCK_NOTE = "(예시 데이터)"
+PASSING_NOTE = "이 역은 여객열차가 서지 않아 타고 내릴 수 없고, 열차는 관찰만 할 수 있어요."
+PASSING_DOC = "safety_passing_station"
+DEFAULT_CHIPS = ["동해역 열차 리듬", "동해역 근처"]
+SAFETY_NO = "선로·건널목 안이나 차단기 안쪽에서의 촬영·진입은 권하지 않아요."
+SAFETY_ALTERNATIVE = "대신 역 맞이방이나 승강장처럼 공개된 장소에서 열차를 보는 방법을 권해요."
+ALTERNATIVE_WORDS = ("공개된", "승강장", "맞이방")
+# Chips that ask for nearby places; they dead-end when the place has no nearby data.
+NEARBY_WORDS = ("근처", "주변", "같이 볼", "볼 곳", "갈 곳", "가는 길")
+_CERTAINTY_ORDER = ("timetable", "estimated", "planned")
 
 
 class ChatUnavailableError(Exception):
@@ -51,6 +76,8 @@ class Draft:
     sources: list[str] = field(default_factory=list)
     tool_used: ToolName | None = None
     tool_certainty: Certainty | None = None
+    tool_source: str | None = None  # "mock" when the tool answered from example data
+    tool_place: str | None = None  # place the tool was run for (subject of the answer)
 
 
 @dataclass(frozen=True)
@@ -62,6 +89,7 @@ class ResolvedContext:
     focused: retrieval.Place | None
     pins: tuple[retrieval.Place, ...]
     unknown_ids: tuple[str, ...]
+    mentioned: retrieval.Place | None = None  # first catalog place named in the message
 
     @property
     def known_ids(self) -> list[str]:
@@ -79,20 +107,34 @@ class ResolvedContext:
         return next((p for p in candidates if p.kind == "station"), None)
 
 
+def persona() -> PersonaResponse:
+    return PersonaResponse(
+        name=prompts.PERSONA_NAME,
+        greeting=prompts.GREETING,
+        loading=PersonaLoading(**prompts.LOADING),
+    )
+
+
 def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
-    if not settings.chat_mock:
-        # Step 3 adds the LLM responder; until then only mock mode can answer.
-        raise ChatUnavailableError
     try:
         content = retrieval.load_content(settings.content_dir)
     except retrieval.ContentError:
         logger.exception("chat content unavailable")
         raise ChatUnavailableError from None
-    context = _resolve(request.context, content)
-    return _finalize(_mock_draft(request.message, context), context)
+    context = _resolve(request.context, content, request.message)
+    if settings.chat_mock:
+        return _finalize(_mock_draft(request.message, context), context)
+    try:
+        draft = _llm_draft(request, context, settings)
+    except llm.LLMError as exc:
+        logger.warning("llm responder failed: %s", exc)
+        raise ChatUnavailableError from None
+    return _finalize(draft, context)
 
 
-def _resolve(context: ChatContext, content: retrieval.Content) -> ResolvedContext:
+def _resolve(
+    context: ChatContext, content: retrieval.Content, message: str = ""
+) -> ResolvedContext:
     unknown: list[str] = []
     focused = None
     if context.focused is not None:
@@ -107,17 +149,32 @@ def _resolve(context: ChatContext, content: retrieval.Content) -> ResolvedContex
                 unknown.append(pin)
         elif place not in pins:
             pins.append(place)
-    return ResolvedContext(context, content, focused, tuple(pins), tuple(unknown))
+    return ResolvedContext(
+        context, content, focused, tuple(pins), tuple(unknown), content.place_in_text(message)
+    )
+
+
+def _subject(draft: Draft, context: ResolvedContext) -> retrieval.Place | None:
+    """The place the answer is about: tool target, else named place, else open marker."""
+    if draft.tool_place:
+        return context.content.place(draft.tool_place)
+    return context.mentioned or context.focused
+
+
+def _has_nearby(place: retrieval.Place) -> bool:
+    return bool(tools.nearby_spots(place.id, walk_minutes=10**6))
 
 
 def _finalize(draft: Draft, context: ResolvedContext) -> ChatResponse:
+    """Every rule here holds no matter what the responder (mock or LLM) produced."""
     raw = context.raw
+    content = context.content
     pinned = {p.id for p in context.pins}
     blocked = set(raw.dismissed) | set(context.unknown_ids)
     proposals = []
     if raw.depth != "reference":  # depth=reference: information only, no plan changes
         for p in draft.proposals:
-            if p.target in blocked or context.content.place(p.target) is None:
+            if p.target in blocked or content.place(p.target) is None:
                 continue
             if (p.type == "add") == (p.target in pinned):  # no-op add/remove
                 continue
@@ -132,32 +189,249 @@ def _finalize(draft: Draft, context: ResolvedContext) -> ChatResponse:
             )
 
     reply = draft.reply
+    sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
+    chips = list(draft.chips)
+
+    # Times only from tools.
+    if draft.tool_used is None and TIME_CLAIM.search(reply):
+        logger.warning("dropped a time claim made without a tool result")
+        reply = NO_TIME_WITHOUT_TOOL
+    # Knowledge only from documents: an ungrounded answer becomes the fixed no-info reply.
+    ungrounded = draft.tool_used is None and not sources and (
+        draft.intent == "knowledge" or (draft.intent == "proposal" and not proposals)
+    )
+    if ungrounded and reply != NO_TIME_WITHOUT_TOOL:
+        if reply != NO_INFO:
+            logger.warning("replaced an answer without documents (%s)", draft.intent)
+        reply = NO_INFO
+        chips = [c for c in chips if content.place_in_text(c) is not None]
+    # Safety (principle 6): a clear "not recommended" plus a public alternative, always.
+    if draft.intent == "safety":
+        if "권하지 않아요" not in reply:  # hedged answers ("가능할 수도…") are replaced
+            logger.warning("replaced a safety answer without a clear refusal")
+            reply = SAFETY_NO
+        if not any(w in reply for w in ALTERNATIVE_WORDS):
+            reply = f"{reply.rstrip()} {SAFETY_ALTERNATIVE}"
+        if "safety_track_crossing" in content.docs and "safety_track_crossing" not in sources:
+            sources.insert(0, "safety_track_crossing")
+    # Example data is always labelled.
+    if draft.tool_source == "mock" and MOCK_NOTE not in reply:
+        reply = f"{MOCK_NOTE} {reply}"
+    # Passing stations: no boarding, observation only, with the rule as a source.
+    subject = _subject(draft, context)
+    if subject is not None and subject.kind == "station" and subject.passenger_stop is False:
+        if "관찰" not in reply:  # any wording of "observe only" is enough
+            reply = f"{reply.rstrip()} {PASSING_NOTE}"
+        if PASSING_DOC in content.docs and PASSING_DOC not in sources:
+            sources.append(PASSING_DOC)
     if context.unknown_ids:
         names = ", ".join(context.unknown_ids)
         reply = f"{names}은(는) 아직 모르는 장소라 빼고 답할게요. {reply}"
 
-    sources = [
-        s for s in dict.fromkeys(draft.sources)
-        if s in context.content.docs
-    ]
+    # Chips must lead somewhere: no "nearby" chip for a place without nearby data.
+    kept = []
+    for chip in chips:
+        place = content.place_in_text(chip)
+        if place is not None and any(w in chip for w in NEARBY_WORDS) and not _has_nearby(place):
+            continue
+        if chip not in kept:
+            kept.append(chip)
+    # At least two chips so a conversation can continue by tapping alone.
+    fillers = []
+    if subject is not None and subject.kind == "station":
+        fillers += [f"{subject.name} 열차 리듬"]
+        if _has_nearby(subject):
+            fillers.append(f"{subject.name} 근처")
+    fillers += DEFAULT_CHIPS
+    for chip in fillers:
+        if len(kept) >= 2:
+            break
+        if chip not in kept:
+            kept.append(chip)
+    chips = kept
+
     return ChatResponse(
         reply=reply,
         intent=draft.intent,
-        chips=draft.chips[:MAX_CHIPS],
+        chips=chips[:MAX_CHIPS],
         proposals=proposals,
         sources=sources,
         tool_used=draft.tool_used,
     )
 
 
+# --- LLM responder: one structured call, a second only after a tool request ------
+
+MARKDOWN = re.compile(r"\*\*|__|^#+\s*|`", re.MULTILINE)
+LIST_MARKER = re.compile(r"^\s*(?:[-*•·]|\d+[.)])\s+", re.MULTILINE)
+
+
+@dataclass(frozen=True)
+class ToolRun:
+    name: ToolName | None  # None when the request could not be served
+    result: dict
+    certainty: Certainty | None = None
+    place_id: str | None = None
+    source: str | None = None
+
+
+def _llm_draft(request: ChatRequest, context: ResolvedContext, settings: Settings) -> Draft:
+    content = context.content
+    embed = (lambda text: llm.embed_query(settings, text)) if content.vectors else None
+    try:
+        hits = content.search(request.message, context.known_ids, embed=embed)
+    except llm.LLMError:
+        hits = content.search(request.message, context.known_ids)  # vectors are optional
+    docs = [h.doc for h in hits][: prompts.MAX_DOCS]
+    # A passing station in play: give the model the rule it must follow.
+    subject = context.mentioned or context.focused
+    if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
+            and PASSING_DOC in content.docs and all(d.id != PASSING_DOC for d in docs)):
+        docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[PASSING_DOC]]
+
+    raw = context.raw
+    static = prompts.build_static(content)
+    screen = prompts.build_context(
+        today=dt.datetime.now(KST).date(),
+        date=raw.date,
+        pins=[p.id for p in context.pins],
+        focused=context.focused.id if context.focused else None,
+        depth=raw.depth,
+        dismissed=raw.dismissed,
+        content=content,
+        docs=docs,
+        first_turn=not request.history,
+    )
+    history = [(t.role, t.content) for t in request.history]
+
+    def call(tool_result: dict | None, label: str) -> dict:
+        messages = prompts.build_messages(
+            static=static, history=history, context=screen,
+            message=request.message, tool_result=tool_result,
+        )
+        return llm.chat_json(settings, messages, prompts.DRAFT_SCHEMA, label)
+
+    first = call(None, "first")
+    run = None
+    if first.get("tool_request"):
+        run = _run_tool(first["tool_request"], context)
+        final = call(run.result, "after_tool")  # a second tool request is ignored
+    else:
+        final = first
+    draft = _parse_draft(final)
+    provided = {d.id for d in docs}
+    draft.sources = [s for s in draft.sources if s in provided]
+    draft.reply = _tidy(draft.reply, first_turn=not request.history)
+    if run is not None and run.name is not None:
+        draft.tool_used = run.name
+        draft.tool_certainty = run.certainty
+        draft.tool_source = run.source
+        draft.tool_place = run.place_id
+    return draft
+
+
+def _tidy(reply: str, first_turn: bool) -> str:
+    """No markdown in a chat bubble; the persona greeting only opens a conversation."""
+    reply = MARKDOWN.sub("", reply)
+    reply = LIST_MARKER.sub("", reply)  # chat bubbles are prose, not lists
+    reply = re.sub(r"\s*\n+\s*", " ", reply).strip()
+    if not first_turn and reply.startswith(prompts.GREETING):
+        reply = reply[len(prompts.GREETING):].strip() or reply
+    return reply
+
+
+def _parse_draft(raw: dict) -> Draft:
+    try:
+        return Draft(
+            reply=str(raw["reply"]),
+            intent=raw["intent"],
+            chips=[str(c) for c in raw["chips"]],
+            proposals=[
+                DraftProposal(p["type"], p["target"], p["reason"], bool(p["time_bound"]))
+                for p in raw["proposals"]
+                if p.get("type") in ("add", "remove")
+            ],
+            sources=[str(s) for s in raw["sources"]],
+        )
+    except (KeyError, TypeError) as exc:
+        raise llm.LLMError(f"answer did not match the schema: {exc}") from exc
+
+
+def _weakest(certainties) -> Certainty | None:
+    present = [c for c in certainties if c]
+    return max(present, key=_CERTAINTY_ORDER.index) if present else None
+
+
+def _nearby_candidates(place_id: str, context: ResolvedContext) -> list[dict]:
+    """Places worth proposing for a gap: not already pinned, not dismissed."""
+    skip = {p.id for p in context.pins} | set(context.raw.dismissed)
+    return [
+        {"id": s.place_id, "name": p.name, "walk_minutes": s.walk_minutes}
+        for s in tools.nearby_spots(place_id)
+        if s.place_id not in skip and (p := context.content.place(s.place_id)) is not None
+    ]
+
+
+def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
+    """Run one requested tool. Certainty comes from the result, never from the model."""
+    name = request.get("name")
+    content = context.content
+    # Tools may only look at places the user put in play (screen or message): the
+    # model must not pick a station on its own, e.g. guess Donghae when none is open.
+    in_play = {p.id for p in ([context.focused] if context.focused else []) + list(context.pins)}
+    if context.mentioned:
+        in_play.add(context.mentioned.id)
+    named = context.mentioned
+    default_station = named if named and named.kind == "station" else context.station
+    station_id = request.get("station_id") or (default_station.id if default_station else None)
+    if station_id not in in_play:
+        station_id = None
+    station = content.place(station_id) if station_id else None
+    date = context.raw.date
+
+    if name in ("station_rhythm", "search_trains"):
+        if station is None or station.kind != "station":
+            return ToolRun(None, {"tool": name, "error": "기준 역이 없어요. 지도에서 역을 열어 달라고 안내한다"})
+        if name == "station_rhythm":
+            rhythm = tools.station_rhythm(station.id, date)
+            if rhythm is None:
+                return ToolRun(None, {"tool": name, "error": "이 역의 열차 정보가 아직 없어요"},
+                               place_id=station.id)
+            certainty = _weakest(g.certainty for g in rhythm.gaps) or _weakest(
+                t.certainty for t in rhythm.trains
+            )
+            result = dataclasses.asdict(rhythm)
+            # Candidates for filling a gap, so proposals can name a real place.
+            result["nearby"] = _nearby_candidates(station.id, context)
+        else:
+            trains = tools.search_trains(date, station=station.id, after=request.get("after"))
+            certainty = _weakest(t.certainty for t in trains)
+            result = {"station_id": station.id, "trains": [dataclasses.asdict(t) for t in trains],
+                      "source": tools.SOURCE}
+        result.update(tool=name, station_name=station.name,
+                      passenger_stop=station.passenger_stop)
+        return ToolRun(name, result, certainty, station.id, tools.SOURCE)
+
+    if name == "nearby_spots":
+        default_place = context.mentioned or context.anchor
+        place_id = request.get("place_id") or (default_place.id if default_place else None)
+        anchor = content.place(place_id) if place_id in in_play else None
+        if anchor is None:
+            return ToolRun(None, {"tool": name, "error": "장소를 알 수 없어요"})
+        spots = _nearby_candidates(anchor.id, context)
+        return ToolRun(name, {"tool": name, "place": anchor.name, "spots": spots,
+                              "source": tools.SOURCE}, None, anchor.id, tools.SOURCE)
+
+    return ToolRun(None, {"tool": name, "error": "알 수 없는 도구"})
+
+
 # --- mock responder: deterministic keyword routing, no keys or network -----------
 
 _SAFETY = ("건널목", "선로", "차단기", "철길", "철로")
-_TRAIN = ("열차", "기차", "시각", "시간표", "몇 시", "몇시", "운행", "언제", "몰려", "리듬")
+_TRAIN = ("열차", "기차", "시각", "시간표", "몇 시", "몇시", "몇 편", "편수", "운행", "언제", "몰려", "리듬")
 _KEEP_EMPTY = ("그대로", "쉬기", "쉴래")
 _PROPOSAL = ("추천", "근처", "볼 곳", "볼 수 있는", "갈 곳", "뭐 하", "뭘 하", "일정")
 _SMALLTALK = ("안녕", "고마", "감사")
-_MOCK_NOTE = "(예시 데이터)"
 
 
 def _has(text: str, words: tuple[str, ...]) -> bool:
@@ -179,7 +453,7 @@ def _mock_draft(message: str, context: ResolvedContext) -> Draft:
         return _mock_nearby(message, context)
     if _has(message, _SMALLTALK):
         return Draft(
-            reply="안녕하세요! 지도에서 역이나 장소를 열어 두고 물어보면 그 기준으로 답할게요.",
+            reply=f"{prompts.GREETING} 지도에서 역이나 장소를 열어 두고 물어보면 그 기준으로 답할게요.",
             intent="smalltalk",
             chips=["동해역 열차 리듬", "근처에 같이 볼 곳"],
         )
@@ -203,7 +477,14 @@ def _mock_knowledge(message: str, context: ResolvedContext) -> Draft:
         chips = [f"{place.name} 근처", "동해역 열차 리듬"]
     else:
         chips = ["동해역 열차 리듬", "근처에 같이 볼 곳"]
-    return Draft(reply=hit.doc.summary, intent="knowledge", chips=chips, sources=[hit.doc.id])
+    reply = hit.doc.summary
+    if hit.reason == "keyword":  # quote the paragraph that answers the named thing
+        terms = [k for k in hit.doc.keywords if k in message and k != hit.doc.title]
+        for paragraph in hit.doc.body.split("\n\n"):
+            if any(t in paragraph for t in terms):
+                reply = paragraph.strip()
+                break
+    return Draft(reply=reply, intent="knowledge", chips=chips, sources=[hit.doc.id])
 
 
 def _mock_safety(message: str, context: ResolvedContext) -> Draft:
@@ -251,44 +532,40 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
             intent="train_lookup",
             chips=["동해역 열차 리듬", f"{station.name} 근처"],
         )
-    # passenger_stop None means unknown: say nothing rather than guess.
-    passing = station.passenger_stop is False
-    passing_note = (
-        " 이 역은 열차가 서지 않고 지나가서, 타고 내릴 수는 없고 관찰만 할 수 있어요."
-        if passing else ""
-    )
-    sources = ["safety_passing_station"] if passing else []
     if "목록" in message:
         trains = tools.search_trains(context.raw.date, station=station.id)
         listed = ", ".join(
             f"{t.time} {t.kind}({t.direction}{'' if t.stops else ', 통과'})" for t in trains[:6]
         )
         return Draft(
-            reply=f"{_MOCK_NOTE} {station.name} 열차: {listed}.{passing_note}",
+            reply=f"{MOCK_NOTE} {station.name} 열차: {listed}.",
             intent="train_lookup",
             chips=[f"{station.name} 열차 리듬", f"{station.name} 근처"],
-            sources=sources,
             tool_used="search_trains",
+            tool_source=tools.SOURCE,
+            tool_place=station.id,
         )
     busiest_hour = max(rhythm.hourly, key=lambda h: (rhythm.hourly[h], -h))
     draft = Draft(
         reply=(
-            f"{_MOCK_NOTE} {station.name}은 {busiest_hour}시대에 열차가 가장 많아요"
+            f"{MOCK_NOTE} {station.name}은 {busiest_hour}시대에 열차가 가장 많아요"
             f"({rhythm.hourly[busiest_hour]}편)."
         ),
         intent="train_lookup",
         chips=[f"{station.name} 열차 목록", f"{station.name} 근처", "빈 시간은 그대로 둘래요"],
-        sources=sources,
         tool_used="station_rhythm",
+        tool_source=tools.SOURCE,
+        tool_place=station.id,
     )
     if rhythm.gaps:
         # The longest gap is where the day opens up for sightseeing.
         gap = max(rhythm.gaps, key=tools.gap_minutes)
         draft.reply += f" {gap.start}~{gap.end}에는 열차가 없어요."
         draft.tool_certainty = gap.certainty
+        skip = {p.id for p in context.pins} | set(context.raw.dismissed)
         for spot in tools.nearby_spots(station.id):
             place = context.content.place(spot.place_id)
-            if place is not None and place.kind == "poi":
+            if place is not None and place.kind == "poi" and place.id not in skip:
                 draft.proposals.append(
                     DraftProposal(
                         type="add",
@@ -299,7 +576,6 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
                     )
                 )
                 break
-    draft.reply += passing_note
     return draft
 
 
@@ -325,7 +601,7 @@ def _mock_nearby(message: str, context: ResolvedContext) -> Draft:
         )
     listed = ", ".join(f"{place.name}(도보 {minutes}분)" for place, minutes in spots)
     return Draft(
-        reply=f"{_MOCK_NOTE} {anchor.name} 근처에 {listed}이 있어요. 담을지는 직접 골라 주세요.",
+        reply=f"{MOCK_NOTE} {anchor.name} 근처에 {listed}이 있어요. 담을지는 직접 골라 주세요.",
         intent="proposal",
         chips=[f"{anchor.name} 열차 리듬", "빈 시간은 그대로 둘래요"],
         proposals=[
@@ -337,4 +613,6 @@ def _mock_nearby(message: str, context: ResolvedContext) -> Draft:
             for place, minutes in spots
         ],
         tool_used="nearby_spots",
+        tool_source=tools.SOURCE,
+        tool_place=anchor.id,
     )

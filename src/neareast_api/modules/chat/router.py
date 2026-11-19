@@ -3,9 +3,23 @@
 from fastapi import APIRouter, HTTPException, Request, status
 
 from neareast_api.modules.chat import service
-from neareast_api.modules.chat.schemas import ChatRequest, ChatResponse, ChatUnavailable
+from neareast_api.modules.chat.schemas import (
+    ChatRequest,
+    ChatResponse,
+    ChatUnavailable,
+    PersonaResponse,
+)
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
+
+
+@router.get(
+    "/persona",
+    response_model=PersonaResponse,
+    summary="Assistant name, greeting and loading texts for the chat UI",
+)
+def get_persona() -> PersonaResponse:
+    return service.persona()
 
 
 @router.post(

@@ -16,6 +16,7 @@ dependencies = [
     "psycopg2-binary>=2.9.11,<3",
     "SQLAlchemy>=2.0.46,<2.1",
     "alembic>=1.18,<2",
+    "openai>=2.0,<3",
 ]
 
 [project.optional-dependencies]

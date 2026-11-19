@@ -60,3 +60,18 @@ class ChatResponse(_Strict):
 
 class ChatUnavailable(_Strict):
     detail: Literal["chat unavailable"] = "chat unavailable"
+
+
+class PersonaLoading(_Strict):
+    default: str
+    train: str
+    place: str = Field(description="Contains {place}; the frontend fills in the place name")
+    knowledge: str
+    safety: str
+    slow: str
+
+
+class PersonaResponse(_Strict):
+    name: str
+    greeting: str
+    loading: PersonaLoading

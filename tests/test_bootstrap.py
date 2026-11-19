@@ -21,7 +21,12 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(
                 set(response.json()["paths"]),
-                {"/health/live", "/health/ready", "/api/v1/chat/messages"},
+                {
+                    "/health/live",
+                    "/health/ready",
+                    "/api/v1/chat/messages",
+                    "/api/v1/chat/persona",
+                },
             )
             self.assertEqual(client.get("/docs").status_code, 200)
             self.assertEqual(client.get("/").status_code, 404)
