@@ -2,16 +2,16 @@
 
 import json
 import os
-import shutil
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
+from legacy_support import setUpModule as setUpModule
+from legacy_support import tearDownModule as tearDownModule
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
 from neareast_api.modules.chat import llm
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,17 +77,19 @@ class SnapshotToolTests(unittest.TestCase):
 
 class NoSnapshotFallbackTests(unittest.TestCase):
     def test_without_a_snapshot_example_data_is_used_and_labelled(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            shutil.copytree(ROOT / "knowledge", root / "knowledge")
-            (root / "data").mkdir()
-            shutil.copy(ROOT / "data" / "places.json", root / "data" / "places.json")
-            client = TestClient(create_app(Settings(content_dir=str(root))))
-            body = ask(client, "여기 열차 언제 몰려?", focused="station_donghae")
-            self.assertTrue(body["reply"].startswith("(예시 데이터) "))
-            self.assertNotIn("토요일 3주", body["reply"])
-            self.assertEqual(body["tool_used"], "station_rhythm")
-            self.assertEqual(client.get("/api/v1/stations/station_donghae/trains").status_code, 503)
+        from sqlalchemy import delete
+
+        from neareast_api.db.entities import TimetableSnapshotEntity
+        app = create_app(Settings())
+        with app.state.sessionFactory() as session:
+            session.execute(delete(TimetableSnapshotEntity))
+            session.commit()
+        client = TestClient(app)
+        body = ask(client, "여기 열차 언제 몰려?", focused="station_donghae")
+        self.assertTrue(body["reply"].startswith("(예시 데이터) "))
+        self.assertNotIn("토요일 3주", body["reply"])
+        self.assertEqual(body["tool_used"], "station_rhythm")
+        self.assertEqual(client.get("/api/v1/stations/station_donghae/trains").status_code, 503)
 
 
 class SnapshotLlmTests(unittest.TestCase):

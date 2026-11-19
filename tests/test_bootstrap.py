@@ -1,6 +1,7 @@
 """Executable bootstrap contracts; business routes are registered explicitly."""
 
 import os
+import re
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -23,6 +24,19 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(
                 set(response.json()["paths"]),
                 {
+                    "/api/v1/auth/signup",
+                    "/api/v1/auth/login",
+                    "/api/v1/auth/logout",
+                    "/api/v1/users/me",
+                    "/api/v1/conversations",
+                    "/api/v1/conversations/{conversationId}",
+                    "/api/v1/conversations/{conversationId}/messages",
+                    "/api/v1/itineraries",
+                    "/api/v1/itineraries/{itineraryId}",
+                    "/api/v1/itineraries/{itineraryId}/revisions",
+                    "/api/v1/planning-requests",
+                    "/api/v1/planning-requests/{requestId}",
+                    "/api/v1/planning-requests/{requestId}/generations",
                     "/health/live",
                     "/health/ready",
                     "/api/v1/chat/messages",
@@ -69,13 +83,19 @@ class BootstrapTests(unittest.TestCase):
         example = (root / ".env.example").read_text("utf-8")
         not_in_compose = {"content_dir", "chat_reasoning_effort"}  # explained in compose.yaml
         for name in Settings.model_fields:
-            env = f"NEAREAST_{name.upper()}"
+            env = "NEAREAST_" + re.sub(r"(?<!^)(?=[A-Z])", "_", name).upper()
             with self.subTest(env):
                 self.assertIn(env, example)
                 if name in not_in_compose:
                     self.assertNotIn(f"{env}:", compose)
                 else:
                     self.assertIn(f"{env}:", compose)
+
+    def test_standard_openai_key_and_prefixed_precedence(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "standard-test", "NEAREAST_OPENAI_API_KEY": ""}):
+            self.assertEqual(Settings.from_env().openai_api_key.get_secret_value(), "standard-test")
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "standard-test", "NEAREAST_OPENAI_API_KEY": "prefixed-test"}):
+            self.assertEqual(Settings.from_env().openai_api_key.get_secret_value(), "prefixed-test")
 
     def test_docs_can_be_disabled_from_environment(self):
         with patch.dict(os.environ, {"NEAREAST_DOCS_ENABLED": "false"}):

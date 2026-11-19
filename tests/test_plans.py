@@ -6,21 +6,19 @@ on the committed timetable snapshot. No LLM is involved anywhere.
 """
 
 import datetime as dt
-import json
-import shutil
-import tempfile
 import unittest
-from pathlib import Path
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
+from neareast_api.db.entities import PlaceEntity
+from neareast_api.db.session import CONTENT_SESSION
+from neareast_api.ingestion.service import IngestionService
 from neareast_api.modules.places import service as places_service
 from neareast_api.modules.plans import service as plans
 from neareast_api.modules.trains import service as trains_service
 
-ROOT = Path(__file__).resolve().parents[1]
 API = "/api/v1"
 A, B, C, P = "station_a", "station_b", "station_c", "station_p"
 NEAR_A, NEAR_B, FAR, NO_COORD = "poi_near_a", "poi_near_b", "poi_far", "poi_nocoord"
@@ -112,13 +110,31 @@ def snapshot(b_spread_105=0):
     }
 
 
-def write_world(folder, **kwargs):
-    data = Path(folder) / "data"
-    data.mkdir()
-    (data / "places.json").write_text(json.dumps({"places": PLACES}, ensure_ascii=False), "utf-8")
-    (data / "train_types.json").write_text('{"trains": {}}', "utf-8")
-    (data / "timetable_2026-11-21.json").write_text(
-        json.dumps(snapshot(**kwargs), ensure_ascii=False), "utf-8")
+def world_app(**kwargs):
+    """An app on an empty database holding only the made-up places and timetable."""
+    app = create_app(Settings(), seed=False)
+    with app.state.sessionFactory() as session:
+        for place in PLACES:
+            session.add(PlaceEntity(
+                id=place["id"], name=place["name"], kind=place["kind"],
+                passengerStop=place.get("passenger_stop"), aliases=place.get("aliases", []),
+                lat=place.get("lat"), lng=place.get("lng")))
+        session.commit()
+        IngestionService.importTimetable(session, snapshot(**kwargs))
+    return app
+
+
+def open_content(case, app):
+    """Let a test call the place/timetable services directly, as a request would."""
+    session = app.state.sessionFactory()
+    token = CONTENT_SESSION.set(session)
+
+    def close():
+        CONTENT_SESSION.reset(token)
+        session.close()
+        app.state.databaseEngine.dispose()
+    (case.addClassCleanup if isinstance(case, type) else case.addCleanup)(close)
+    return session
 
 
 def request(items, start=(A, "08:30"), end=(A, "18:00"), **extra):
@@ -145,12 +161,11 @@ class _WorldCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls._tmp = tempfile.TemporaryDirectory()
-        cls.addClassCleanup(cls._tmp.cleanup)
-        write_world(cls._tmp.name, **cls.world_options)
-        cls.client = TestClient(create_app(Settings(content_dir=cls._tmp.name)))
+        app = world_app(**cls.world_options)
+        cls.client = TestClient(app)
+        open_content(cls, app)
         cls.rides = {}
-        timetable = trains_service.load(cls._tmp.name)
+        timetable = trains_service.load(".")
         for a in (A, B, C):
             for b in (A, B, C):
                 if a != b:
@@ -614,10 +629,10 @@ class ValidationTests(_WorldCase):
         self.assertIn("poi_gone", body["missed"][0]["reason"])
 
     def test_no_snapshot_is_503(self):
-        with tempfile.TemporaryDirectory() as empty:
-            client = TestClient(create_app(Settings(content_dir=empty)))
-            response = client.post(API + "/plans", json=request([]))
-            self.assertEqual(response.status_code, 503)
+        app = create_app(Settings(), seed=False)  # a database nothing was imported into
+        self.addCleanup(app.state.databaseEngine.dispose)
+        response = TestClient(app).post(API + "/plans", json=request([]))
+        self.assertEqual(response.status_code, 503)
 
 
 class WalkTests(unittest.TestCase):
@@ -644,7 +659,9 @@ class RealTimetableScenarios(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.client = TestClient(create_app(Settings()))
+        app = create_app(Settings())  # the seeded reference content
+        cls.client = TestClient(app)
+        open_content(cls, app)
 
     def plan(self, items, start="09:00", end="19:00", **extra):
         body = {"date": "2026-11-21", "start": {"place": self.DONGHAE, "time": start},
@@ -749,18 +766,13 @@ class ChatUsesTheSameSuggestionRule(unittest.TestCase):
                    "poi_cheongok_cave": (37.60, 129.10)}  # made up: only distances matter
 
     def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        self.root = Path(tmp.name)
-        shutil.copytree(ROOT / "knowledge", self.root / "knowledge")
-        shutil.copytree(ROOT / "data", self.root / "data")
-        catalog = json.loads((self.root / "data" / "places.json").read_text("utf-8"))
-        for place in catalog["places"]:
-            if place["id"] in self.COORDINATES:
-                place["lat"], place["lng"] = self.COORDINATES[place["id"]]
-        (self.root / "data" / "places.json").write_text(
-            json.dumps(catalog, ensure_ascii=False), "utf-8")
-        self.client = TestClient(create_app(Settings(content_dir=str(self.root))))
+        app = create_app(Settings())  # the seeded reference content
+        session = open_content(self, app)
+        for place_id, (lat, lng) in self.COORDINATES.items():
+            place = session.get(PlaceEntity, place_id)
+            place.lat, place.lng = lat, lng
+        session.commit()
+        self.client = TestClient(app)
 
     def ask(self, **context):
         response = self.client.post(API + "/chat/messages", json={
@@ -770,10 +782,10 @@ class ChatUsesTheSameSuggestionRule(unittest.TestCase):
         return response.json()
 
     def test_chat_proposal_is_the_planners_suggestion_for_the_same_gap(self):
-        timetable = trains_service.load(str(self.root))
+        timetable = trains_service.load(".")
         rhythm = trains_service.station_trains(timetable, "station_donghae").rhythm
         gap = max(rhythm.gaps, key=lambda g: g.minutes)
-        expected = plans.suggest(places_service.all_places(str(self.root)), "station_donghae",
+        expected = plans.suggest(places_service.all_places("."), "station_donghae",
                                  gap.start, gap.end, date=dt.date(2026, 11, 21))
         self.assertEqual([s.target for s in expected], ["poi_bukpyeong_market"])  # the cave is too far
         proposal, = self.ask()["proposals"]

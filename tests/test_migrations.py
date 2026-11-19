@@ -3,18 +3,18 @@
 import argparse
 import io
 import os
-from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.util import CommandError
 from sqlalchemy.engine import make_url
 
+from alembic import command
 from neareast_api.core.config import Settings
 from neareast_api.db.base import Base
 from neareast_api.db.metadata import metadata
@@ -43,9 +43,10 @@ class MigrationTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
 
-    def test_shared_metadata_has_no_initial_business_tables(self):
+    def test_shared_metadata_registers_service_tables(self):
         self.assertIs(metadata, Base.metadata)
-        self.assertEqual(list(metadata.tables), [])
+        self.assertEqual(len(metadata.tables), 13)
+        self.assertIn("knowledge_chunks", metadata.tables)
         self.assertEqual(ScriptDirectory.from_config(self.config).get_heads(), [])
 
     def test_connection_url_preserves_reserved_characters(self):
@@ -81,7 +82,8 @@ class MigrationTests(unittest.TestCase):
 
     def test_cli_autogenerate_refuses_empty_model_registry_before_connecting(self):
         self.config.cmd_opts = argparse.Namespace(autogenerate=True)
-        with patch("sqlalchemy.create_engine") as create_engine:
+        with patch("sqlalchemy.create_engine") as create_engine, patch("neareast_api.db.metadata.metadata") as emptyMetadata:
+            emptyMetadata.tables = {}
             with self.assertRaisesRegex(CommandError, "No models are registered"):
                 command.revision(self.config, message="must not generate", autogenerate=True)
         create_engine.assert_not_called()

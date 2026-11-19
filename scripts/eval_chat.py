@@ -39,6 +39,7 @@ PRICES = {
 
 
 def load_scenario_module():
+    sys.path.insert(0, str(ROOT / "tests"))
     spec = importlib.util.spec_from_file_location(
         "chat_scenarios", ROOT / "tests" / "test_chat_scenarios.py"
     )
@@ -131,7 +132,30 @@ def main(argv: list[str] | None = None) -> int:
         s for s in module.SCENARIOS
         if (not args.group or s["group"] == args.group) and (not only or s["id"] in only)
     ]
+    from uuid import uuid4
+    from sqlalchemy import create_engine, delete
+    from sqlalchemy.orm import Session
+    from neareast_api.db.entities import UserEntity
+    from neareast_api.db.url import build_database_url
+
     client = TestClient(create_app(settings))
+    response = client.post("/api/v1/auth/signup", json={
+        "email": f"eval-{uuid4().hex}@example.com", "nickname": "LLM evaluation", "password": uuid4().hex,
+    })
+    response.raise_for_status()
+    evaluationUserId = response.json()["user"]["id"]
+    client.headers["X-CSRF-Token"] = response.json()["csrfToken"]
+
+    def removeEvaluationUser():
+        engine = create_engine(build_database_url(settings))
+        try:
+            with Session(engine) as session:
+                session.execute(delete(UserEntity).where(UserEntity.id == evaluationUserId))
+                session.commit()
+        finally:
+            engine.dispose()
+    import atexit
+    atexit.register(removeEvaluationUser)
 
     by_group: dict[str, list[bool]] = defaultdict(list)
     failed: dict[str, list[str]] = {}

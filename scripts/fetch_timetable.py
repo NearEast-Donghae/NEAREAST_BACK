@@ -1,4 +1,4 @@
-"""Build data/timetable_<date>.json from Korail's public run records (data.go.kr).
+"""Import Korail public run records (data.go.kr) into PostgreSQL.
 
 What the API can and cannot give (checked 2026-11-19):
 - run records (travelerTrainRunInfo2): per-station times up to yesterday, passenger stops
@@ -41,7 +41,7 @@ KILOPOST_FILE = "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId={id}&
 TARGET = "2026-11-21"
 RECORD_DATES = ["2026-11-14", "2026-11-07", "2026-10-31"]  # base day first
 PLAN_DATE = "2026-12-19"  # nearest Saturday the plan API serves
-# API station name -> place id (data/places.json). 정동진 is only needed to bracket 망상.
+# API station name -> place id (places table). 정동진 is only needed to bracket 망상.
 STATIONS = {"동해": "station_donghae", "묵호": "station_mukho", "추암": "station_chuam"}
 BRACKET_STATIONS = ["정동진"]
 PASSING = {"망상": "station_mangsang"}  # no records: estimated from neighbours
@@ -95,7 +95,7 @@ class Api:
                          "returnType": "JSON", **{f"cond[{k}]": v for k, v in cond.items()}}
                 body = json.loads(self._get(f"{BASE}/{operation}?" + urllib.parse.urlencode(query)))
                 if "response" not in body:
-                    sys.exit(f"API 오류 응답: {json.dumps(body, ensure_ascii=False)[:200]}")
+                    sys.exit("API returned an unexpected response; credential-bearing payload omitted")
                 body = body["response"]["body"]
                 got = body["items"]["item"]
                 rows += got
@@ -237,7 +237,7 @@ def build(api: Api) -> tuple[dict, dict]:
             "limits": [
                 f"{TARGET} 당일 운행 여부는 공공데이터로 확인할 수 없음(운행계획은 약 한 달 뒤 날짜만 제공)",
                 "여객열차의 정차 기록만 있음: 화물열차와 통과 기록은 공식 데이터 없음",
-                "열차 종류는 데이터에 없음: data/train_types.json에 손으로 채운 것만 표시",
+                "열차 종류는 데이터에 없음: DB에 별도 확인하여 등록한 종류만 표시",
             ],
             "source": "공공데이터포털 한국철도공사_열차운행정보(운행정보·운행계획), 철도운영정보_역키로정내역",
             "generated_at": dt.datetime.now().isoformat(timespec="seconds"),
@@ -257,28 +257,6 @@ def build(api: Api) -> tuple[dict, dict]:
     return snapshot, table
 
 
-def write_train_types(table: dict) -> Path:
-    """Keep types someone already filled in; add rows for new trains."""
-    path = ROOT / "data" / "train_types.json"
-    old = json.loads(path.read_text("utf-8"))["trains"] if path.exists() else {}
-    for number, row in table.items():
-        row["type"] = old.get(number, {}).get("type", "")
-    content = {
-        "_meta": {
-            "how": "type 칸에 열차 종류를 TIDS 표기로 채운다(KTX-이음, ITX-마음, 누리로, 무궁화 등). "
-                   "비워 두면 번호·노선·행선지만 보여 준다. line/route/at은 찾기 쉽게 넣은 참고값이라 "
-                   "스크립트가 다시 쓴다.",
-            "basis": f"{RECORD_DATES[0]}(토) 동해·묵호·추암 정차 열차",
-        },
-        "trains": dict(sorted(table.items(), key=lambda kv: int(kv[0]))),
-    }
-    lines = ",\n".join(f"    {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}"
-                       for k, v in content["trains"].items())
-    path.write_text('{\n  "_meta": ' + json.dumps(content["_meta"], ensure_ascii=False)
-                    + ',\n  "trains": {\n' + lines + "\n  }\n}\n", "utf-8")
-    return path
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--env-file", default=str(ROOT / ".env"))
@@ -287,20 +265,21 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv(args.env_file, override=False)
     api = Api(os.environ.get("NEAREAST_DATA_GO_KR_KEY", ""), args.refresh)
 
-    snapshot, table = build(api)
-    out = ROOT / "data" / f"timetable_{TARGET}.json"
-    out.write_text(json.dumps(snapshot, ensure_ascii=False, indent=1) + "\n", "utf-8")
-    types = write_train_types(table)
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from neareast_api.core.config import Settings
+    from neareast_api.db.url import build_database_url
+    from neareast_api.ingestion.service import IngestionService
 
-    trains = snapshot["trains"]
-    print(f"API calls: {api.calls} (0 means everything came from data/raw)")
-    print(f"{out.name}: {len(trains)} trains, weekly {sum(t['weekly_saturday'] for t in trains)}, "
-          f"in {PLAN_DATE} plan {sum(t['in_plan'] for t in trains)}, "
-          f"spread over 5 min {sum(t['spread_min'] > 5 for t in trains)}")
-    for place, info in snapshot["stations"].items():
-        count = sum(any(s.get("place_id") == place for s in t["stops"]) for t in trains)
-        print(f"  {info['name']}: {count} trains" + ("" if info["records"] else " (estimated passes)"))
-    print(f"{types.name}: {len(table)} rows, {sum(bool(r['type']) for r in table.values())} filled")
+    snapshot, _ = build(api)
+    engine = create_engine(build_database_url(Settings.from_env()))
+    try:
+        with Session(engine) as session:
+            IngestionService.importTimetable(session, snapshot)
+    finally:
+        engine.dispose()
+    print(f"Imported {len(snapshot['trains'])} train services into PostgreSQL")
+
     return 0
 
 

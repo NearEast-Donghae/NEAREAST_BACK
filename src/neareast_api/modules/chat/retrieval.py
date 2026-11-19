@@ -1,33 +1,18 @@
-"""Place catalog and knowledge retrieval behind one small interface.
-
-Content lives in files so people can review it: data/places.json (ids shared with
-the map markers) and knowledge/*.md (front matter + body). Search order:
-1) documents tied to the context ids, 2) keyword/proper-noun match,
-3) vector similarity, only when an embedder is supplied and the embedding
-cache (scripts/ingest.py) matches the documents and model.
-Swapping the backend later (e.g. pgvector) only changes this module.
-"""
+"""Retrieve PostgreSQL knowledge using the existing context, keyword and vector order."""
 
 import hashlib
-import json
 import logging
 import math
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 
-from neareast_api.modules.places.service import Place, PlacesError, load_places
+from neareast_api.modules.places.service import Place
 
 logger = logging.getLogger(__name__)
 
-KNOWLEDGE_DIR = Path("knowledge")
-EMBEDDINGS_FILE = Path("data") / "embeddings.json"
-
-
 class ContentError(Exception):
-    """Content files are missing or malformed."""
+    """Required knowledge has not been loaded into the database."""
 
 
 @dataclass(frozen=True)
@@ -145,95 +130,6 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return dot / norm if norm else 0.0
 
 
-def parse_doc(text: str, origin: str = "<doc>") -> Doc:
-    """Front matter supports `key: value` and inline lists `[a, b]` only."""
-    if not text.startswith("---\n"):
-        raise ContentError(f"{origin}: missing front matter")
-    try:
-        header, body = text[4:].split("\n---\n", 1)
-    except ValueError:
-        raise ContentError(f"{origin}: unterminated front matter") from None
-    meta: dict[str, str | tuple[str, ...]] = {}
-    for line in header.splitlines():
-        if not line.strip():
-            continue
-        key, sep, value = line.partition(":")
-        if not sep:
-            raise ContentError(f"{origin}: bad front matter line {line!r}")
-        value = value.strip()
-        if value.startswith("[") and value.endswith("]"):
-            meta[key.strip()] = tuple(v.strip() for v in value[1:-1].split(",") if v.strip())
-        else:
-            meta[key.strip()] = value
-    for required in ("id", "title", "kind"):
-        if not isinstance(meta.get(required), str) or not meta[required]:
-            raise ContentError(f"{origin}: front matter needs {required}")
-    return Doc(
-        id=meta["id"],
-        title=meta["title"],
-        kind=meta["kind"],
-        places=tuple(meta.get("places", ())),
-        keywords=tuple(meta.get("keywords", ())),
-        body=body.strip(),
-    )
-
-
-def load_docs(root: Path, strict: bool = True) -> dict[str, Doc]:
-    """strict=False (the server) skips a broken document and logs it, so one bad file
-    does not take the whole chat down; strict=True (tests, ingest) raises."""
-    directory = root / KNOWLEDGE_DIR
-    if not directory.is_dir():
-        raise ContentError(f"missing {directory}")
-    docs: dict[str, Doc] = {}
-    for path in sorted(directory.glob("*.md")):
-        try:
-            doc = parse_doc(path.read_text("utf-8"), str(path))
-            if doc.id != path.stem:
-                raise ContentError(f"{path}: id {doc.id!r} must match the file name")
-        except (ContentError, OSError, UnicodeDecodeError) as exc:
-            if strict:
-                raise ContentError(str(exc)) from exc
-            logger.error("skipping broken knowledge document: %s", exc)
-            continue
-        docs[doc.id] = doc
-    return docs
-
-
-def _load_vectors(root: Path, docs: dict[str, Doc]) -> tuple[str | None, dict | None]:
-    path = root / EMBEDDINGS_FILE
-    if not path.exists():
-        return None, None
-    try:
-        cache = json.loads(path.read_text("utf-8"))
-        model = cache["model"]
-        entries = cache["docs"]
-    except (OSError, ValueError, KeyError) as exc:
-        logger.warning("ignoring unreadable %s: %s", path, exc)
-        return None, None
-    vectors = {}
-    stale = []
-    for doc_id, doc in docs.items():
-        entry = entries.get(doc_id)
-        if entry is None or entry.get("sha256") != doc.content_hash:
-            stale.append(doc_id)
-        else:
-            vectors[doc_id] = tuple(entry["vector"])
-    if stale:
-        logger.warning("embeddings stale for %s; run scripts/ingest.py", ", ".join(stale))
-    return model, vectors
-
-
-@lru_cache(maxsize=4)
-def _load(root: Path) -> Content:
-    try:
-        places = load_places(root)  # the catalog belongs to modules/places
-    except PlacesError as exc:
-        raise ContentError(str(exc)) from exc
-    docs = load_docs(root, strict=False)
-    model, vectors = _load_vectors(root, docs)
-    return Content(places, docs, model, vectors)
-
-
 def load_content(content_dir: str) -> Content:
-    """Files are read once per directory and then reused (they change only on deploy)."""
-    return _load(Path(content_dir).resolve())
+    from neareast_api.db.content_repository import ContentRepository
+    return ContentRepository.knowledge()

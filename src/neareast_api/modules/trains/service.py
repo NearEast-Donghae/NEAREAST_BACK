@@ -5,11 +5,8 @@ The snapshot is `estimated` by construction; `basis()` says why and is attached 
 every answer.
 """
 
-import json
 import logging
 from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 
 from neareast_api.modules.trains.schemas import (
     Basis,
@@ -53,28 +50,9 @@ def _minutes(hhmm: str) -> int:
     return int(hhmm[:2]) * 60 + int(hhmm[3:])
 
 
-@lru_cache(maxsize=4)
-def _load(root: Path) -> Timetable:
-    files = sorted((root / "data").glob("timetable_*.json"))
-    if not files:
-        raise TimetableUnavailable(f"no data/timetable_*.json under {root}")
-    try:
-        snapshot = json.loads(files[-1].read_text("utf-8"))
-        meta, stations, trains = snapshot["meta"], snapshot["stations"], tuple(snapshot["trains"])
-    except (OSError, ValueError, KeyError) as exc:
-        raise TimetableUnavailable(f"cannot read {files[-1]}: {exc}") from exc
-    types = {}
-    try:
-        table = json.loads((root / "data" / "train_types.json").read_text("utf-8"))["trains"]
-        types = {no: row["type"].strip() for no, row in table.items() if row.get("type", "").strip()}
-    except (OSError, ValueError, KeyError, AttributeError) as exc:
-        logger.warning("train types table not used: %s", exc)
-    return Timetable(meta, stations, trains, types)
-
-
 def load(content_dir: str) -> Timetable:
-    """Read once per directory; raises TimetableUnavailable."""
-    return _load(Path(content_dir).resolve())
+    from neareast_api.db.content_repository import ContentRepository
+    return ContentRepository.timetable()
 
 
 def load_or_none(content_dir: str) -> Timetable | None:

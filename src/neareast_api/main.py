@@ -2,21 +2,24 @@
 
 from contextlib import asynccontextmanager
 
-import anyio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from neareast_api.api.health import router as health_router
 from neareast_api.api.router import build_api_router
 from neareast_api.core.config import Settings
-from neareast_api.modules.chat.service import warm_up as warm_up_chat
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    # File reads are blocking: run them off the event loop.
-    await anyio.to_thread.run_sync(warm_up_chat, app.state.settings)
-    yield
+    try:
+        yield
+    finally:
+        engine = getattr(app.state, "databaseEngine", None)
+        if engine is not None:
+            engine.dispose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -38,9 +41,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
-            allow_methods=["GET", "POST"],
-            allow_headers=["Content-Type"],
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+            allow_headers=["Content-Type", "X-CSRF-Token"],
         )
+
+    @app.exception_handler(SQLAlchemyError)
+    async def databaseError(request, exception):
+        return JSONResponse(status_code=503, content={"detail": "Database unavailable"})
+
+    @app.middleware("http")
+    async def preventPrivateCaching(request, callNext):
+        response = await callNext(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     app.include_router(health_router)
     app.include_router(build_api_router())
     return app

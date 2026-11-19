@@ -1,26 +1,18 @@
 """Knowledge content integrity, retrieval order and the embedding cache (no network)."""
 
-import importlib.util
-import shutil
-import tempfile
 import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
+from legacy_support import setUpModule as setUpModule
+from legacy_support import tearDownModule as tearDownModule
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
 from neareast_api.modules.chat import retrieval, tools
 
 ROOT = Path(__file__).resolve().parents[1]
 URL = "/api/v1/chat/messages"
-
-
-def load_ingest():
-    spec = importlib.util.spec_from_file_location("ingest", ROOT / "scripts" / "ingest.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 class ContentIntegrityTests(unittest.TestCase):
@@ -59,22 +51,6 @@ class ContentIntegrityTests(unittest.TestCase):
         ids = set(tools._TIMETABLE) | set(tools._NEARBY)
         ids |= {spot for links in tools._NEARBY.values() for spot, _ in links}
         self.assertEqual(ids - set(self.content.places), set())
-
-
-class ParseTests(unittest.TestCase):
-    def test_front_matter_lists_and_body(self):
-        doc = retrieval.parse_doc(
-            "---\nid: a\ntitle: A\nkind: rail\nkeywords: [x, y z]\n---\nfirst.\n\nsecond."
-        )
-        self.assertEqual(doc.keywords, ("x", "y z"))
-        self.assertEqual(doc.places, ())
-        self.assertEqual(doc.summary, "first.")
-
-    def test_malformed_documents_are_rejected(self):
-        for text in ("no front matter", "---\nid: a\n", "---\nid: a\nkind: x\n---\nbody"):
-            with self.subTest(text):
-                with self.assertRaises(retrieval.ContentError):
-                    retrieval.parse_doc(text)
 
 
 class SearchTests(unittest.TestCase):
@@ -132,111 +108,14 @@ class SearchTests(unittest.TestCase):
 
 
 class ContentFailureTests(unittest.TestCase):
-    def test_missing_content_is_503(self):
-        with tempfile.TemporaryDirectory() as empty:
-            client = TestClient(create_app(Settings(content_dir=empty)))
-            with self.assertLogs("neareast_api.modules.chat.service", "ERROR"):
-                response = client.post(URL, json={"message": "안녕"})
+    def test_empty_database_is_503(self):
+        client = TestClient(create_app(Settings(), seed=False))
+        response = client.post(URL, json={"message": "안녕"})
         self.assertEqual(response.status_code, 503)
-        self.assertNotIn(empty, response.text)
 
-    def broken_copy(self, tmp):
-        root = Path(tmp)
-        shutil.copytree(ROOT / "data", root / "data")
-        shutil.copytree(ROOT / "knowledge", root / "knowledge")
-        (root / "knowledge" / "station_mukho.md").write_text("front matter is gone", "utf-8")
-        return root
-
-    def test_one_broken_document_does_not_take_chat_down(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = self.broken_copy(tmp)
-            client = TestClient(create_app(Settings(content_dir=str(root))))
-            with self.assertLogs("neareast_api.modules.chat.retrieval", "ERROR") as logs:
-                response = client.post(URL, json={"message": "평능역은 어떤 곳이야?"})
-            self.assertIn("station_mukho.md", logs.output[0])
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json()["sources"], ["heritage_pyeongneung"])
-            with self.assertRaises(retrieval.ContentError):  # tests and ingest stay strict
-                retrieval.load_docs(root, strict=True)
-
-    def test_repository_documents_all_load_strictly(self):
-        docs = retrieval.load_docs(ROOT, strict=True)
-        self.assertEqual(len(docs), len(list((ROOT / "knowledge").glob("*.md"))))
-
-    def test_startup_reports_content_problems_without_stopping_the_api(self):
-        with tempfile.TemporaryDirectory() as empty:
-            app = create_app(Settings(content_dir=empty))
-            with self.assertLogs("neareast_api.modules.chat.service", "ERROR") as logs:
-                with TestClient(app) as client:  # runs the lifespan
-                    self.assertEqual(client.get("/health/live").status_code, 200)
-            self.assertIn("chat content unavailable", logs.output[0])
-
-    def test_startup_is_quiet_when_content_is_fine(self):
-        app = create_app(Settings(content_dir=str(ROOT)))
-        with self.assertNoLogs("neareast_api.modules.chat", "WARNING"):
-            with TestClient(app) as client:
-                self.assertEqual(client.get("/health/live").status_code, 200)
-        llm_without_key = create_app(Settings(content_dir=str(ROOT), chat_mock=False))
-        with self.assertLogs("neareast_api.modules.chat.service", "WARNING") as logs:
-            with TestClient(llm_without_key):
-                pass
-        self.assertIn("no API key", logs.output[0])
-
-    def test_document_id_must_match_file_name(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            shutil.copytree(ROOT / "data", root / "data")
-            (root / "knowledge").mkdir()
-            (root / "knowledge" / "a.md").write_text("---\nid: b\ntitle: B\nkind: rail\n---\nx")
-            with self.assertRaises(retrieval.ContentError):
-                retrieval.load_docs(root)
-
-
-class IngestTests(unittest.TestCase):
-    def setUp(self):
-        self.ingest = load_ingest()
-        self.tmp = tempfile.TemporaryDirectory()
-        self.root = Path(self.tmp.name)
-        shutil.copytree(ROOT / "knowledge", self.root / "knowledge")
-        shutil.copytree(ROOT / "data", self.root / "data")
-        (self.root / "data" / "embeddings.json").unlink(missing_ok=True)
-        self.calls = []
-
-    def tearDown(self):
-        self.tmp.cleanup()
-        retrieval._load.cache_clear()
-
-    def fake_embed(self, model, texts):
-        self.calls.append(len(texts))
-        return [(float(len(t)), 1.0) for t in texts]
-
-    def test_dry_run_writes_nothing(self):
-        report = self.ingest.ingest(self.root, "m1", None)
-        self.assertEqual(len(report["embedded"]), len(list((self.root / "knowledge").glob("*.md"))))
-        self.assertFalse((self.root / "data" / "embeddings.json").exists())
-
-    def test_only_changed_documents_are_re_embedded(self):
-        self.ingest.ingest(self.root, "m1", self.fake_embed)
-        doc = self.root / "knowledge" / "rail_lines.md"
-        doc.write_text(doc.read_text("utf-8") + "\n추가 문장.", "utf-8")
-        report = self.ingest.ingest(self.root, "m1", self.fake_embed)
-        self.assertEqual(report["embedded"], ["rail_lines"])
-        self.assertEqual(self.calls[1], 1)
-        self.ingest.ingest(self.root, "m1", self.fake_embed)
-        self.assertEqual(len(self.calls), 2, "unchanged docs must not call the API")
-
-    def test_cache_is_loaded_and_stale_entries_are_reported(self):
-        self.ingest.ingest(self.root, "m1", self.fake_embed)
-        content = retrieval.load_content(str(self.root))
-        self.assertEqual(content.embedding_model, "m1")
-        self.assertEqual(set(content.vectors), set(content.docs))
-        retrieval._load.cache_clear()
-        doc = self.root / "knowledge" / "rail_lines.md"
-        doc.write_text(doc.read_text("utf-8") + "\n변경.", "utf-8")
-        with self.assertLogs("neareast_api.modules.chat.retrieval", "WARNING") as logs:
-            content = retrieval.load_content(str(self.root))
-        self.assertIn("rail_lines", logs.output[0])
-        self.assertNotIn("rail_lines", content.vectors)
+    def test_health_does_not_require_content(self):
+        with TestClient(create_app(Settings(), seed=False)) as client:
+            self.assertEqual(client.get("/health/live").status_code, 200)
 
 
 if __name__ == "__main__":

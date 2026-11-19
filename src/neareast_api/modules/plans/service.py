@@ -642,7 +642,7 @@ class _Timeline:
         passing = self._passing(start, until, target)
         edges = sorted({_minutes(p.at) for p in passing} | {until})
         waiting = None
-        for begin, end in zip([start, *edges], edges):
+        for begin, end in zip([start, *edges], edges, strict=False):
             here = [p for p in passing if begin < _minutes(p.at) <= end]
             if end - begin >= GAP_MIN:
                 waiting = None
