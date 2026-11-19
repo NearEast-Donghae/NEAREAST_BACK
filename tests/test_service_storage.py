@@ -271,7 +271,7 @@ class ServiceStorageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(
             set(response.json()),
-            {"reply", "intent", "chips", "proposals", "sources", "tool_used", "mode"},
+            {"reply", "intent", "action", "chips", "proposals", "sources", "tool_used", "mode"},
         )
 
     def test_embedding_updates_only_changed_documents_and_validates_dimension(self):

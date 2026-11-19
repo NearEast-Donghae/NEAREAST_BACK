@@ -10,6 +10,7 @@ from neareast_api.db.entities import ConversationEntity, MessageEntity, currentT
 from neareast_api.modules.chat import service as chatService
 from neareast_api.modules.chat.schemas import ChatRequest, ChatTurn
 from neareast_api.modules.conversations.dto import MessageCreateDto
+from neareast_api.modules.saved.service import SavedService
 
 
 def ownedConversation(session: Session, conversationId: str, userId: str) -> ConversationEntity:
@@ -118,6 +119,7 @@ class ConversationService:
                     ],
                 ),
                 settings,
+                SavedService.selection(session, userId),
             )
         except chatService.ChatUnavailableError:
             ConversationService.finishFailedRequest(session, conversationId, requestId, claimId)

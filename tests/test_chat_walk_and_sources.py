@@ -97,6 +97,13 @@ class WalkWithoutCoordinatesTests(_Case):
 class WalkWithCoordinatesTests(_Case):
     coordinates = COORDINATES
 
+    def test_a_plan_request_that_mentions_walking_is_still_a_plan_request(self):
+        body = self.ask("동해역에서 북평민속시장까지 걸어가면 얼마나 걸리는지 보고 일정 짜줘",
+                        date="2026-11-21", pins=[DONGHAE, MARKET])
+        self.assertEqual(body["intent"], "plan_request")
+        self.assertIsNone(body["tool_used"])
+        self.assertEqual(body["action"]["type"], "plan_request")
+
     def test_time_is_the_straight_line_estimate_and_says_so(self):
         body = self.ask(QUESTION)
         self.assertEqual(body["tool_used"], "walk_time")
@@ -134,6 +141,15 @@ class WalkModelPathTests(_Case):
         self.assertEqual((body["mode"], body["tool_used"]), ("llm", "walk_time"))
         self.assertIn("약 6분", body["reply"])
         self.assertEqual(chat.call_count, 1)  # the answer is written from the result
+
+    def test_a_plan_request_is_handed_over_even_if_the_model_asks_for_the_walk_tool(self):
+        tool = {"name": "walk_time", "station_id": DONGHAE, "place_id": MARKET, "after": None}
+        said = {**model(intent="plan_request", tool=tool), "plan": None}
+        body, chat = self.ask("이대로 하루 일정 짜줘", [said], date="2026-11-21",
+                              pins=[DONGHAE, MARKET])
+        self.assertEqual((body["intent"], body["tool_used"]), ("plan_request", None))
+        self.assertEqual(body["action"]["payload"]["requiredPlaceIds"], [DONGHAE, MARKET])
+        self.assertEqual(chat.call_count, 1)
 
     def test_minutes_the_model_made_up_never_reach_the_user(self):
         body, _ = self.ask(QUESTION, [model("걸어서 25분쯤 걸려요.")])

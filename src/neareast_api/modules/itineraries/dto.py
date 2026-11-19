@@ -66,6 +66,15 @@ class ItineraryDto(ItineraryCreateDto):
     updatedAt: datetime
 
 
+class SelectedTrainDto(BaseModel):
+    """One picked train with what the user means to do with it and where."""
+
+    model_config = ConfigDict(extra="forbid")
+    trainNo: str = Field(min_length=1, max_length=20)
+    action: Literal["ride", "observe"]
+    stationId: str = Field(min_length=1, max_length=64)
+
+
 class PlanningConditionsDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
     travelDate: date | None = None
@@ -77,6 +86,9 @@ class PlanningConditionsDto(BaseModel):
     requiredPlaceIds: list[str] = Field(default_factory=list, max_length=50)
     preferredTrainTypes: list[TrainType] = Field(default_factory=list, max_length=10)
     selectedTrainIds: list[str] = Field(default_factory=list, max_length=50)
+    # Optional detail for selectedTrainIds. Omit it (null) to keep sending train numbers
+    # only; when sent, it must name exactly the trains in selectedTrainIds.
+    selectedTrains: list[SelectedTrainDto] | None = Field(default=None, max_length=100)
     interests: list[str] = Field(default_factory=list, max_length=30)
     maxWalkingMinutes: int | None = Field(default=None, ge=0, le=1440)
 
@@ -87,6 +99,14 @@ class PlanningConditionsDto(BaseModel):
         sameDay = self.endDate is None or self.endDate == self.travelDate
         if sameDay and self.startTime and self.endTime and self.endTime <= self.startTime:
             raise ValueError("End time must be later on the same day")
+        if self.selectedTrains is not None:
+            detailed = {train.trainNo for train in self.selectedTrains}
+            listed = set(self.selectedTrainIds)
+            if detailed != listed:
+                raise ValueError(
+                    "selectedTrains and selectedTrainIds must name the same trains; "
+                    f"only in one of them: {sorted(detailed ^ listed)}"
+                )
         return self
 
 

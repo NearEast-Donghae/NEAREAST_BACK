@@ -224,3 +224,42 @@ class ItineraryRevisionEntity(Base):
     createdAt: Mapped[datetime] = mapped_column(
         "created_at", DateTime(timezone=True), default=currentTime
     )
+
+
+class SavedPlaceEntity(Base):
+    __tablename__ = "saved_places"
+    __table_args__ = (UniqueConstraint("user_id", "place_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=createId)
+    userId: Mapped[str] = mapped_column(
+        "user_id", ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    placeId: Mapped[str] = mapped_column("place_id", ForeignKey("places.id", ondelete="CASCADE"))
+    priority: Mapped[str] = mapped_column(String(20))
+    createdAt: Mapped[datetime] = mapped_column(
+        "created_at", DateTime(timezone=True), default=currentTime
+    )
+    updatedAt: Mapped[datetime] = mapped_column(
+        "updated_at", DateTime(timezone=True), default=currentTime
+    )
+
+
+class SavedTrainEntity(Base):
+    __tablename__ = "saved_trains"
+    __table_args__ = (UniqueConstraint("user_id", "train_no", "action", "station_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=createId)
+    userId: Mapped[str] = mapped_column(
+        "user_id", ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    # A train number, not a key into one snapshot: the timetable is replaced as a whole.
+    trainNo: Mapped[str] = mapped_column("train_no", String(20))
+    action: Mapped[str] = mapped_column(String(10))
+    stationId: Mapped[str] = mapped_column(
+        "station_id", ForeignKey("places.id", ondelete="CASCADE")
+    )
+    priority: Mapped[str] = mapped_column(String(20))
+    createdAt: Mapped[datetime] = mapped_column(
+        "created_at", DateTime(timezone=True), default=currentTime
+    )
+    updatedAt: Mapped[datetime] = mapped_column(
+        "updated_at", DateTime(timezone=True), default=currentTime
+    )
