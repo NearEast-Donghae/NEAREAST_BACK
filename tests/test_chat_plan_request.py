@@ -68,16 +68,21 @@ class _Case(unittest.TestCase):
 
 
 class HandoffTests(_Case):
-    def test_action_carries_the_screen_context_in_the_planner_request_shape(self):
+    def test_action_carries_the_screen_context_as_planning_conditions(self):
         body = self.ask("일정 짜줘", date="2026-11-21", pins=PINS, depth="full",
                         dismissed=["poi_nongoldam"])
         self.assertEqual(body["intent"], "plan_request")
         self.assertEqual(body["action"], {"type": "plan_request", "payload": {
-            "date": "2026-11-21", "start": None, "end": None,
-            "items": [{"kind": "station", "place": DONGHAE},
-                      {"kind": "station", "place": MUKHO},
-                      {"kind": "visit", "place": MARKET}],
-            "mode": None, "dismissed": ["poi_nongoldam"], "depth": "full"}})
+            "travelDate": "2026-11-21", "endDate": None, "startTime": None, "endTime": None,
+            "departurePlaceId": None, "arrivalPlaceId": None,
+            "requiredPlaceIds": [DONGHAE, MUKHO, MARKET],
+            "preferredTrainTypes": [], "selectedTrainIds": [], "selectedTrains": [],
+            "interests": [], "maxWalkingMinutes": None}})
+
+    def test_the_payload_is_what_planning_requests_accept(self):
+        from neareast_api.modules.itineraries.dto import PlanningConditionsDto
+        payload = self.ask("일정 짜줘", date="2026-11-21", pins=PINS)["action"]["payload"]
+        self.assertEqual(PlanningConditionsDto.model_validate(payload).requiredPlaceIds, PINS)
 
     def test_nearie_only_points_to_the_plan_screen(self):
         body = self.ask("일정 짜줘", date="2026-11-21", pins=PINS)
@@ -95,11 +100,11 @@ class HandoffTests(_Case):
 
     def test_a_date_said_in_the_message_wins_over_the_screen(self):
         body = self.ask("2026-11-28로 일정 짜줘", date="2026-11-21", pins=PINS)
-        self.assertEqual(body["action"]["payload"]["date"], "2026-11-28")
+        self.assertEqual(body["action"]["payload"]["travelDate"], "2026-11-28")
 
-    def test_unknown_and_focused_places_are_not_items(self):
+    def test_unknown_and_focused_places_are_not_required(self):
         body = self.ask("일정 짜줘", date="2026-11-21", pins=[DONGHAE, "poi_gone"], focused=MUKHO)
-        self.assertEqual(body["action"]["payload"]["items"], [{"kind": "station", "place": DONGHAE}])
+        self.assertEqual(body["action"]["payload"]["requiredPlaceIds"], [DONGHAE])
 
     def test_safety_still_comes_first(self):
         body = self.ask("건널목 안에서 찍는 일정 짜줘", date="2026-11-21", pins=PINS)
@@ -128,7 +133,7 @@ class MissingConditionTests(_Case):
                     {"role": "user", "content": "일정 짜줘"},
                     {"role": "assistant", "content": body["reply"]}])
                 self.assertEqual(again["action"]["type"], "plan_request")
-                self.assertEqual(len(again["action"]["payload"]["items"]), 3)
+                self.assertEqual(again["action"]["payload"]["requiredPlaceIds"], PINS)
 
 
 def model(intent="plan_request", reply="좋아요.", plan=None, tool=None, proposals=()):
@@ -138,7 +143,7 @@ def model(intent="plan_request", reply="좋아요.", plan=None, tool=None, propo
 
 def plan(**fields):
     return {"date": None, "start_place": None, "start_time": None, "end_place": None,
-            "end_time": None, "mode": None, **fields}
+            "end_time": None, **fields}
 
 
 class ModelPathTests(_Case):
@@ -174,26 +179,31 @@ class ModelPathTests(_Case):
         self.assertIsNotNone(body["action"])
 
     def test_conditions_the_user_said_are_taken_from_the_model_after_checking(self):
-        said = plan(start_place=DONGHAE, start_time="09:00", end_place=DONGHAE,
-                    end_time="19:00", mode="train_first")
-        body, _ = self.ask_model([model(plan=said)], "9시에 동해역에서 나가 7시에 돌아오는 일정 짜줘",
+        said = plan(start_place=DONGHAE, start_time="09:00", end_place=MUKHO, end_time="19:00")
+        body, _ = self.ask_model([model(plan=said)], "9시에 동해역에서 나가 7시에 묵호역에 닿는 일정 짜줘",
                                  date="2026-11-21", pins=PINS)
         payload = body["action"]["payload"]
-        self.assertEqual(payload["start"], {"place": DONGHAE, "time": "09:00"})
-        self.assertEqual(payload["end"], {"place": DONGHAE, "time": "19:00"})
-        self.assertEqual(payload["mode"], "train_first")
+        self.assertEqual((payload["departurePlaceId"], payload["startTime"]), (DONGHAE, "09:00"))
+        self.assertEqual((payload["arrivalPlaceId"], payload["endTime"]), (MUKHO, "19:00"))
 
     def test_conditions_the_model_made_up_are_dropped(self):
         said = plan(date="2026-13-45", start_place="station_nowhere", start_time="9시",
-                    end_place=None, end_time="25:00", mode="fastest")
+                    end_place=None, end_time="25:00")
         body, _ = self.ask_model([model(plan=said)], "일정 짜줘", date="2026-11-21", pins=PINS)
         payload = body["action"]["payload"]
-        self.assertEqual((payload["date"], payload["start"], payload["end"], payload["mode"]),
-                         ("2026-11-21", None, None, None))
+        self.assertEqual(
+            [payload[key] for key in ("travelDate", "departurePlaceId", "startTime", "endTime")],
+            ["2026-11-21", None, None, None])
+
+    def test_an_end_before_the_start_is_left_for_the_plan_screen(self):
+        said = plan(start_time="19:00", end_time="09:00")
+        body, _ = self.ask_model([model(plan=said)], "일정 짜줘", date="2026-11-21", pins=PINS)
+        payload = body["action"]["payload"]
+        self.assertEqual((payload["startTime"], payload["endTime"]), ("19:00", None))
 
     def test_the_model_can_supply_a_date_said_earlier_in_the_conversation(self):
         body, _ = self.ask_model([model(plan=plan(date="2026-11-21"))], "일정 짜줘", pins=PINS)
-        self.assertEqual(body["action"]["payload"]["date"], "2026-11-21")
+        self.assertEqual(body["action"]["payload"]["travelDate"], "2026-11-21")
 
     def test_no_tool_call_is_spent_on_a_plan_request(self):
         tool = {"name": "station_rhythm", "station_id": DONGHAE, "place_id": None, "after": None}
