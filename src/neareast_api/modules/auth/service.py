@@ -81,6 +81,31 @@ def requireUser(
 
 class AuthService:
     @staticmethod
+    def updateProfile(session: Session, user: UserEntity, nickname: str) -> UserEntity:
+        user.nickname = nickname
+        session.commit()
+        return user
+
+    @staticmethod
+    def changePassword(session: Session, user: UserEntity, currentPassword: str,
+                       newPassword: str, currentToken: str) -> None:
+        try:
+            PASSWORD_HASHER.verify(user.passwordHash, currentPassword)
+        except (VerificationError, InvalidHashError):
+            raise HTTPException(403, "Current password is incorrect") from None
+        user.passwordHash = PASSWORD_HASHER.hash(newPassword)
+        session.execute(delete(AuthSessionEntity).where(
+            AuthSessionEntity.userId == user.id,
+            AuthSessionEntity.tokenHash != tokenDigest(currentToken),
+        ))
+        session.commit()
+
+    @staticmethod
+    def deleteAccount(session: Session, user: UserEntity) -> None:
+        session.delete(user)
+        session.commit()
+
+    @staticmethod
     def signup(session: Session, signup: SignupDto) -> UserEntity:
         user = UserEntity(
             email=signup.email,

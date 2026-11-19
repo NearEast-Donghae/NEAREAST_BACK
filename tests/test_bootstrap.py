@@ -28,6 +28,7 @@ class BootstrapTests(unittest.TestCase):
                     "/api/v1/auth/login",
                     "/api/v1/auth/logout",
                     "/api/v1/users/me",
+                    "/api/v1/users/me/password",
                     "/api/v1/conversations",
                     "/api/v1/conversations/{conversationId}",
                     "/api/v1/conversations/{conversationId}/messages",

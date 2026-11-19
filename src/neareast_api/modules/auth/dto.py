@@ -36,3 +36,14 @@ class UserDto(BaseModel):
 class AuthDto(BaseModel):
     user: UserDto
     csrfToken: str
+
+
+class ProfileUpdateDto(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    nickname: str = Field(min_length=2, max_length=12)
+
+
+class PasswordUpdateDto(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    currentPassword: SecretStr = Field(min_length=8, max_length=128)
+    newPassword: SecretStr = Field(min_length=8, max_length=128)
