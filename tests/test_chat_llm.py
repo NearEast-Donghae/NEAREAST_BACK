@@ -419,6 +419,18 @@ class LLMResponderTests(unittest.TestCase):
         self.assertEqual([m["content"] for m in sent(chat)[1:3]], ["A", "B"])
         self.assertEqual(sent(chat)[-1]["content"], "그럼?")
 
+    def test_only_the_most_recent_history_reaches_the_model(self):
+        history = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"m{i}"}
+                   for i in range(31)]
+        _, chat = self.ask([draft(intent="smalltalk")], message="지금", history=history)
+        turns = [m["content"] for m in sent(chat)[1:-2]]
+        self.assertEqual(turns, [f"m{i}" for i in range(21, 31)])  # last 10, order kept
+
+    def test_short_history_is_sent_whole(self):
+        history = [{"role": "user", "content": "A"}, {"role": "assistant", "content": "B"}]
+        _, chat = self.ask([draft(intent="smalltalk")], message="지금", history=history)
+        self.assertEqual([m["content"] for m in sent(chat)[1:-2]], ["A", "B"])
+
     def test_static_prefix_is_identical_across_requests(self):
         with patch.object(llm, "chat_json", return_value=draft()) as chat:
             self.client.post(URL, json={"message": "안녕", "context": {"focused": "station_mukho"}})

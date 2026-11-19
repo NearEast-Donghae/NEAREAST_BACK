@@ -7,7 +7,10 @@ immediately instead of at integration time.
 import datetime as dt
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+HISTORY_KEEP = 10  # most recent messages actually used
+HISTORY_ACCEPT = 200  # more than this is not a chat client; reject
 
 PlaceId = Annotated[str, Field(min_length=1, max_length=64)]
 Intent = Literal["knowledge", "train_lookup", "safety", "proposal", "smalltalk"]
@@ -37,7 +40,13 @@ class ChatTurn(_Strict):
 class ChatRequest(_Strict):
     message: str = Field(min_length=1, max_length=1000)
     context: ChatContext = Field(default_factory=ChatContext)
-    history: list[ChatTurn] = Field(default_factory=list, max_length=10)
+    # Clients may send the whole conversation; only the latest HISTORY_KEEP messages are used.
+    history: list[ChatTurn] = Field(default_factory=list, max_length=HISTORY_ACCEPT)
+
+    @model_validator(mode="after")
+    def _keep_recent_history(self) -> "ChatRequest":
+        self.history = self.history[-HISTORY_KEEP:]
+        return self
 
 
 class Proposal(_Strict):

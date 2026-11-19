@@ -58,7 +58,7 @@ class ChatHttpTests(unittest.TestCase):
         self.assertEqual(response.json()["intent"], "smalltalk")
 
     def test_invalid_input_is_422(self):
-        too_long_history = [{"role": "user", "content": "x"}] * 11
+        too_long_history = [{"role": "user", "content": "x"}] * 201
         cases = {
             "empty message": {"message": ""},
             "missing message": {"context": {}},
@@ -72,6 +72,12 @@ class ChatHttpTests(unittest.TestCase):
         for name, payload in cases.items():
             with self.subTest(name):
                 self.assertEqual(self.client.post(URL, json=payload).status_code, 422)
+
+    def test_long_history_is_accepted(self):
+        history = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"m{i}"}
+                   for i in range(31)]
+        response = self.client.post(URL, json={"message": "안녕", "history": history})
+        self.assertEqual(response.status_code, 200)
 
     def test_unknown_ids_are_ignored_and_disclosed_not_404(self):
         response = post(

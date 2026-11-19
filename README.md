@@ -127,7 +127,7 @@ NearEast_Backend/
     "depth": "light",               // reference|light|full (기본 light)
     "dismissed": ["poi_nongoldam"]  // 사용자가 거절한 제안 target id (기본 [])
   },
-  "history": [{"role": "user", "content": "..."}]  // 최근 10턴까지
+  "history": [{"role": "user", "content": "..."}]  // 전체 대화를 보내도 됨. 서버는 최근 메시지 10개만 사용
 }
 // 응답
 {
