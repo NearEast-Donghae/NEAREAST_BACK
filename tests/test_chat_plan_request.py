@@ -195,14 +195,52 @@ class ModelPathTests(_Case):
             [payload[key] for key in ("travelDate", "departurePlaceId", "startTime", "endTime")],
             ["2026-11-21", None, None, None])
 
+    def test_conditions_the_user_never_said_are_dropped(self):
+        # Seen on the real model: the first saved station came back as the departure.
+        guessed = plan(start_place=MUKHO, start_time="09:00", end_place=DONGHAE, end_time="18:00")
+        body, _ = self.ask_model([model(plan=guessed)], "이대로 하루 일정 짜줘",
+                                 date="2026-11-21", pins=PINS)
+        payload = body["action"]["payload"]
+        self.assertEqual(
+            [payload[k] for k in ("departurePlaceId", "arrivalPlaceId", "startTime", "endTime")],
+            [None, None, None, None])
+        # A place only asked about earlier is not a departure ("묵호" inside 묵호등대).
+        asked = [{"role": "user", "content": "묵호등대는 언제 처음 불을 밝혔어?"},
+                 {"role": "assistant", "content": "1963년이에요."},
+                 {"role": "user", "content": "동해역 열차 9시쯤 있어?"},
+                 {"role": "assistant", "content": "확인해 볼게요."}]
+        with patch.object(llm, "chat_json", return_value=model(plan=guessed)):
+            body = self.ask("이대로 하루 일정 짜줘", history=asked, date="2026-11-21", pins=PINS)
+        payload = body["action"]["payload"]
+        self.assertEqual(
+            [payload[k] for k in ("departurePlaceId", "arrivalPlaceId", "startTime", "endTime")],
+            [None, None, None, None])
+        # Said in an earlier turn of the conversation: taken.
+        earlier = [{"role": "user", "content": "아침 9시에 묵호역에서 출발할 거야"},
+                   {"role": "assistant", "content": "좋아요."}]
+        with patch.object(llm, "chat_json", return_value=model(plan=guessed)):
+            body = self.ask("이대로 하루 일정 짜줘", history=earlier, date="2026-11-21", pins=PINS)
+        payload = body["action"]["payload"]
+        self.assertEqual((payload["departurePlaceId"], payload["startTime"]), (MUKHO, "09:00"))
+        self.assertEqual((payload["arrivalPlaceId"], payload["endTime"]), (None, None))
+
+    def test_a_date_from_the_model_needs_the_user_to_have_spoken_of_a_day(self):
+        body, _ = self.ask_model([model(plan=plan(date="2026-11-21"))], "일정 짜줘", pins=PINS)
+        self.assertIsNone(body["action"])  # nobody said a day: Nearie asks for it
+        self.assertIn("날짜", body["reply"])
+
     def test_an_end_before_the_start_is_left_for_the_plan_screen(self):
         said = plan(start_time="19:00", end_time="09:00")
-        body, _ = self.ask_model([model(plan=said)], "일정 짜줘", date="2026-11-21", pins=PINS)
+        body, _ = self.ask_model([model(plan=said)], "저녁 7시부터 아침 9시까지 일정 짜줘",
+                                 date="2026-11-21", pins=PINS)
         payload = body["action"]["payload"]
         self.assertEqual((payload["startTime"], payload["endTime"]), ("19:00", None))
 
     def test_the_model_can_supply_a_date_said_earlier_in_the_conversation(self):
-        body, _ = self.ask_model([model(plan=plan(date="2026-11-21"))], "일정 짜줘", pins=PINS)
+        earlier = [{"role": "user", "content": "이번 주 토요일에 갈 거야"},
+                   {"role": "assistant", "content": "좋아요."}]
+        with patch.object(llm, "chat_json", return_value=model(plan=plan(date="2026-11-21"))):
+            body = self.ask("일정 짜줘", history=earlier, pins=PINS)
         self.assertEqual(body["action"]["payload"]["travelDate"], "2026-11-21")
 
     def test_no_tool_call_is_spent_on_a_plan_request(self):
