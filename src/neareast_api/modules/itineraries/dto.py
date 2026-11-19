@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from neareast_api.core.train_types import TrainType
+
 
 class TimelineItemDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -82,7 +84,7 @@ class PlanningConditionsDto(BaseModel):
     departurePlaceId: str | None = Field(default=None, max_length=64)
     arrivalPlaceId: str | None = Field(default=None, max_length=64)
     requiredPlaceIds: list[str] = Field(default_factory=list, max_length=50)
-    preferredTrainTypes: list[str] = Field(default_factory=list, max_length=10)
+    preferredTrainTypes: list[TrainType] = Field(default_factory=list, max_length=10)
     selectedTrainIds: list[str] = Field(default_factory=list, max_length=50)
     # Optional detail for selectedTrainIds. Omit it (null) to keep sending train numbers
     # only; when sent, it must name exactly the trains in selectedTrainIds.
