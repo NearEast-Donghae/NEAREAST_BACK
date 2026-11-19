@@ -22,21 +22,21 @@ from zoneinfo import ZoneInfo
 
 from neareast_api.core.config import Settings
 from neareast_api.modules.chat import llm, prompts, retrieval, tools
-from neareast_api.modules.recommend import service as recommend_service
-from neareast_api.modules.trains import service as timetable_service
 from neareast_api.modules.chat.schemas import (
     Certainty,
-    PersonaLoading,
-    PersonaResponse,
     ChatAction,
     ChatContext,
     ChatRequest,
     ChatResponse,
     Intent,
+    PersonaLoading,
+    PersonaResponse,
     Proposal,
     ToolName,
 )
 from neareast_api.modules.itineraries.dto import PlanningConditionsDto, SelectedTrainDto
+from neareast_api.modules.recommend import service as recommend_service
+from neareast_api.modules.trains import service as timetable_service
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +105,10 @@ class Draft:
     tool_place: str | None = None  # place the tool was run for (subject of the answer)
     evidence: str = ""  # tool result as text; times in the reply are checked against it
     train_count: int | None = None  # trains in the tool result, bounds "N편" claims
+    # Documents found only by similarity (not by the screen or a name in the question).
+    vector_docs: tuple[str, ...] = ()
+    # Documents found by the screen context or by a name in the question.
+    named_docs: tuple[str, ...] = ()
     plan: dict | None = None  # plan conditions the model heard; checked in _plan_handoff
 
 
@@ -333,7 +337,70 @@ def _passing_is_relevant(
     )
 
 
+# An answer that opens by saying there is nothing confirmed about what was asked.
+NO_INFO_OPENING = re.compile(r"확인된 정보(?:가|는|도)?\s*(?:아직\s*)?없|확인된 정보로[^.!?]*어려")
 MARKET_TALK = ("장날", "장이 서", "장이 열", "장 서", "장이 안")
+HAPYEONG_DOC = "safety_hapyeong_crossing"
+
+
+def _asked_docs(context: ResolvedContext) -> list[str]:
+    """Documents the question is plainly about, whatever the responder cites: the
+    Hapyeong crossing case, and the market for a market-day question. They are given to
+    the model and always listed as sources."""
+    message, docs = context.message, context.content.docs
+    asked = []
+    if "하평" in message:
+        asked.append(HAPYEONG_DOC)
+    about_market = context.mentioned is not None and context.mentioned.id == tools.MARKET_ID
+    if about_market or any(word in message for word in MARKET_TALK):
+        asked.append(tools.MARKET_ID)
+    return [doc_id for doc_id in asked if doc_id in docs]
+
+
+# --- walking time between two places: computed here, never left to the responder ---
+
+WALK_WORDS = ("걸어", "걸으", "도보", "걷")
+# ...and asking how long or whether: "걸어갈 만한 데 있어?" is a nearby question, not this.
+WALK_ASK_WORDS = ("얼마나", "몇 분", "걸려", "걸리", "갈 수 있", "가까", "멀어", "멀까", "먼가")
+WALK_ESTIMATE = ("{a}에서 {b}까지는 걸어서 약 {minutes}분이에요. 직선거리에 1.3을 곱해 어림한 값이라 "
+                 "실제 길에 따라 달라질 수 있어요.")
+WALK_NO_POSITION = "{a}에서 {b}까지는 아직 위치 정보가 없어 도보 시간을 계산할 수 없어요."
+# A question about going by train or road is not a walking question, whatever tool the
+# responder asks for ("기차로 얼마나 걸려?").
+RIDE_WORDS = ("기차", "열차", "KTX", "버스", "택시", "차로", "자전거")
+WALK_TOO_FAR = "{a}에서 {b}까지는 걸어가기에는 멀어요. 열차나 버스·택시를 권해요."
+
+
+def _walk_pair(context: ResolvedContext) -> tuple[retrieval.Place, retrieval.Place] | None:
+    """(from, to) when the message asks how long a walk between two places takes: two
+    places named in that order, or one named and "here" (the open marker or first pin)."""
+    message = context.message
+    if not (any(word in message for word in WALK_WORDS)
+            and any(word in message for word in WALK_ASK_WORDS)):
+        return None
+    if any(word in message for word in RIDE_WORDS):
+        return None  # comparing with, or asking about, another way to go
+    named = context.content.places_in_text(message)
+    if len(named) >= 2:
+        return named[0], named[1]
+    here = context.anchor
+    if len(named) == 1 and here is not None and here != named[0]:
+        return here, named[0]
+    return None
+
+
+def _walk_draft(a: retrieval.Place, b: retrieval.Place) -> Draft:
+    """The whole answer is written from the computed result, so no minutes a responder
+    made up can reach the user. Coordinates arriving in the catalog switch the estimate
+    on; nothing here needs to change."""
+    walk = recommend_service.walk_between(a, b)
+    template = {None: WALK_ESTIMATE, "no_coordinates": WALK_NO_POSITION,
+                "too_far": WALK_TOO_FAR}[walk.reason]
+    reply = template.format(a=a.name, b=b.name, minutes=walk.minutes)
+    chips = [f"{p.name} 열차 리듬" for p in (a, b) if p.kind == "station"][:1]
+    chips += [f"{b.name} 근처", f"{a.name} 근처"]  # ones that lead nowhere are dropped later
+    return Draft(reply=reply, intent="proposal", chips=chips, tool_used="walk_time",
+                 tool_place=b.id, evidence=reply)
 
 
 def market_day_sentence(date: dt.date) -> str:
@@ -542,12 +609,50 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     content = context.content
     pinned = {p.id for p in context.pins}
     blocked = set(raw.dismissed) | set(context.unknown_ids)
+    reply = _clip(draft.reply)
+    chips = list(draft.chips)
+    sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
+    if draft.intent != "smalltalk" and draft.tool_used != "walk_time":
+        sources += [doc_id for doc_id in _asked_docs(context) if doc_id not in sources]
+
+    # "Nothing confirmed about that" while citing documents that were only similar to the
+    # question (not on screen, not named in it): the answer did not come from those
+    # documents, so they are not its sources. A partial answer that cites a document the
+    # question did name ("입장료는 확인된 정보가 없어요" about a named place) is left alone.
+    opening = re.split(r"(?<=[.!?])\s+", reply, maxsplit=1)[0]
+    disowned = (draft.tool_used is None and NO_INFO_OPENING.search(opening) is not None
+                and all(s in draft.vector_docs for s in sources))
+    if disowned and sources:
+        _log_replaced("no information, yet sources", reply)
+        sources = []
+
+    # A place may be proposed only when something ties it to this conversation: the user
+    # put it in play (screen, pins, named in the message), a tool returned it, or a
+    # document about what is in play (or one the answer cites) is also about that place.
+    # A model's own idea of what is nearby is not a proposal. The built-in responder only
+    # proposes from tools, so this guards the model path.
+    grounded = None
+    if mode == "llm":
+        grounded = set(context.known_ids) | {p.id for p in content.places_in_text(context.message)}
+        if context.recalled is not None:
+            grounded.add(context.recalled.id)
+        for doc_id in (*sources, *draft.named_docs):
+            grounded.add(doc_id)
+            grounded.update(content.docs[doc_id].places)
+        grounded.update(pid for pid in content.places if f'"{pid}"' in draft.evidence)
+    offered = [p for p in draft.proposals
+               if content.place(p.target) is not None
+               and (grounded is None or p.target in grounded)
+               and not disowned]
+    if len(offered) < len([p for p in draft.proposals if content.place(p.target) is not None]):
+        logger.warning("ungrounded proposals dropped: %s", ", ".join(
+            p.target for p in draft.proposals if p not in offered))
     proposals = []
     # "Leave it empty" is the user's choice (principle 2): nothing is proposed on top of it.
     declined = any(w in context.message for w in KEEP_EMPTY_WORDS)
     if raw.depth != "reference" and not declined:  # reference: information only
-        for p in draft.proposals:
-            if p.target in blocked or content.place(p.target) is None:
+        for p in offered:
+            if p.target in blocked:
                 continue
             if p.target == draft.tool_place:
                 continue  # the place the gap/nearby lookup was about is not a suggestion
@@ -563,14 +668,20 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
                 )
             )
 
-    reply = _clip(draft.reply)
-    sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
-    chips = list(draft.chips)
-
     # Times only from tools or cited documents: every clock time and train count in the
     # reply must appear there, even when some other tool was used.
     cited = "\n".join(content.docs[s].body for s in sources)
-    unverified = unverified_time_claims(reply, f"{draft.evidence}\n{cited}", draft.train_count)
+    evidence = f"{draft.evidence}\n{cited}"
+    unverified = unverified_time_claims(reply, evidence, draft.train_count)
+    if unverified and draft.tool_used is None and sources:
+        # An answer from documents (opening hours, a date): a time the document does not
+        # give, such as one worked out from it, costs that sentence, not the whole answer.
+        # Train answers stay all-or-nothing below: half a timetable would mislead.
+        kept = [sentence for sentence in re.split(r"(?<=[.!?])\s+", reply)
+                if not unverified_time_claims(sentence, evidence, draft.train_count)]
+        if kept:
+            _log_replaced(f"sentences with unverified time ({', '.join(unverified)})", reply)
+            reply, unverified = " ".join(kept), []
     if unverified:
         _log_replaced(f"unverified time ({', '.join(unverified)})", reply)
         reply = NO_TIME_WITHOUT_TOOL
@@ -580,7 +691,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     declining = declined
     ungrounded = draft.tool_used is None and not sources and (
         draft.intent == "knowledge"
-        or (draft.intent == "proposal" and not draft.proposals and not declining)
+        or (draft.intent == "proposal" and not offered and not declining)
     )
     if ungrounded and reply != NO_TIME_WITHOUT_TOOL:
         if reply != NO_INFO:
@@ -612,6 +723,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     # Passing stations: no boarding, observation only, with the rule as a source.
     subject = _subject(draft, context)
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
+            and draft.tool_used != "walk_time"  # a walk there is not about boarding
             and _passing_is_relevant(draft, context, subject, sources)):
         if "관찰" not in reply:  # any wording of "observe only" is enough
             reply = f"{reply.rstrip()} {PASSING_NOTE}"
@@ -703,11 +815,16 @@ def _llm_draft(
             logger.warning("vector search skipped for this question: %s", exc)
             hits = content.search(request.message, context.known_ids)
     docs = _select_docs(hits, context)
+    vector_docs = tuple(h.doc.id for h in hits if h.reason == "vector")
     # A passing station in play: give the model the rule it must follow.
     subject = context.mentioned or context.focused
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
             and PASSING_DOC in content.docs and all(d.id != PASSING_DOC for d in docs)):
         docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[PASSING_DOC]]
+    # Documents the question is plainly about are always in front of the model.
+    for doc_id in _asked_docs(context):
+        if all(d.id != doc_id for d in docs):
+            docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[doc_id]]
 
     raw = context.raw
     static = prompts.build_static(content)
@@ -734,9 +851,22 @@ def _llm_draft(
             return llm.chat_json(settings, messages, prompts.DRAFT_SCHEMA, label, deadline)
 
     first = call(None, "first")
+    # Walking time: asked in words the server knows, or by the model's own tool request.
+    # A plan request is handed over as it is: neither a walk nor any other tool is run.
+    wants_plan = _wants_plan(str(first.get("intent")), request.message)
+    risky = any(word in request.message for word in RISK_WORDS)
+    pair = None if risky or wants_plan else _walk_pair(context)
+    asked = first.get("tool_request") or {}
+    by_ride = any(word in request.message for word in RIDE_WORDS)
+    if (pair is None and not risky and not by_ride and not wants_plan
+            and asked.get("name") == "walk_time"):
+        ends = [content.place(asked.get(key) or "") for key in ("station_id", "place_id")]
+        if None not in ends and ends[0] != ends[1]:
+            pair = (ends[0], ends[1])
+    if pair is not None:
+        return _walk_draft(*pair)
     run = None
-    # A plan request is handed over as it is: no tool call is spent on it.
-    if first.get("tool_request") and not _wants_plan(str(first.get("intent")), request.message):
+    if first.get("tool_request") and not wants_plan:
         with stages.timed("tool"):
             run = _run_tool(first["tool_request"], context)
         final = call(run.result, "after_tool")  # a second tool request is ignored
@@ -757,6 +887,8 @@ def _llm_draft(
         draft.train_count = run.train_count
     # Documents the model was given are evidence too, cited or not ("하루 6편" from a doc).
     draft.evidence = "\n".join([draft.evidence, *(d.body for d in docs)])
+    draft.vector_docs = vector_docs
+    draft.named_docs = tuple(h.doc.id for h in hits if h.reason != "vector")
     return draft
 
 
@@ -956,6 +1088,8 @@ def _mock_draft(message: str, context: ResolvedContext) -> Draft:
         return _mock_safety(message, context)
     if is_plan_request(message):
         return Draft(reply="", intent="plan_request")  # _plan_handoff writes the answer
+    if (pair := _walk_pair(context)) is not None:
+        return _walk_draft(*pair)
     if _has(message, _TRAIN):
         return _mock_train(message, context)
     if _has(message, _KEEP_EMPTY):

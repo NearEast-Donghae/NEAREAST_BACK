@@ -89,6 +89,23 @@ class Content:
                     found.append((match.start(), -len(label), place.id, place))
         return min(found, key=lambda f: f[:3])[3] if found else None
 
+    def places_in_text(self, text: str) -> list[Place]:
+        """Every catalog place named in free text, in the order they are written. Where
+        names overlap the longest wins ("묵호항역" is not also 묵호역)."""
+        found = []
+        for place in self.places.values():
+            for label in (place.name, *place.aliases):
+                pattern = re.escape(label) + ("" if label == place.name else "(?!시)")
+                for match in re.finditer(pattern, text):
+                    found.append((match.start(), -len(label), match.end(), place))
+        named, covered = [], -1
+        for start, _, end, place in sorted(found, key=lambda f: f[:2]):
+            if start >= covered:
+                covered = end
+                if place not in named:
+                    named.append(place)
+        return named
+
     def search(
         self,
         message: str,

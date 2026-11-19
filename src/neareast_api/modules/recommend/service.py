@@ -9,6 +9,7 @@ put into a plan here: it is offered and the user decides.
 import datetime as dt
 import math
 from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 
 from neareast_api.modules.places.service import Place
 from neareast_api.modules.recommend.schemas import Suggestion
@@ -47,6 +48,21 @@ def walk_minutes(a: Place, b: Place) -> int | None:
     km = 2 * 6371.0088 * math.asin(math.sqrt(h))
     minutes = math.ceil(round(km * WALK_DETOUR / WALK_KMH * 60, 6))
     return minutes if minutes <= MAX_WALK_MIN else None
+
+
+@dataclass(frozen=True)
+class Walk:
+    minutes: int | None
+    reason: str | None = None  # why there is no time: "no_coordinates" | "too_far"
+
+
+def walk_between(a: Place, b: Place) -> Walk:
+    """Walking time between two places, or why it cannot be given. With coordinates on
+    both ends it is the straight-line estimate of walk_minutes; nothing else is guessed."""
+    if None in (a.lat, a.lng, b.lat, b.lng):
+        return Walk(None, "no_coordinates")
+    minutes = walk_minutes(a, b)
+    return Walk(minutes) if minutes is not None else Walk(None, "too_far")
 
 
 def suggest(
