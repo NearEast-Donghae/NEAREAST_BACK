@@ -19,3 +19,4 @@ Thumbs.db
 *.log
 llm_usage.jsonl
 eval_last.json
+.claude/settings.local.json
