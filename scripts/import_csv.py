@@ -13,7 +13,7 @@ SOURCES = (
     ("tourism", "관광명소현황", "15029894", "tourism", True),
     ("terminals", "여객터미널정보", "15040144", "transport_hub", True),
     ("kr_stations", "철도역정보", "15067652", "station", False),
-    ("korail_donghae", "동해선역위치정보", None, "station", False),
+    ("korail_donghae", "동해선_역위치정보", None, "station", False),
     ("verified_places", "verified_places", None, "curated", False),
 )
 

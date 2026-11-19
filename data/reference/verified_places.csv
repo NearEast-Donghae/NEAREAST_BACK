@@ -1,0 +1,5 @@
+name,kind,address,latitude,longitude,railway_lines,operation_status,passenger_handling,freight_handling,visit_allowed,place_type,source_url,source_date,checked_at
+묵호항역,station,강원특별자치도 동해시 향로봉길 91,,,,,,,,railway_station,https://js119.gwd.go.kr/dh119/partici/partici_notice?articleSeq=11070643,,2026-11-19
+삼화역,station,강원특별자치도 동해시 삼화로 54,,,,,,,,railway_station,https://js119.gwd.go.kr/dh119/partici/partici_notice?articleSeq=11070643,,2026-11-19
+묵호항역,station,강원특별자치도 동해시 향로봉길 91,,,,,,true,,railway_station,https://info.korail.com/info/contents.do?key=870,,2026-11-19
+삼화역,station,강원특별자치도 동해시 삼화로 54,,,,,,true,,railway_station,https://info.korail.com/info/contents.do?key=870,,2026-11-19
