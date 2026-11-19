@@ -116,6 +116,63 @@ class SnapshotLlmTests(unittest.TestCase):
         self.assertEqual(body["reply"], f"추암역은 16:07에 강릉행 열차가 있어요. {BASIS}")
         self.assertEqual(body["mode"], "llm")
 
+    def rhythm(self, station_id, message, final_reply, sources=()):
+        first = {"intent": "train_lookup", "reply": "", "chips": [], "proposals": [], "sources": [],
+                 "tool_request": {"name": "station_rhythm", "station_id": station_id,
+                                  "place_id": None, "after": None}}
+        final = {**first, "reply": final_reply, "sources": list(sources), "tool_request": None}
+        with patch.object(llm, "chat_json", side_effect=[first, final]) as chat:
+            body = self.client.post(URL, json={"message": message, "context": {}}).json()
+        return body, json.loads(chat.call_args_list[1].args[1][-1]["content"].split("\n")[1])
+
+    def test_busy_station_is_given_as_a_digest_but_verified_against_the_whole_day(self):
+        reply = "동해역은 13:16에도 부전행 열차가 서요."  # not in the digest, but a real train
+        body, result = self.rhythm("station_donghae", "동해역 열차 리듬", reply)
+        self.assertEqual(result["total_trains"], 63)
+        self.assertNotIn("trains", result)  # no 63-line list for the model to recite
+        self.assertLessEqual(len(result["busiest_trains"]), 10)
+        self.assertTrue(all(key.endswith("시대") for key in result["hourly_counts"]))
+        self.assertNotIn("13:16", json.dumps(result, ensure_ascii=False))
+        self.assertTrue(body["reply"].startswith(reply))  # verified against the full day
+        body, _ = self.rhythm("station_donghae", "동해역 열차 리듬", "동해역은 13:19에 열차가 서요.")
+        self.assertIn("확인된 시간표", body["reply"])  # 13:19 is nobody's time
+
+    def test_long_station_list_is_capped_for_the_model(self):
+        self.TOOL = {**self.TOOL, "station_id": "station_donghae", "after": None}
+        with patch.object(llm, "chat_json", side_effect=[
+            {"intent": "train_lookup", "reply": "", "chips": [], "proposals": [], "sources": [],
+             "tool_request": self.TOOL},
+            {"intent": "train_lookup", "reply": "동해역 첫 열차는 05:55예요.", "chips": [],
+             "proposals": [], "sources": [], "tool_request": None}]) as chat:
+            self.client.post(URL, json={"message": "동해역 열차 목록", "context": {}})
+        result = json.loads(chat.call_args_list[1].args[1][-1]["content"].split("\n")[1])
+        self.assertEqual((len(result["trains"]), result["total_trains"], result["more"]), (10, 63, 53))
+
+    def test_both_basis_sentences_are_added_even_if_the_model_mentions_one(self):
+        said_one = "망상역은 최근 토요일 3주 기록으로 보면 10:42쯤 열차가 지나가요. 관찰만 할 수 있어요."
+        body, _ = self.rhythm("station_mangsang", "망상역 열차 몇 시에 지나가?", said_one)
+        self.assertEqual(body["reply"].count("토요일 3주"), 1)  # not repeated
+        self.assertTrue(body["reply"].endswith("통과 시각은 앞뒤 정차역 시각으로 어림했어요."))
+        said_none = "망상역은 10:42쯤 열차가 지나가요. 관찰만 할 수 있어요."
+        body, _ = self.rhythm("station_mangsang", "망상역 열차 몇 시에 지나가?", said_none)
+        self.assertTrue(body["reply"].endswith(
+            f"{BASIS} 통과 시각은 앞뒤 정차역 시각으로 어림했어요."))
+
+    def test_count_from_a_given_document_is_kept_even_without_citing_it(self):
+        reply = "추암역은 하루 6편이 서요. 강릉 방면 3편, 동대구·부전 방면 3편이에요."
+        with patch.object(llm, "chat_json", return_value={
+            "intent": "train_lookup", "reply": reply, "chips": [], "proposals": [],
+            "sources": [], "tool_request": None}):
+            body = self.client.post(URL, json={"message": "추암역 하루에 몇 편 다녀?",
+                                               "context": {}}).json()
+        self.assertEqual(body["reply"], reply)
+        with patch.object(llm, "chat_json", return_value={
+            "intent": "train_lookup", "reply": "추암역은 하루 12편이 서요.", "chips": [],
+            "proposals": [], "sources": [], "tool_request": None}):
+            body = self.client.post(URL, json={"message": "추암역 하루에 몇 편 다녀?",
+                                               "context": {}}).json()
+        self.assertIn("확인된 시간표", body["reply"])  # 12편 is in no document or tool result
+
     def test_time_outside_the_snapshot_is_replaced_without_a_basis_claim(self):
         body, _ = self.ask("추암역은 16:30에 강릉행 열차가 있어요.")
         self.assertIn("확인된 시간표", body["reply"])

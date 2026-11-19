@@ -55,6 +55,7 @@ NO_TIME_WITHOUT_TOOL = (
 NO_INFO = "아직 확인된 정보가 없어요. 지도에서 궁금한 역이나 장소를 열어 두고 다시 물어봐 주세요."
 MOCK_NOTE = "(예시 데이터)"
 BASIS_MARK = "토요일 3주"  # present in the timetable's basis summary
+PASSING_MARK = "앞뒤 정차역"  # present in the passing-time basis
 PASSING_NOTE = "이 역은 여객열차가 서지 않아 타고 내릴 수 없고, 열차는 관찰만 할 수 있어요."
 PASSING_DOC = "safety_passing_station"
 DEFAULT_CHIPS = ["동해역 열차 리듬", "동해역 근처"]
@@ -423,9 +424,12 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     if draft.tool_source == tools.MOCK and MOCK_NOTE not in reply:
         reply = f"{MOCK_NOTE} {reply}"
     # Snapshot times are estimates: the answer always says what they rest on.
-    if (draft.tool_source == tools.SNAPSHOT and draft.tool_basis and not unverified
-            and BASIS_MARK not in reply):
-        reply = f"{reply.rstrip()} {draft.tool_basis}"
+    if draft.tool_source == tools.SNAPSHOT and draft.tool_basis and not unverified:
+        # Sentence by sentence: the model mentioning one basis must not hide the other.
+        for sentence in re.split(r"(?<=[.])\s+", draft.tool_basis):
+            mark = PASSING_MARK if PASSING_MARK in sentence else BASIS_MARK
+            if mark not in reply:
+                reply = f"{reply.rstrip()} {sentence}"
     # Passing stations: no boarding, observation only, with the rule as a source.
     subject = _subject(draft, context)
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
@@ -495,6 +499,8 @@ class ToolRun:
     certainty: Certainty | None = None
     place_id: str | None = None
     source: str | None = None
+    evidence: str = ""  # the whole day's trains, beyond the digest the model saw
+    train_count: int | None = None
 
 
 def _llm_draft(
@@ -560,8 +566,11 @@ def _llm_draft(
         draft.tool_source = run.source
         draft.tool_basis = run.result.get("basis")
         draft.tool_place = run.place_id
-        draft.evidence = json.dumps(run.result, ensure_ascii=False, default=str)
-        draft.train_count = len(run.result["trains"]) if "trains" in run.result else None
+        draft.evidence = "\n".join(
+            [json.dumps(run.result, ensure_ascii=False, default=str), run.evidence])
+        draft.train_count = run.train_count
+    # Documents the model was given are evidence too, cited or not ("하루 6편" from a doc).
+    draft.evidence = "\n".join([draft.evidence, *(d.body for d in docs)])
     return draft
 
 
@@ -635,13 +644,28 @@ NO_TRAIN_DATA = ("이 역은 여객열차 운행 기록이 없어요. 화물열�
                  "안내할 수 없다고 말한다")
 
 
+MAX_TRAINS_SHOWN = 10  # a busy station has 60+ trains: the model gets a digest, not the day
+
+
+def _all_trains(trains) -> str:
+    """Every train as text: what stated times are verified against."""
+    return " | ".join(t.label() for t in trains)
+
+
 def _rhythm_result(rhythm: tools.StationRhythm) -> dict:
-    """Compact text for the model: one line per train keeps a busy station affordable."""
+    """A digest for the model (the full list made it recite 60 trains and run out of
+    tokens). "N시대" keys cannot be misread as clock times."""
+    busiest = max(rhythm.hourly, key=lambda h: (rhythm.hourly[h], -h))
+    in_busiest = [t.label() for t in rhythm.trains if int(t.time[:2]) == busiest]
     return {
         "station_id": rhythm.station_id,
-        "hourly": {f"{hour:02d}": count for hour, count in sorted(rhythm.hourly.items())},
+        "total_trains": len(rhythm.trains),
+        "first_train": rhythm.trains[0].label(),
+        "last_train": rhythm.trains[-1].label(),
+        "hourly_counts": {f"{hour}시대": f"{count}편" for hour, count in sorted(rhythm.hourly.items())},
+        "busiest": f"{busiest}시대 {rhythm.hourly[busiest]}편",
+        "busiest_trains": in_busiest[:MAX_TRAINS_SHOWN],
         "gaps": [f"{g.start}~{g.end}" for g in rhythm.gaps],
-        "trains": [t.label() for t in rhythm.trains],
         "source": rhythm.source,
         "basis": rhythm.basis,
     }
@@ -690,11 +714,15 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
                                          timetable=context.timetable)
             certainty = _weakest(t.certainty for t in trains)
             result = {"station_id": station.id, "after": after,
-                      "trains": [t.label() for t in trains],
+                      "total_trains": len(trains),
+                      "trains": [t.label() for t in trains[:MAX_TRAINS_SHOWN]],
+                      "more": max(len(trains) - MAX_TRAINS_SHOWN, 0),
                       "source": whole.source, "basis": whole.basis}
+            rhythm = whole
         result.update(tool=name, station_name=station.name,
                       passenger_stop=station.passenger_stop)
-        return ToolRun(name, result, certainty, station.id, result["source"])
+        return ToolRun(name, result, certainty, station.id, result["source"],
+                       evidence=_all_trains(rhythm.trains), train_count=len(rhythm.trains))
 
     if name == "nearby_spots":
         default_place = context.mentioned or context.anchor or context.recalled
@@ -819,7 +847,7 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
             intent="train_lookup",
             chips=["동해역 열차 리듬", f"{station.name} 근처"],
         )
-    evidence = json.dumps(_rhythm_result(rhythm), ensure_ascii=False)
+    evidence = _all_trains(rhythm.trains)
     note = f"{MOCK_NOTE} " if rhythm.source == tools.MOCK else ""
     if "목록" in message:
         trains = tools.search_trains(context.raw.date, station=station.id,
@@ -840,8 +868,9 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
     busiest_hour = max(rhythm.hourly, key=lambda h: (rhythm.hourly[h], -h))
     draft = Draft(
         reply=(
-            f"{note}{station.name}은 {busiest_hour}시대에 열차가 가장 많아요"
-            f"({rhythm.hourly[busiest_hour]}편)."
+            f"{note}{station.name}에는 하루 {len(rhythm.trains)}편이 "
+            f"{'지나가요' if station.passenger_stop is False else '서요'}. "
+            f"{busiest_hour}시대에 가장 많아요({rhythm.hourly[busiest_hour]}편)."
         ),
         intent="train_lookup",
         chips=[f"{station.name} 열차 목록", f"{station.name} 근처", "빈 시간은 그대로 둘래요"],
