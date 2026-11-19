@@ -75,12 +75,102 @@ Health와 개발용 API 문서는 공개입니다.
 | `/places`, `/places/{place_id}` | GET | 장소 목록·상세 |
 | `/stations/{station_id}/trains` | GET | 역 정차·통과 열차 |
 | `/trains`, `/trains/{train_no}` | GET | 구간 검색·열차 상세 |
+| `/saved`, `/saved/places`, `/saved/trains` | GET, POST, PATCH, DELETE | 담은 장소·열차 |
 | `/chat/persona`, `/chat/messages` | GET, POST | 기존 PR 챗봇 계약 유지 |
 
 대화 저장에는 `/conversations/{id}/messages`를 사용합니다. 기존 `/chat/messages`는 요청에 담긴
 history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다른 사용자의 리소스는 404를 반환합니다.
 목록에는 `limit`, `offset`을 지원합니다. 메시지는 시간순, 여행·대화방 목록은 최신순입니다.
 여행·여행 조건 수정에는 `expectedRevision`을 보내며 이전 버전이면 409를 반환합니다.
+여행 조건의 `selectedTrains: [{trainNo, action: "ride"|"observe", stationId}]`는 선택 칸입니다. 보내지 않으면 `selectedTrainIds`만으로 동작하고,
+보내면 두 칸의 열차가 같아야 합니다(한쪽에만 있는 열차가 있으면 422).
+
+## 담기 API — `/saved`
+
+로그인한 사용자가 담은 장소와 열차입니다. 다른 보호 API와 같이 쿠키 인증이고, 변경 요청에는 `X-CSRF-Token`이 필요합니다.
+
+| 경로 | 메서드 | 용도 |
+| --- | --- | --- |
+| `/saved` | GET | 담은 장소·열차 전체. 장소 이름, 열차 종류·그 역 시각·확실성 포함 |
+| `/saved/places` | POST | 장소 담기 `{placeId, priority}` |
+| `/saved/places/{savedId}` | PATCH, DELETE | 우선순위 변경 `{priority}` · 빼기 |
+| `/saved/trains` | POST | 열차 담기 `{trainNo, action, stationId, priority}` |
+| `/saved/trains/{savedId}` | PATCH, DELETE | `{priority?, action?}` 변경 · 빼기 |
+
+`priority`는 `"must"`(꼭) 또는 `"interested"`(관심, 기본값), `action`은 `"ride"`(탑승) 또는 `"observe"`(관찰)입니다.
+
+```jsonc
+// POST /api/v1/saved/trains  {"trainNo": "1861", "action": "observe", "stationId": "station_mangsang"}
+// GET /api/v1/saved
+{
+  "places": [
+    {"id": "…", "placeId": "station_mukho", "name": "묵호역", "kind": "station", "priority": "must",
+     "createdAt": "…", "updatedAt": "…"}
+  ],
+  "trains": [
+    {"id": "…", "trainNo": "1861", "action": "observe", "stationId": "station_mangsang", "stationName": "망상역",
+     "priority": "interested", "available": true,       // false: 지금 시간표에 없는 열차(아래 칸은 null)
+     "trainType": null, "line": "동해선", "direction": "D", "origin": "동대구", "destination": "강릉",
+     "time": "10:42", "arr": null, "dep": null, "passing": true,
+     "timeBasis": "묵호 10:37 출발과 정동진 10:57 도착 사이를 거리 비율(0.26)로 어림",
+     "certainty": "estimated", "createdAt": "…", "updatedAt": "…"}
+  ],
+  "basis": "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준"
+}
+```
+
+서버가 지키는 규칙:
+
+| 상황 | 응답 |
+| --- | --- |
+| 통과역에서 `ride`(그 역에 서지 않는 열차 포함) | 422 `"이 역은 열차가 서지 않아 관찰만 할 수 있어요"` |
+| 열차가 그 역을 지나지 않음, 없는 열차번호 | 422 `"이 열차는 이 역을 지나지 않아요"` |
+| 없는 장소 id, 역이 아닌 `stationId` | 422 |
+| 같은 항목을 다시 담음 | 200, 기존 항목을 그대로 돌려줌(새로 만들지 않고 우선순위도 바꾸지 않음) |
+| 장소 50개 또는 열차 50개를 넘김 | 409 |
+| 남의 항목 수정·삭제 | 404 |
+| 열차 `action`을 바꿨더니 이미 담은 항목과 같아짐 | 409 |
+
+열차는 열차번호·행동·역이 모두 같아야 같은 항목입니다. 같은 열차를 묵호에서 관찰하고 동해에서 타는 것은 두 항목입니다.
+
+니어리와의 연결: 로그인 사용자의 담은 장소는 요청의 `context.pins`와 합쳐져 니어리의 핀이 됩니다. 그래서 이미 담은 장소는 제안에 다시 나오지 않습니다.
+
+## 챗봇 응답의 `action` — "일정 짜줘"
+
+`/chat/messages`와 `/conversations/{id}/messages`의 챗봇 응답에 `action`이 추가됐습니다(기본 `null`).
+사용자가 "일정 짜줘", "계획 세워줘", "이대로 하루 만들어줘"처럼 하루 일정을 요청하면 `intent`가 `plan_request`가 되고,
+니어리는 일정을 직접 짜지 않고 일정 화면으로 넘긴다는 안내만 합니다(이 답은 서버가 씁니다).
+
+`action.payload`는 `POST /planning-requests`의 `conditions`와 같은 형식이라 그대로 넘길 수 있습니다.
+
+```jsonc
+// 요청: {"message": "일정 짜줘", "context": {"date": "2026-11-21"}}  (묵호역을 must로, 열차 1861을 동해역 탑승으로 담아 둔 사용자)
+{
+  "reply": "11월 21일 하루 일정은 일정 화면에서 짜요. 담아 둔 곳(묵호역)과 열차 1편을 그대로 일정 화면으로 넘겨 드릴게요. 순서와 시간은 거기서 직접 고를 수 있어요.",
+  "intent": "plan_request",
+  "action": {
+    "type": "plan_request",
+    "payload": {
+      "travelDate": "2026-11-21", "endDate": null,
+      "startTime": null, "endTime": null,               // 대화에서 말했을 때만
+      "departurePlaceId": null, "arrivalPlaceId": null,  // 대화에서 말했을 때만
+      "requiredPlaceIds": ["station_mukho"],             // must로 담은 장소 + 요청의 context.pins
+      "selectedTrainIds": ["1861"],                      // 담은 열차의 열차번호
+      "selectedTrains": [{"trainNo": "1861", "action": "ride", "stationId": "station_donghae"}],
+      "preferredTrainTypes": [], "interests": [], "maxWalkingMinutes": null
+    }
+  },
+  "chips": ["묵호역 열차 리듬", "묵호역 근처"],
+  "proposals": [], "sources": [], "tool_used": null, "mode": "mock"
+}
+```
+
+- `action`이 있으면 프론트는 `payload`를 들고 일정 화면을 엽니다. 열차의 탑승/관찰 표현은 협의 중이라 `selectedTrainIds`와 `selectedTrains`를 둘 다 채웁니다.
+- `interested`로 담은 장소는 `requiredPlaceIds`에 넣지 않습니다(일정 화면이 `/saved`에서 읽습니다).
+- 조건이 모자라면 `action`은 `null`이고 니어리가 **하나만** 묻습니다. 담은 장소·열차와 핀이 하나도 없으면 먼저 담아 달라고 하고,
+  날짜가 없으면 날짜를 묻고 칩("오늘로 일정 짜줘" 등)을 줍니다. 칩을 누르면 `action`이 담겨 돌아옵니다.
+- 메시지에 날짜가 있으면(`2026-11-21`, `11월 21일`, 오늘·내일·모레) 화면의 날짜보다 우선합니다.
+- 일정에 대한 질문("일정 화면은 뭐 하는 곳이야?")이나 장소 추천 요청은 `plan_request`가 아닙니다.
 
 ## 저장 구조
 
@@ -95,6 +185,7 @@ history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다�
 `0001_service_storage`는 테이블과 vector 확장, `0002_reference_content`는 기존 PR의 최초 자료를 적재합니다.
 `market_aliases`는 북평민속시장 문서의 별칭(재래시장, 장터, 전통시장)을 더합니다. 적용 뒤 `scripts/ingest.py`를 실행하면 그 문서만 다시 임베딩됩니다.
 `knowledge_enrichment`는 촛대바위·논골담길·망상해수욕장·도째비골 스카이밸리 문서를 보강하고 출처 URL을 `source_url`에 적습니다(한 줄에 하나). 적용 뒤 `scripts/ingest.py`를 실행하면 이 네 문서만 다시 임베딩됩니다.
+`saved_items`는 담기 테이블 두 개(`saved_places`, `saved_trains`)를 만듭니다.
 초기 seed SQL은 새 DB 재현용 이력입니다. 서버 요청 중에 읽지 않으며 새 데이터를 넣을 때마다 Git에 갱신하지 않습니다.
 모델 변경 후 `alembic revision --autogenerate -m "..."`로 새 이력을 만들고 검토 후 적용합니다.
 이미 적용한 마이그레이션은 수정하지 않습니다.

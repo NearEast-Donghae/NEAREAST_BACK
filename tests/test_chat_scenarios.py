@@ -5,7 +5,8 @@ Expectation keys (all optional):
   intent, tool_used, tool_used_in, sources, sources_include, sources_include_any,
   reply_contains, reply_contains_any, reply_not_contains, no_proposals,
   proposal_targets_exclude, proposal_reason_contains, proposal_certainty_not_null,
-  polite, each_step_has_chips
+  polite, each_step_has_chips, action ("plan_request" or null), action_date,
+  action_places, action_start, action_end
 Scenario keys: llm_only (skipped in mock mode, reason in _note), _note (why a check is relaxed).
 """
 
@@ -66,6 +67,11 @@ def invariant_failures(request, body):
     # Same parser as the server: a clock time needs a tool result or a cited document.
     if service._clock_claims(body["reply"]) and body["tool_used"] is None and not body["sources"]:
         failures.append(f"Q4: time claim without tool or source: {body['reply']}")
+    # A plan request is handed to the plan screen, never answered with a plan.
+    if (body["action"] is not None) and body["intent"] != "plan_request":
+        failures.append("PL: action on an answer that is not a plan request")
+    if body["intent"] == "plan_request" and (body["proposals"] or body["tool_used"]):
+        failures.append("PL: plan request answered with proposals or a tool")
     if body["intent"] == "knowledge" and not body["sources"] and "확인된 정보가 없어요" not in body["reply"]:
         failures.append("Q4: knowledge answer without sources")
     return failures
@@ -132,6 +138,22 @@ def run_scenario(client, scenario, mode=None):
     for text in expect.get("reply_not_contains", []):
         if text in body["reply"]:
             failures.append(f"reply should not contain {text!r}")
+    if "action" in expect:
+        got = body["action"]["type"] if body["action"] else None
+        if got != expect["action"]:
+            failures.append(f"action {got} != {expect['action']}")
+    payload = (body["action"] or {}).get("payload", {})
+    # The payload is planning conditions (travelDate, requiredPlaceIds, startTime, ...).
+    if "action_date" in expect and payload.get("travelDate") != expect["action_date"]:
+        failures.append(f"action date {payload.get('travelDate')} != {expect['action_date']}")
+    if "action_places" in expect and payload.get("requiredPlaceIds") != expect["action_places"]:
+        failures.append(
+            f"action places {payload.get('requiredPlaceIds')} != {expect['action_places']}")
+    for edge, place_key, time_key in (("start", "departurePlaceId", "startTime"),
+                                      ("end", "arrivalPlaceId", "endTime")):
+        got = {"place": payload.get(place_key), "time": payload.get(time_key)}
+        if f"action_{edge}" in expect and got != expect[f"action_{edge}"]:
+            failures.append(f"action {edge} {got} != {expect[f'action_{edge}']}")
     if expect.get("polite"):
         for _, step, _ in transcript:
             for sentence in impolite_sentences(step["reply"]):
@@ -160,7 +182,8 @@ class ChatScenarioTests(unittest.TestCase):
         counts = {}
         for scenario in SCENARIOS:
             counts[scenario["group"]] = counts.get(scenario["group"], 0) + 1
-        targets = {"Q1": 10, "Q3": 10, "Q4": 20, "Q5": 5, "Q6": 5, "P": 5, "M": 5, "V": 10}
+        targets = {"Q1": 10, "Q3": 10, "Q4": 20, "Q5": 5, "Q6": 5, "P": 5, "M": 5, "PL": 12,
+                   "V": 10}
         for group, minimum in targets.items():
             self.assertGreaterEqual(counts.get(group, 0), minimum, group)
         self.assertEqual(len({s["id"] for s in SCENARIOS}), len(SCENARIOS), "duplicate ids")

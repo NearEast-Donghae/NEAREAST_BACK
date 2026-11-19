@@ -9,12 +9,14 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from neareast_api.modules.itineraries.dto import PlanningConditionsDto
+
 HISTORY_KEEP = 10  # most recent messages actually used
 HISTORY_ACCEPT = 200  # more than this is not a chat client; reject
 HISTORY_CHARS = 6000  # total history text sent to the model (bounds prompt cost)
 
 PlaceId = Annotated[str, Field(min_length=1, max_length=64)]
-Intent = Literal["knowledge", "train_lookup", "safety", "proposal", "smalltalk"]
+Intent = Literal["knowledge", "train_lookup", "safety", "proposal", "smalltalk", "plan_request"]
 ToolName = Literal["station_rhythm", "search_trains", "nearby_spots", "walk_time"]
 # timetable: public timetable as-is / estimated: interpolated from neighbouring stations
 # planned: scheduled but same-day operation unconfirmed (e.g. freight) / None: not time-related
@@ -62,9 +64,20 @@ class Proposal(_Strict):
     certainty: Certainty | None = None
 
 
+class ChatAction(_Strict):
+    """Something for the client to do. The chat itself never makes or changes a plan."""
+
+    type: Literal["plan_request"]
+    # The same shape POST /planning-requests takes as `conditions`, so the client can
+    # pass it on unchanged.
+    payload: PlanningConditionsDto
+
+
 class ChatResponse(_Strict):
     reply: str
     intent: Intent
+    # plan_request with every condition known: open the plan screen with this payload.
+    action: ChatAction | None = None
     chips: list[str] = Field(default_factory=list, max_length=3)
     proposals: list[Proposal] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)

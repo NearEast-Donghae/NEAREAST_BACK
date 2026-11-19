@@ -3,8 +3,12 @@
 import math
 import threading
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
 
+from neareast_api.db.entities import UserEntity
+from neareast_api.db.session import getSession
+from neareast_api.modules.auth.service import requireUser
 from neareast_api.modules.chat import service
 from neareast_api.modules.chat.limits import RateLimiter
 from neareast_api.modules.chat.schemas import (
@@ -13,6 +17,7 @@ from neareast_api.modules.chat.schemas import (
     ChatUnavailable,
     PersonaResponse,
 )
+from neareast_api.modules.saved.service import SavedService
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 _limiter_lock = threading.Lock()
@@ -45,7 +50,12 @@ def get_persona() -> PersonaResponse:
         503: {"model": ChatUnavailable, "description": "Chat content unavailable"},
     },
 )
-def post_message(body: ChatRequest, request: Request) -> ChatResponse:
+def post_message(
+    body: ChatRequest,
+    request: Request,
+    user: UserEntity = Depends(requireUser),
+    session: Session = Depends(getSession),
+) -> ChatResponse:
     client = request.client.host if request.client else "unknown"
     wait = _limiter(request).check(client)
     if wait:
@@ -57,7 +67,9 @@ def post_message(body: ChatRequest, request: Request) -> ChatResponse:
     # Synchronous handler: FastAPI runs it in the thread pool, so the blocking
     # OpenAI SDK added in step 3 can be called here directly.
     try:
-        return service.answer(body, request.app.state.settings)
+        # What the user has saved counts as pins, whatever the request carries.
+        saved = SavedService.selection(session, user.id)
+        return service.answer(body, request.app.state.settings, saved)
     except service.ChatUnavailableError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="chat unavailable"

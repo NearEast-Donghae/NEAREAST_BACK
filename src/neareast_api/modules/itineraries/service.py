@@ -53,7 +53,8 @@ def validateConditions(session: Session, conditions: PlanningConditionsDto) -> N
     placeIds = [
         placeId for placeId in [conditions.departurePlaceId, conditions.arrivalPlaceId] if placeId
     ]
-    validatePlaceIds(session, placeIds + conditions.requiredPlaceIds)
+    stationIds = [train.stationId for train in conditions.selectedTrains or []]
+    validatePlaceIds(session, placeIds + conditions.requiredPlaceIds + stationIds)
 
 
 class ItineraryService:

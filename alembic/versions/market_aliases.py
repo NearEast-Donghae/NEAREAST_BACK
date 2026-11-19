@@ -2,8 +2,7 @@
 
 The seed file carries the same list for new databases; this revision brings a database
 that already ran 0002 up to it. The document's text changes, so scripts/ingest.py embeds
-it again. If another revision lands on 0002_reference_content first, only down_revision
-here needs to point at it.
+it again. It follows saved_items only to keep one chain; the two do not depend on each other.
 """
 
 import json
@@ -12,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "market_aliases"
-down_revision = "0002_reference_content"
+down_revision = "saved_items"
 branch_labels = None
 depends_on = None
 
