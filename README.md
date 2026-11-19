@@ -81,6 +81,8 @@ Health와 개발용 API 문서는 공개입니다.
 history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다른 사용자의 리소스는 404를 반환합니다.
 목록에는 `limit`, `offset`을 지원합니다. 메시지는 시간순, 여행·대화방 목록은 최신순입니다.
 여행·여행 조건 수정에는 `expectedRevision`을 보내며 이전 버전이면 409를 반환합니다.
+여행 조건의 `selectedTrains: [{trainNo, action: "ride"|"observe", stationId}]`는 선택 칸입니다. 보내지 않으면 `selectedTrainIds`만으로 동작하고,
+보내면 두 칸의 열차가 같아야 합니다(한쪽에만 있는 열차가 있으면 422).
 
 ## 챗봇 응답의 `action` — "일정 짜줘"
 
