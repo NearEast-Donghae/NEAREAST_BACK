@@ -104,6 +104,9 @@ class ResolvedContext:
     unknown_ids: tuple[str, ...]
     mentioned: retrieval.Place | None = None  # first catalog place named in the message
     message: str = ""
+    # Place the user named most recently in earlier turns: the default when this message
+    # and the screen name none ("그럼 오후 열차는?").
+    recalled: retrieval.Place | None = None
 
     @property
     def known_ids(self) -> list[str]:
@@ -135,7 +138,7 @@ def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
     except retrieval.ContentError:
         logger.exception("chat content unavailable")
         raise ChatUnavailableError from None
-    context = _resolve(request.context, content, request.message)
+    context = _resolve(request.context, content, request.message, request.history)
     if settings.chat_mock:
         return _finalize(_mock_draft(request.message, context), context, "mock")
     try:
@@ -148,7 +151,7 @@ def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
 
 
 def _resolve(
-    context: ChatContext, content: retrieval.Content, message: str = ""
+    context: ChatContext, content: retrieval.Content, message: str = "", history=()
 ) -> ResolvedContext:
     unknown: list[str] = []
     focused = None
@@ -164,9 +167,15 @@ def _resolve(
                 unknown.append(pin)
         elif place not in pins:
             pins.append(place)
+    # Only the user's own words count: assistant text names places it merely suggested.
+    recalled = next(
+        (p for t in reversed(history) if t.role == "user"
+         and (p := content.place_in_text(t.content)) is not None),
+        None,
+    )
     return ResolvedContext(
         context, content, focused, tuple(pins), tuple(unknown),
-        content.place_in_text(message), message,
+        content.place_in_text(message), message, recalled,
     )
 
 
@@ -481,10 +490,14 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
     # Tools may only look at places the user put in play (screen or message): the
     # model must not pick a station on its own, e.g. guess Donghae when none is open.
     in_play = {p.id for p in ([context.focused] if context.focused else []) + list(context.pins)}
-    if context.mentioned:
-        in_play.add(context.mentioned.id)
+    for place in (context.mentioned, context.recalled):
+        if place:
+            in_play.add(place.id)
     named = context.mentioned
-    default_station = named if named and named.kind == "station" else context.station
+    recalled = context.recalled if context.recalled and context.recalled.kind == "station" else None
+    default_station = (
+        named if named and named.kind == "station" else context.station or recalled
+    )
     station_id = request.get("station_id") or (default_station.id if default_station else None)
     if station_id not in in_play:
         station_id = None
@@ -516,7 +529,7 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
         return ToolRun(name, result, certainty, station.id, tools.SOURCE)
 
     if name == "nearby_spots":
-        default_place = context.mentioned or context.anchor
+        default_place = context.mentioned or context.anchor or context.recalled
         place_id = request.get("place_id") or (default_place.id if default_place else None)
         anchor = content.place(place_id) if place_id in in_play else None
         if anchor is None:
@@ -621,7 +634,8 @@ def _mock_safety(message: str, context: ResolvedContext) -> Draft:
 
 def _mock_train(message: str, context: ResolvedContext) -> Draft:
     named = context.content.place_in_text(message)
-    station = named if named and named.kind == "station" else context.station
+    recalled = context.recalled if context.recalled and context.recalled.kind == "station" else None
+    station = named if named and named.kind == "station" else context.station or recalled
     if station is None:
         return Draft(
             reply="어느 역 기준으로 볼까요? 지도에서 역을 열어 두거나 핀을 찍어 주세요.",
@@ -689,7 +703,7 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
 
 def _mock_nearby(message: str, context: ResolvedContext) -> Draft:
     content = context.content
-    anchor = content.place_in_text(message) or context.anchor
+    anchor = content.place_in_text(message) or context.anchor or context.recalled
     if anchor is None:
         return Draft(
             reply="어디 근처를 볼까요? 지도에서 역이나 장소를 열어 두거나 핀을 찍어 주세요.",

@@ -37,9 +37,11 @@ class LLMResponderTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(create_app(Settings(chat_mock=False, openai_api_key="test")))
 
-    def ask(self, replies, message="질문", **context):
+    def ask(self, replies, message="질문", history=(), **context):
         with patch.object(llm, "chat_json", side_effect=list(replies)) as chat:
-            response = self.client.post(URL, json={"message": message, "context": context})
+            response = self.client.post(
+                URL, json={"message": message, "context": context, "history": list(history)}
+            )
         return response, chat
 
     def test_single_call_without_tool_and_sources_limited_to_given_docs(self):
@@ -339,6 +341,26 @@ class LLMResponderTests(unittest.TestCase):
             message="묵호 열차 언제 와?",
         )
         self.assertEqual(response.json()["tool_used"], "station_rhythm")
+
+    FOLLOW_UP = [draft(intent="train_lookup", tool={
+        "name": "search_trains", "station_id": None, "place_id": None, "after": "16:00"}),
+        draft("(예시 데이터) 16:00에 KTX-이음이 있어요.", intent="train_lookup")]
+
+    def test_follow_up_uses_the_station_from_earlier_turns(self):
+        history = [{"role": "user", "content": "동해역 열차 리듬"},
+                   {"role": "assistant", "content": "(예시 데이터) 묵호역 쪽도 볼 수 있어요."}]
+        response, _ = self.ask(self.FOLLOW_UP, message="그럼 오후 열차는?", history=history)
+        body = response.json()
+        self.assertEqual(body["tool_used"], "search_trains")  # 동해역, the user's own mention
+        self.assertIn("16:00", body["reply"])
+
+    def test_screen_beats_history_and_no_history_means_no_station(self):
+        history = [{"role": "user", "content": "동해역 열차 리듬"}]
+        response, chat = self.ask(self.FOLLOW_UP, message="그럼 오후 열차는?", history=history,
+                                  focused="station_chuam")
+        self.assertIn('"station_id": "station_chuam"', sent(chat, 1)[-1]["content"])
+        response, _ = self.ask(self.FOLLOW_UP, message="그럼 오후 열차는?")
+        self.assertIsNone(response.json()["tool_used"])  # nothing to recall: ask for a station
 
     def test_list_markers_and_line_breaks_become_prose(self):
         response, _ = self.ask([draft(
