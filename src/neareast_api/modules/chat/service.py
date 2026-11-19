@@ -394,6 +394,10 @@ PLAN_REQUEST = re.compile(
     r"(?:일정|계획|하루|코스|동선|스케줄|루트)[^.?!]{0,15}?"
     r"(?:짜|세워|세우|만들어|잡아|구성해)\s?(?:줘|주세요|주실|줄래|주라|주면|달라|서\s)"
 )
+# "일정은 내가 직접 짤게": the user keeps the planning. Not a request, whatever the responder says.
+OWN_PLAN = re.compile(
+    r"(?:내가|제가|직접|알아서|혼자)[^.?!]{0,10}(?:짤게|짤래|짤 ?거|짜 ?볼게|세울게|정할게|할게)")
+OWN_PLAN_REPLY = "좋아요, 일정은 직접 짜시면 돼요. 궁금한 열차나 장소가 있으면 언제든 물어봐 주세요."
 PLAN_HANDOFF = ("{month}월 {day}일 하루 일정은 일정 화면에서 짜요. 담아 둔 {what}을 그대로 "
                 "일정 화면으로 넘겨 드릴게요. 순서와 시간은 거기서 직접 고를 수 있어요.")
 PLAN_NEEDS_PINS = ("일정에 넣을 곳이 아직 없어요. 지도에서 가고 싶은 역이나 장소, 열차를 먼저 "
@@ -429,7 +433,7 @@ def date_in_message(message: str, today: dt.date) -> dt.date | None:
 def _wants_plan(intent: str, message: str) -> bool:
     """A plan request by the responder's reading or by the wording. Asking to plan
     something on the tracks is a safety question first."""
-    if any(word in message for word in RISK_WORDS):
+    if any(word in message for word in RISK_WORDS) or OWN_PLAN.search(message):
         return False
     return intent == "plan_request" or is_plan_request(message)
 
@@ -529,7 +533,10 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     """Every rule here holds no matter what the responder (mock or LLM) produced."""
     if _wants_plan(draft.intent, context.message):
         return _plan_handoff(draft, context, mode)
-    if draft.intent == "plan_request":  # asked about the tracks: answered as safety
+    if draft.intent == "plan_request" and OWN_PLAN.search(context.message):
+        draft = dataclasses.replace(  # planning stays with the user: nothing is handed over
+            draft, intent="smalltalk", reply=OWN_PLAN_REPLY, proposals=[], plan=None)
+    elif draft.intent == "plan_request":  # asked about the tracks: answered as safety
         draft = dataclasses.replace(draft, intent="safety", plan=None)
     raw = context.raw
     content = context.content

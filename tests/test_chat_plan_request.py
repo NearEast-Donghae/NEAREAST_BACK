@@ -211,6 +211,17 @@ class ModelPathTests(_Case):
         self.assertEqual(chat.call_count, 1)
         self.assertIsNone(body["tool_used"])
 
+    def test_keeping_the_planning_is_not_a_request_even_if_the_model_says_so(self):
+        for message in ("일정은 내가 직접 짤게", "계획은 제가 알아서 세울게요", "코스는 혼자 짜 볼게"):
+            with self.subTest(message):
+                body, _ = self.ask_model([model(reply="일정 화면으로 넘겨 드릴게요.")], message,
+                                         date="2026-11-21", pins=PINS)
+                self.assertIsNone(body["action"])
+                self.assertNotEqual(body["intent"], "plan_request")
+                self.assertNotIn("넘겨", body["reply"])
+        body, _ = self.ask_model([model()], "내가 담은 걸로 일정 짜줘", date="2026-11-21", pins=PINS)
+        self.assertIsNotNone(body["action"])  # "내가 담은" is not keeping the planning
+
     def test_a_model_plan_on_an_ordinary_answer_is_ignored(self):
         body, _ = self.ask_model(
             [model(intent="smalltalk", reply="안녕하세요.", plan=plan(date="2026-11-21"))],
