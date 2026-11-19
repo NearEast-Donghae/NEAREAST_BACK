@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 
 from neareast_api.core.config import Settings
 from neareast_api.modules.chat import llm, prompts, retrieval, tools
+from neareast_api.modules.plans import service as plans_service
 from neareast_api.modules.trains import service as timetable_service
 from neareast_api.modules.chat.schemas import (
     Certainty,
@@ -619,9 +620,22 @@ def _weakest(certainties) -> Certainty | None:
     return max(present, key=_CERTAINTY_ORDER.index) if present else None
 
 
-def _nearby_candidates(place_id: str, context: ResolvedContext) -> list[dict]:
-    """Places worth proposing for a gap: not already pinned, not dismissed."""
+def _nearby_candidates(
+    place_id: str, context: ResolvedContext, gap: tools.Gap | None = None
+) -> list[dict]:
+    """Places worth proposing: not already pinned, not dismissed. For a gap they come from
+    the day planner's rule (modules/plans), so the chat and the plan screen propose the
+    same places for the same reason. Until the catalog has coordinates the planner cannot
+    measure a walk, and the example walking minutes are used instead."""
     skip = {p.id for p in context.pins} | set(context.raw.dismissed)
+    anchor = context.content.place(place_id)
+    if gap is not None and anchor is not None and anchor.lat is not None:
+        return [
+            {"id": s.target, "name": context.content.places[s.target].name,
+             "walk_minutes": s.walk_min, "reason": s.reason, "notes": s.notes}
+            for s in plans_service.suggest(context.content.places, place_id, gap.start, gap.end,
+                                           skip=skip, date=context.raw.date)
+        ]
     return [
         {"id": s.place_id, "name": p.name, "walk_minutes": s.walk_minutes}
         for s in tools.nearby_spots(place_id)
@@ -706,7 +720,8 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
             )
             result = _rhythm_result(rhythm)
             # Candidates for filling a gap, so proposals can name a real place.
-            result["nearby"] = _nearby_candidates(station.id, context)
+            longest = max(rhythm.gaps, key=tools.gap_minutes, default=None)
+            result["nearby"] = _nearby_candidates(station.id, context, longest)
         else:
             after = _normalize_after(request.get("after"))
             whole = tools.station_rhythm(station.id, date, context.timetable)
@@ -888,16 +903,16 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
         gap = max(rhythm.gaps, key=tools.gap_minutes)
         draft.reply += f" {gap.start}~{gap.end}에는 열차가 없어요."
         draft.tool_certainty = gap.certainty
-        skip = {p.id for p in context.pins} | set(context.raw.dismissed)
-        for spot in tools.nearby_spots(station.id):
-            place = context.content.place(spot.place_id)
-            if place is not None and place.kind == "poi" and place.id not in skip:
+        for spot in _nearby_candidates(station.id, context, gap):
+            place = context.content.place(spot["id"])
+            if place is not None and place.kind == "poi":
                 draft.proposals.append(
                     DraftProposal(
                         type="add",
                         target=place.id,
-                        reason=f"{station.name} 공백({gap.start}–{gap.end})에 다녀올 수 있어요"
-                        f"(도보 {spot.walk_minutes}분)",
+                        reason=spot.get("reason")
+                        or f"{station.name} 공백({gap.start}–{gap.end})에 다녀올 수 있어요"
+                        f"(도보 {spot['walk_minutes']}분)",
                         time_bound=True,
                     )
                 )

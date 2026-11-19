@@ -154,6 +154,20 @@ def detail(timetable: Timetable, train_no: str) -> TrainDetail | None:
     return TrainDetail(**_summary(timetable, train), stops=stops, basis=timetable.basis())
 
 
+def stop_spread(timetable: Timetable, train_no: str, station_id: str) -> int:
+    """How many minutes this train's time at a station differed between the recorded weeks.
+    The listed arrival is the middle week, so `arrival + spread` is no earlier than the
+    latest arrival seen and `arrival - spread` no later than the earliest. A passing or
+    unrecorded stop has no spread of its own and uses the train's largest."""
+    train = next((t for t in timetable.trains if t["no"] == train_no), None)
+    if train is None:
+        return 0
+    spread = (_stop_at(train, station_id) or {}).get("spread_min")
+    if spread is None:
+        spread = train["spread_min"]
+    return min(spread, 24 * 60 - spread)  # times either side of midnight are minutes apart
+
+
 def describe(train: TrainSummary) -> str:
     """How a train is named to people: its type when known, else number and line."""
     label = f"{train.type} {train.no}" if train.type else f"{train.no}({train.line})"
