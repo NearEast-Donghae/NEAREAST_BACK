@@ -12,8 +12,8 @@ services:
       NEAREAST_CHAT_MOCK: "${NEAREAST_CHAT_MOCK:-true}"
       NEAREAST_CHAT_RATE_LIMIT_PER_MINUTE: "${NEAREAST_CHAT_RATE_LIMIT_PER_MINUTE:-60}"
       NEAREAST_OPENAI_API_KEY: "${NEAREAST_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}"
-      NEAREAST_TMAP_API_KEY: "${NEAREAST_TMAP_API_KEY:-${TMAP_API_KEY:-}}"
       NEAREAST_CHAT_MODEL: "${NEAREAST_CHAT_MODEL:-gpt-5.4-nano}"
+      NEAREAST_TMAP_API_KEY: "${NEAREAST_TMAP_API_KEY:-${TMAP_API_KEY:-}}"
       NEAREAST_EMBEDDING_MODEL: "${NEAREAST_EMBEDDING_MODEL:-text-embedding-3-large}"
       NEAREAST_CHAT_VECTOR_SEARCH: "${NEAREAST_CHAT_VECTOR_SEARCH:-true}"
       NEAREAST_VECTOR_MIN_SIMILARITY: "${NEAREAST_VECTOR_MIN_SIMILARITY:-0.27}"
@@ -32,12 +32,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health/ready', timeout=7).close()"]
       interval: 10s
       timeout: 8s
       start_period: 10s
       retries: 3
+
+  migrate:
+    build: .
+    command: ["python", "scripts/migrate.py"]
+    environment:
+      NEAREAST_DB_HOST: db
+      NEAREAST_DB_PORT: "5432"
+      NEAREAST_DB_NAME: "${NEAREAST_DB_NAME:?Create .env from .env.example}"
+      NEAREAST_DB_USER: "${NEAREAST_DB_USER:?Create .env from .env.example}"
+      NEAREAST_DB_PASSWORD: "${NEAREAST_DB_PASSWORD:?Set NEAREAST_DB_PASSWORD in .env}"
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: pgvector/pgvector:pg17
