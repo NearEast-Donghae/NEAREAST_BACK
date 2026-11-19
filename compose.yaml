@@ -13,6 +13,7 @@ services:
       NEAREAST_EMBEDDING_MODEL: "${NEAREAST_EMBEDDING_MODEL:-text-embedding-3-small}"
       NEAREAST_CHAT_MAX_TOKENS: "${NEAREAST_CHAT_MAX_TOKENS:-1000}"
       NEAREAST_LLM_TIMEOUT_SECONDS: "${NEAREAST_LLM_TIMEOUT_SECONDS:-8}"
+      NEAREAST_CHAT_DEADLINE_SECONDS: "${NEAREAST_CHAT_DEADLINE_SECONDS:-12}"
       # Not passed on purpose: NEAREAST_CONTENT_DIR (the image keeps content in /app) and
       # NEAREAST_CHAT_REASONING_EFFORT (an empty value is invalid; set it here if needed).
       # The app user cannot write /app; keep the usage record in a writable place.

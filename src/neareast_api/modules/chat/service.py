@@ -15,6 +15,8 @@ import datetime as dt
 import json
 import logging
 import re
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
 
@@ -35,6 +37,7 @@ from neareast_api.modules.chat.schemas import (
 logger = logging.getLogger(__name__)
 
 MAX_CHIPS = 3
+SLOW_REQUEST_MS = 5000  # the frontend switches to the "slow" text at 5 s
 MAX_REPLY_CHARS = 400  # the prompt asks for 2-4 sentences; this is the hard stop
 KST = ZoneInfo("Asia/Seoul")
 # Clock times ("10:20", "오후 4시 10분", "10시대") and train counts ("3편") must be backed
@@ -138,6 +141,25 @@ def persona() -> PersonaResponse:
     )
 
 
+class _Stages:
+    """Milliseconds spent per stage of one request (retrieval, model calls, tool, ...)."""
+
+    def __init__(self):
+        self.ms: dict[str, int] = {}
+        self._started = time.perf_counter()
+
+    @contextmanager
+    def timed(self, name: str):
+        started = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.ms[name] = self.ms.get(name, 0) + round((time.perf_counter() - started) * 1000)
+
+    def total_ms(self) -> int:
+        return round((time.perf_counter() - self._started) * 1000)
+
+
 def warm_up(settings: Settings) -> None:
     """Load chat content at startup so a broken file shows in the deploy log, not in the
     first user's request. Never raises: the API (health, docs) must still start."""
@@ -160,13 +182,32 @@ def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
     context = _resolve(request.context, content, request.message, request.history)
     if settings.chat_mock:
         return _finalize(_mock_draft(request.message, context), context, "mock")
+
+    # Model path: bounded by one deadline for the whole request, timed per stage.
+    stages = _Stages()
+    deadline = llm.Deadline(settings.chat_deadline_seconds)
+    response = failure = None
     try:
-        return _finalize(_llm_draft(request, context, settings), context, "llm")
+        draft = _llm_draft(request, context, settings, deadline, stages)
+        with stages.timed("finalize"):
+            response = _finalize(draft, context, "llm")
     except llm.LLMError as exc:
+        failure = str(exc)
         logger.warning("llm responder failed, answering with the built-in responder: %s", exc)
-    except Exception:  # a demo must not die on an unexpected model/tool error
+    except Exception as exc:  # a demo must not die on an unexpected model/tool error
+        failure = f"crash: {type(exc).__name__}"
         logger.exception("llm responder crashed, answering with the built-in responder")
-    return _finalize(_mock_draft(request.message, context), context, "fallback")
+    if response is None:
+        with stages.timed("fallback"):
+            response = _finalize(_mock_draft(request.message, context), context, "fallback")
+    total = stages.total_ms()
+    llm.record_request(settings, {
+        "mode": response.mode, "total_ms": total, "stages": dict(stages.ms),
+        "intent": response.intent, "tool_used": response.tool_used, "failure": failure,
+    })
+    if total > SLOW_REQUEST_MS:
+        logger.warning("slow chat request: %d ms, stages %s", total, dict(stages.ms))
+    return response
 
 
 def _resolve(
@@ -416,13 +457,20 @@ class ToolRun:
     source: str | None = None
 
 
-def _llm_draft(request: ChatRequest, context: ResolvedContext, settings: Settings) -> Draft:
+def _llm_draft(
+    request: ChatRequest, context: ResolvedContext, settings: Settings,
+    deadline: llm.Deadline | None = None, stages: _Stages | None = None,
+) -> Draft:
     content = context.content
-    embed = (lambda text: llm.embed_query(settings, text)) if content.vectors else None
-    try:
-        hits = content.search(request.message, context.known_ids, embed=embed)
-    except llm.LLMError:
-        hits = content.search(request.message, context.known_ids)  # vectors are optional
+    stages = stages or _Stages()
+    embed = (
+        (lambda text: llm.embed_query(settings, text, deadline)) if content.vectors else None
+    )
+    with stages.timed("retrieval"):
+        try:
+            hits = content.search(request.message, context.known_ids, embed=embed)
+        except llm.LLMError:
+            hits = content.search(request.message, context.known_ids)  # vectors are optional
     docs = _select_docs(hits, context)
     # A passing station in play: give the model the rule it must follow.
     subject = context.mentioned or context.focused
@@ -450,12 +498,14 @@ def _llm_draft(request: ChatRequest, context: ResolvedContext, settings: Setting
             static=static, history=history, context=screen,
             message=request.message, tool_result=tool_result,
         )
-        return llm.chat_json(settings, messages, prompts.DRAFT_SCHEMA, label)
+        with stages.timed(f"llm_{label}"):
+            return llm.chat_json(settings, messages, prompts.DRAFT_SCHEMA, label, deadline)
 
     first = call(None, "first")
     run = None
     if first.get("tool_request"):
-        run = _run_tool(first["tool_request"], context)
+        with stages.timed("tool"):
+            run = _run_tool(first["tool_request"], context)
         final = call(run.result, "after_tool")  # a second tool request is ignored
     else:
         final = first

@@ -141,7 +141,9 @@ class ChatHttpTests(unittest.TestCase):
 
     def test_llm_mode_without_key_falls_back_to_builtin_answers(self):
         # No key: must fail fast with 503 and never reach the network.
-        with patch.dict(os.environ, {"NEAREAST_CHAT_MOCK": "false", "NEAREAST_OPENAI_API_KEY": ""}):
+        env = {"NEAREAST_CHAT_MOCK": "false", "NEAREAST_OPENAI_API_KEY": "",
+               "NEAREAST_LLM_USAGE_LOG": os.devnull}
+        with patch.dict(os.environ, env):
             client = TestClient(create_app())
         with self.assertLogs("neareast_api.modules.chat.service", "WARNING"):
             response = client.post(URL, json={"message": "안녕"})

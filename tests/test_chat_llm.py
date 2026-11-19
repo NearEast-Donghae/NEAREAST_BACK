@@ -1,7 +1,9 @@
 """LLM responder with a fake client: no key, no network, no tokens spent."""
 
 import json
+import os
 import re
+import time
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,7 +37,8 @@ def draft(reply="좋아요.", intent="knowledge", chips=("다음",), proposals=(
 
 class LLMResponderTests(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(create_app(Settings(chat_mock=False, openai_api_key="test")))
+        self.settings = Settings(chat_mock=False, openai_api_key="test", llm_usage_log=os.devnull)
+        self.client = TestClient(create_app(self.settings))
 
     def ask(self, replies, message="질문", history=(), **context):
         with patch.object(llm, "chat_json", side_effect=list(replies)) as chat:
@@ -511,6 +514,7 @@ class UsageRecordTests(unittest.TestCase):
             choices=[SimpleNamespace(finish_reason=finish, message=SimpleNamespace(content=content))],
         )
         client = MagicMock()
+        client.with_options.return_value = client  # per-call timeout keeps the same client
         client.chat.completions.create.return_value = response
         return client
 
@@ -547,6 +551,7 @@ class UsageRecordTests(unittest.TestCase):
             request_id = "req_123"
 
         client = MagicMock()
+        client.with_options.return_value = client  # per-call timeout keeps the same client
         client.chat.completions.create.side_effect = FakeAuthError(
             "Incorrect API key provided: sk-secret-value"
         )
@@ -563,12 +568,52 @@ class UsageRecordTests(unittest.TestCase):
         from openai import OpenAIError
 
         client = MagicMock()
+        client.with_options.return_value = client  # per-call timeout keeps the same client
         client.chat.completions.create.side_effect = OpenAIError("connection reset")
         with patch.object(llm, "_client", return_value=client):
             with self.assertRaises(llm.LLMError) as raised:
                 llm.chat_json(self.settings, [], {}, "first")
         self.assertEqual(str(raised.exception),
                          f"chat call failed: OpenAIError model={self.settings.chat_model}")
+        self.assertEqual(client.chat.completions.create.call_count, 2)  # transient: one retry
+
+    def test_transient_failure_is_retried_once_and_client_errors_are_not(self):
+        from openai import OpenAIError
+
+        class Unauthorized(OpenAIError):
+            status_code = 401
+
+        good = self.fake_client(json.dumps({"ok": True}))
+        ok_response = good.chat.completions.create.return_value
+        good.chat.completions.create.side_effect = [OpenAIError("timeout"), ok_response]
+        with patch.object(llm, "_client", return_value=good), self.assertLogs(
+            "neareast_api.modules.chat.llm", "WARNING"
+        ):
+            self.assertEqual(llm.chat_json(self.settings, [], {}, "first"), {"ok": True})
+        self.assertEqual(good.chat.completions.create.call_count, 2)
+        self.assertEqual(good.with_options.call_args.kwargs["max_retries"], 0)
+
+        denied = MagicMock()
+        denied.with_options.return_value = denied
+        denied.chat.completions.create.side_effect = Unauthorized("no")
+        with patch.object(llm, "_client", return_value=denied):
+            with self.assertRaises(llm.LLMError):
+                llm.chat_json(self.settings, [], {}, "first")
+        self.assertEqual(denied.chat.completions.create.call_count, 1)
+
+    def test_call_timeout_fits_inside_the_request_deadline(self):
+        client = self.fake_client(json.dumps({"ok": True}))
+        with patch.object(llm, "_client", return_value=client):
+            llm.chat_json(self.settings, [], {}, "first", llm.Deadline(3))
+            self.assertLessEqual(client.with_options.call_args.kwargs["timeout"], 3)
+            llm.chat_json(self.settings, [], {}, "first", llm.Deadline(60))
+            self.assertEqual(client.with_options.call_args.kwargs["timeout"],
+                             self.settings.llm_timeout_seconds)  # never above the per-call cap
+            calls = client.chat.completions.create.call_count
+            with self.assertRaises(llm.LLMError) as raised:
+                llm.chat_json(self.settings, [], {}, "after_tool", llm.Deadline(0.1))
+            self.assertIn("deadline", str(raised.exception))
+            self.assertEqual(client.chat.completions.create.call_count, calls)  # not even started
 
     def test_cut_off_or_invalid_answers_raise(self):
         for content, finish in (("{}", "length"), ("not json", "stop")):
@@ -588,6 +633,91 @@ class UsageRecordTests(unittest.TestCase):
     def test_key_is_not_in_settings_repr(self):
         self.assertNotIn("sk-not-real", repr(Settings(openai_api_key="sk-not-real")))
 
+
+
+class DeadlineAndTimingTests(unittest.TestCase):
+    """Whole-request budget and the per-stage record, through the real service path."""
+
+    TOOL = {"name": "station_rhythm", "station_id": "station_donghae", "place_id": None,
+            "after": None}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.log = Path(self.tmp.name) / "usage.jsonl"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def client_with(self, delay, **settings):
+        """A fake OpenAI client: first answer requests a tool, second is final."""
+        replies = [draft(intent="train_lookup", tool=self.TOOL),
+                   draft("(예시 데이터) 10:20에 ITX-마음이 와요.", intent="train_lookup")]
+        usage = SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2)
+
+        def create(**kwargs):
+            time.sleep(delay)
+            content = json.dumps(replies[min(create.calls, 1)])
+            create.calls += 1
+            return SimpleNamespace(usage=usage, choices=[SimpleNamespace(
+                finish_reason="stop", message=SimpleNamespace(content=content))])
+
+        create.calls = 0
+        fake = MagicMock()
+        fake.with_options.return_value = fake
+        fake.chat.completions.create.side_effect = create
+        app = create_app(Settings(chat_mock=False, openai_api_key="test",
+                                  llm_usage_log=str(self.log), **settings))
+        return TestClient(app), fake
+
+    def ask(self, client, fake):
+        with patch.object(llm, "_client", return_value=fake):
+            return client.post(URL, json={"message": "열차 언제 몰려?",
+                                          "context": {"focused": "station_donghae"}})
+
+    def requests_logged(self):
+        lines = [json.loads(line) for line in self.log.read_text("utf-8").splitlines()]
+        return [e for e in lines if e["kind"] == "request"]
+
+    def test_over_budget_request_falls_back_in_time(self):
+        client, fake = self.client_with(delay=0.4, chat_deadline_seconds=0.7)
+        started = time.perf_counter()
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING") as logs:
+            body = self.ask(client, fake).json()
+        self.assertLess(time.perf_counter() - started, 1.5)
+        self.assertEqual(body["mode"], "fallback")
+        self.assertEqual(body["tool_used"], "station_rhythm")  # still a useful answer
+        self.assertIn("deadline", logs.output[0])
+        self.assertEqual(fake.chat.completions.create.call_count, 1)  # second call never started
+        record = self.requests_logged()[0]
+        self.assertEqual(record["mode"], "fallback")
+        self.assertIn("deadline", record["failure"])
+        self.assertIn("fallback", record["stages"])
+
+    def test_request_within_budget_is_answered_by_the_model_and_timed(self):
+        client, fake = self.client_with(delay=0.05)
+        with self.assertNoLogs("neareast_api.modules.chat.service", "WARNING"):
+            body = self.ask(client, fake).json()
+        self.assertEqual(body["mode"], "llm")
+        record = self.requests_logged()[0]
+        self.assertIsNone(record["failure"])
+        self.assertEqual(set(record["stages"]),
+                         {"retrieval", "llm_first", "tool", "llm_after_tool", "finalize"})
+        self.assertGreaterEqual(record["stages"]["llm_first"], 50)
+        self.assertGreaterEqual(record["total_ms"], 100)
+
+    def test_slow_request_is_flagged_and_mock_mode_writes_no_record(self):
+        client, fake = self.client_with(delay=0.05)
+        with patch.object(service, "SLOW_REQUEST_MS", 10), self.assertLogs(
+            "neareast_api.modules.chat.service", "WARNING"
+        ) as logs:
+            self.ask(client, fake)
+        self.assertIn("slow chat request", logs.output[0])
+        self.assertIn("llm_first", logs.output[0])
+
+        quiet = Path(self.tmp.name) / "mock.jsonl"
+        mock_client = TestClient(create_app(Settings(llm_usage_log=str(quiet))))
+        mock_client.post(URL, json={"message": "안녕"})
+        self.assertFalse(quiet.exists())
 
 
 class EvalCostTests(unittest.TestCase):

@@ -155,10 +155,13 @@ def main(argv: list[str] | None = None) -> int:
         for failure in failures:
             print(f"    ! {failure}")
 
-    entries = [json.loads(line) for line in run_log.read_text("utf-8").splitlines() if line.strip()]
-    if entries:  # keep the shared usage record complete
+    records = [json.loads(line) for line in run_log.read_text("utf-8").splitlines() if line.strip()]
+    if records:  # keep the shared usage record complete
         with Path(base.llm_usage_log).open("a", encoding="utf-8") as shared:
-            shared.writelines(json.dumps(e) + "\n" for e in entries)
+            shared.writelines(json.dumps(e, ensure_ascii=False) + "\n" for e in records)
+    entries = [e for e in records if e["kind"] != "request"]  # model calls (tokens)
+    slowest = max((e for e in records if e["kind"] == "request"),
+                  key=lambda e: e["total_ms"], default=None)
     run_log.unlink(missing_ok=True)
     stats = summarize(entries, latencies)
     groups = {g: [sum(r), len(r)] for g, r in sorted(by_group.items())}
@@ -173,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
           f"{(stats['cache_ratio'] or 0):.0%}) · completion {stats['completion_tokens']} · {cost} · "
           f"latency avg {stats['latency_avg_s']}s / max {stats['latency_max_s']}s")
 
+    if slowest:
+        print(f"slowest request: {slowest['total_ms']} ms, stages {slowest['stages']}")
     if args.out:
         Path(args.out).write_text(json.dumps({
             "label": label, "at": dt.datetime.now().isoformat(timespec="seconds"),

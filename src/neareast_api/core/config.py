@@ -31,6 +31,8 @@ class Settings(BaseModel):
     # Only for reasoning models (gpt-5 family); unset sends no reasoning parameter.
     chat_reasoning_effort: Literal["none", "minimal", "low", "medium", "high"] | None = None
     llm_timeout_seconds: float = Field(default=8, gt=0, le=120)
+    # Whole-request budget for the model path; past it the built-in responder answers.
+    chat_deadline_seconds: float = Field(default=12, gt=0, le=120)
     # Every LLM/embedding call appends its token usage here (JSON lines).
     llm_usage_log: str = Field(default="llm_usage.jsonl", min_length=1)
 

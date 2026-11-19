@@ -106,9 +106,9 @@ NearEast_Backend/
 ```
 
 **프론트 안내**: 요청을 보낸 뒤 바로 `loading`의 상황별 문구를 보여 주고, **5초가 넘으면 `slow` 문구로 바꿔** 주세요.
-보통 응답은 2~3초, 도구를 쓰는 답은 4초 안팎입니다. 모델 호출 1회는 8초에 끊고 한 번 다시 시도합니다.
-한 메시지에 호출이 최대 2회라서 **최악의 경우 약 32초**까지 걸릴 수 있고, 그래도 실패하면 내장 응답기가
-대신 답합니다(`mode: "fallback"`). 프론트 타임아웃은 35초 이상으로 잡아 주세요.
+보통 응답은 2~3초, 도구를 쓰는 답은 4초 안팎입니다. 메시지 1건은 **전체 12초 안에** 끝납니다.
+모델 호출이 그 안에 끝나지 않으면(호출 1회는 최대 8초, 일시적 실패는 남은 시간 안에서 한 번 재시도)
+내장 응답기가 대신 답합니다(`mode: "fallback"`). 프론트 타임아웃은 15초로 잡아 주세요.
 
 ### `POST /api/v1/chat/messages`
 
@@ -273,9 +273,10 @@ python3.12 -m venv .venv
 | `NEAREAST_CHAT_MODEL` | `gpt-5.4-nano` | 답변 생성 모델 (평가 비교 후 선택) |
 | `NEAREAST_EMBEDDING_MODEL` | `text-embedding-3-small` | 문서·질의 임베딩 모델 (`scripts/ingest.py`와 같아야 함) |
 | `NEAREAST_CHAT_MAX_TOKENS` | `1000` | 호출 1회의 출력 토큰 상한. 추론 토큰도 포함되므로 넉넉히 둠(답 길이는 프롬프트와 서버의 400자 제한으로 유지) |
-| `NEAREAST_LLM_TIMEOUT_SECONDS` | `8` | OpenAI 호출 1회 타임아웃. 1회 재시도하고, 실패하면 내장 응답기로 대신 답함. 메시지 1건의 최악 대기는 이 값의 약 4배 |
+| `NEAREAST_LLM_TIMEOUT_SECONDS` | `8` | OpenAI 호출 1회 타임아웃. 일시적 실패는 한 번 재시도 |
+| `NEAREAST_CHAT_DEADLINE_SECONDS` | `12` | 메시지 1건 전체의 시간 상한. 넘으면 내장 응답기가 대신 답함(`mode: "fallback"`) |
 | `NEAREAST_CHAT_REASONING_EFFORT` | 없음 | 추론 모델(gpt-5 계열)만: `none`·`minimal`·`low`·`medium`·`high`. gpt-4.1 계열에는 두지 않음 |
-| `NEAREAST_LLM_USAGE_LOG` | `llm_usage.jsonl` | 호출마다 토큰 사용량(캐시 포함)과 응답 시간을 한 줄씩 기록. Compose에서는 `/tmp/llm_usage.jsonl` |
+| `NEAREAST_LLM_USAGE_LOG` | `llm_usage.jsonl` | 모델 호출마다 토큰 사용량(캐시 포함)·응답 시간, 요청마다 단계별 소요 시간(`kind: "request"`)을 한 줄씩 기록. Compose에서는 `/tmp/llm_usage.jsonl` |
 
 앱은 생성 시 프로세스 환경변수를 읽고 검증합니다. 잘못된 bool 값은 시작 오류로 처리합니다.
 앱 자체가 `.env`를 탐색하거나 로딩하지 않습니다. 로컬에서는 명령의 `--env-file .env`,
