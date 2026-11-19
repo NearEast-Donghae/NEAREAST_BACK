@@ -268,11 +268,22 @@ def _clip(reply: str) -> str:
     kept = ""
     for sentence in re.split(r"(?<=[.!?…])\s+", reply):
         if len(kept) + len(sentence) + 1 > MAX_REPLY_CHARS:
+            # A long unbroken run (a train list) that would otherwise vanish: when most of
+            # the bubble is still empty, keep its beginning up to an item boundary.
+            room = MAX_REPLY_CHARS - len(kept) - 2
+            if len(kept) < MAX_REPLY_CHARS // 2 and room > 20:
+                piece = sentence[:room]
+                # Cut between list items if possible ("…), " then ", "), else between words.
+                cut = piece.rfind("), ") + 1
+                for separator in (", ", " "):
+                    if cut > room // 2:
+                        break
+                    cut = piece.rfind(separator)
+                piece = piece[:cut] if cut > room // 2 else piece
+                kept = f"{kept} {piece.rstrip(' ,')}…".strip()
             break
         kept = f"{kept} {sentence}".strip()
-    if kept:
-        return kept
-    return reply[: MAX_REPLY_CHARS - 1].rstrip() + "…"  # one endless sentence
+    return kept
 
 
 def _has_nearby(place: retrieval.Place) -> bool:

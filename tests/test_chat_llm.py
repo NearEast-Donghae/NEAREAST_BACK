@@ -394,8 +394,19 @@ class LLMResponderTests(unittest.TestCase):
 
         endless = "가" * 1000  # no sentence break at all
         response, _ = self.ask([draft(endless, intent="smalltalk")])
-        self.assertEqual(len(response.json()["reply"]), service.MAX_REPLY_CHARS)
+        self.assertLessEqual(len(response.json()["reply"]), service.MAX_REPLY_CHARS)
+        self.assertGreater(len(response.json()["reply"]), service.MAX_REPLY_CHARS - 10)
         self.assertTrue(response.json()["reply"].endswith("…"))
+
+    def test_long_list_after_a_short_intro_is_shortened_not_dropped(self):
+        # Seen in evaluation: "목록이에요." survived and the whole train list was cut.
+        items = ", ".join(f"{h:02d}:10 무궁화 M-16{h:02d}(강릉 방면, 정차)" for h in range(5, 24))
+        reply = service._clip(f"(예시 데이터) 동해역 열차 목록이에요. {items}")
+        self.assertLessEqual(len(reply), service.MAX_REPLY_CHARS)
+        self.assertIn("05:10 무궁화", reply)
+        self.assertGreater(reply.count("무궁화"), 5)
+        self.assertTrue(reply.endswith("…"))
+        self.assertTrue(reply.endswith("정차)…"))  # ends between items, not inside one
 
     def test_normal_reply_is_not_cut(self):
         reply = "동해역은 분기역이에요. 1940년 북평역으로 문을 열었어요. 철도기념비도 있어요."
