@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from neareast_api.modules.chat.schemas import Certainty
 
 SOURCE = "mock"
+MARKET_ID = "poi_bukpyeong_market"
+MARKET_DAY_ENDINGS = (3, 8)  # 북평민속시장: days of the month ending in 3 or 8
 GAP_MINUTES = 120
 
 
@@ -87,6 +89,14 @@ _NEARBY: dict[str, tuple[tuple[str, int], ...]] = {
 def _minutes(hhmm: str) -> int:
     hours, minutes = hhmm.split(":")
     return int(hours) * 60 + int(minutes)
+
+
+def market_day(date: dt.date) -> tuple[bool, dt.date]:
+    """(is `date` a market day, the nearest market day on or after it)."""
+    day = date
+    while day.day % 10 not in MARKET_DAY_ENDINGS:
+        day += dt.timedelta(days=1)
+    return day == date, day
 
 
 def gap_minutes(gap: Gap) -> int:

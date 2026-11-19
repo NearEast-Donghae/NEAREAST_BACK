@@ -297,6 +297,25 @@ def _passing_is_relevant(
     )
 
 
+MARKET_TALK = ("장날", "장이 서", "장이 열", "장 서", "장이 안")
+
+
+def market_day_sentence(date: dt.date) -> str:
+    is_day, nearest = tools.market_day(date)
+    if is_day:
+        return f"{date.month}월 {date.day}일은 북평민속시장 장날이에요."
+    weekday = prompts.WEEKDAYS[nearest.weekday()]
+    return (f"{date.month}월 {date.day}일은 장날이 아니에요. "
+            f"가장 가까운 장날은 {nearest.month}월 {nearest.day}일({weekday})이에요.")
+
+
+def _with_market_day(reply: str, date: dt.date) -> str:
+    """Replace whatever the responder said about market days with the computed verdict."""
+    sentences = [s for s in re.split(r"(?<=[.!?…])\s+", reply)
+                 if s and not any(w in s for w in MARKET_TALK)]
+    return " ".join([*sentences, market_day_sentence(date)])
+
+
 def _log_replaced(rule: str, original: str) -> None:
     """Keep what the responder actually said, so "why did it answer that?" can be traced."""
     logger.warning("rule replaced the reply [%s]; original: %r", rule, original[:300])
@@ -404,6 +423,12 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
             reply = f"{reply.rstrip()} {PASSING_NOTE}"
         if PASSING_DOC in content.docs and PASSING_DOC not in sources:
             sources.append(PASSING_DOC)
+    # Market day is date arithmetic: computed here, never left to the responder.
+    about_market = tools.MARKET_ID in sources or (
+        context.mentioned is not None and context.mentioned.id == tools.MARKET_ID
+    )
+    if raw.date is not None and about_market:
+        reply = _with_market_day(reply, raw.date)
     if context.unknown_ids:
         # Ids are for developers (log), not for the user; say it once per conversation.
         logger.warning("unknown place ids ignored: %s", ", ".join(context.unknown_ids))
@@ -494,6 +519,7 @@ def _llm_draft(
         content=content,
         docs=docs,
         first_turn=not request.history,
+        market_day=market_day_sentence(raw.date) if raw.date else None,
     )
     history = [(t.role, t.content) for t in request.history]
 

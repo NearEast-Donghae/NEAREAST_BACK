@@ -425,6 +425,37 @@ class LLMResponderTests(unittest.TestCase):
             self.ask([draft("건널목 안 촬영은 권하지 않아요. 승강장에서 보세요.", intent="safety")],
                      message="건널목 안에서 찍어도 돼?")
 
+    def test_market_day_is_computed_by_the_server(self):
+        wrong = draft("북평민속시장은 오일장이에요. 21일은 장날이라 구경하기 좋아요.",
+                      sources=["poi_bukpyeong_market"])
+        response, chat = self.ask([wrong], message="북평민속시장 그날 열어?", date="2026-11-21")
+        reply = response.json()["reply"]
+        self.assertEqual(reply, "북평민속시장은 오일장이에요. 11월 21일은 장날이 아니에요. "
+                                "가장 가까운 장날은 11월 23일(월)이에요.")
+        self.assertIn("북평민속시장 장날: 11월 21일은 장날이 아니에요.", sent(chat)[-2]["content"])
+        response, _ = self.ask([wrong], message="북평민속시장 그날 열어?", date="2026-11-28")
+        self.assertTrue(response.json()["reply"].endswith("11월 28일은 북평민속시장 장날이에요."))
+
+    def test_market_day_is_not_added_without_a_date_or_for_other_topics(self):
+        about = draft("북평민속시장은 끝자리 3과 8인 날에 열려요.", sources=["poi_bukpyeong_market"])
+        response, _ = self.ask([about], message="북평민속시장 언제 열어?")
+        self.assertEqual(response.json()["reply"], about["reply"])  # no date: nothing to compute
+        other = draft("동해역은 분기역이에요.", sources=["station_donghae"])
+        response, _ = self.ask([other], message="동해역 알려줘", date="2026-11-21")
+        self.assertEqual(response.json()["reply"], other["reply"])
+
+    def test_market_day_arithmetic(self):
+        import datetime as dt
+
+        from neareast_api.modules.chat import tools
+        cases = {"2026-11-21": (False, "2026-11-23"), "2026-11-23": (True, "2026-11-23"),
+                 "2026-11-29": (False, "2026-12-03"), "2026-02-28": (True, "2026-02-28"),
+                 "2026-12-30": (False, "2027-01-03"), "2026-11-13": (True, "2026-11-13")}
+        for day, (is_day, nearest) in cases.items():
+            with self.subTest(day):
+                self.assertEqual(tools.market_day(dt.date.fromisoformat(day)),
+                                 (is_day, dt.date.fromisoformat(nearest)))
+
     def test_long_reply_is_cut_at_a_sentence_boundary(self):
         sentence = "논골담길은 묵호역 근처에 있어서 걸어서 다녀오기 좋아요."
         response, _ = self.ask([draft(" ".join([sentence] * 40), intent="smalltalk")])
