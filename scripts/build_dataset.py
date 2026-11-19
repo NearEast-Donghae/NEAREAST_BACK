@@ -17,9 +17,9 @@ from scripts.validate_data import validate
 
 LOCATION_FIELDS = ("id", "name", "kind", "place_type", "address", "alternate_address", "latitude",
                    "longitude", "crs", "description", "visit_allowed", "coordinate_ready", "routing_ready",
-                   "observed_stay_minutes", "default_stay_minutes", "sources")
+                   "observed_stay_minutes", "default_stay_minutes", "amenities", "sources", "field_sources")
 STATION_FIELDS = LOCATION_FIELDS + ("operation_status", "passenger_handling", "freight_handling",
-                                    "railway_lines")
+                                    "railway_lines", "railway_line_sources")
 HUB_FIELDS = LOCATION_FIELDS + ("operator", "facility_category")
 
 
@@ -62,7 +62,8 @@ def exclude_reviewed_coordinates(records, reviews):
 
 
 def select(place, fields):
-    return {field: place[field] for field in fields}
+    return {field: ({key: value for key, value in place[field].items() if key in fields}
+                    if field == "field_sources" else place[field]) for field in fields}
 
 
 def write_csv(path, rows):
@@ -84,6 +85,50 @@ def write_csv(path, rows):
         temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def quality_markdown(report):
+    counts = report["counts"]
+    lines = [
+        "# NEAREAST STEP 1 데이터 품질 검증",
+        "",
+        f"생성일(KST) {report['generated_on_kst']}",
+        "",
+        "| 파일 | 행 수 |",
+        "|---|---:|",
+        *(f"| `{table}.json` | {count} |" for table, count in counts.items()),
+        f"| `locations.csv` | {counts['locations']} |",
+        "",
+        f"- 통합 장소 중 유효한 좌표 {report['coordinate_ready_count']}건. "
+        f"공개 방문 근거까지 확인한 경로 후보 {report['routing_ready_count']}건.",
+        f"- 중복 병합 {report['merged_records']}건. 출력 구조·좌표·참조 검증 오류 "
+        f"{len(report['validation_errors'])}건.",
+        "- 아래 좌표 검사는 수치 범위와 확인된 사례를 다룹니다. 개별 출입구 위치는 별도로 확인합니다.",
+        "",
+        "## CSV 입력",
+        "",
+        "| 파일 | 인코딩 | 읽은 행 | 반영 후보 | 타지역 | 처리 상태 |",
+        "|---|---|---:|---:|---:|---|",
+    ]
+    lines.extend(
+        f"| {item['file']} | {item.get('encoding', '—')} | {item.get('rows', 0)} | "
+        f"{item['included']} | {item['out_of_scope']} | {item['status']} |"
+        for item in report["csv_inventory"]
+    )
+    lines += ["", "## 누락 및 검토", "",
+              "- 좌표 누락 또는 보류: " + (", ".join(report["locations_missing_coordinates"]) or "없음"),
+              "- 자료별 입력·필드 매핑은 [데이터 출처 및 활용 내역](../../docs/data_sources.md)에 기록했습니다.",
+              "- 검토 대기 항목은 [missing_data.json](missing_data.json)에 있습니다.", "",
+              "| 필드 | 미확보 건수 |", "|---|---:|"]
+    lines.extend(f"| `{field}` | {total} |" for field, total in report["missing_fields"].items())
+    lines += ["", "| 수집 범위 | 상태 |", "|---|---|"]
+    lines.extend(f"| `{name}` | {json.dumps(value, ensure_ascii=False)} |" for name, value in report["api"].items())
+    if report["issues"]:
+        lines += ["", "| 점검 항목 | 대상 | 사유 |", "|---|---|---|"]
+        for item in report["issues"]:
+            name = item.get("name") or ", ".join(item.get("names", [])) or item.get("id") or "—"
+            lines.append(f"| {item['code']} | {name} | {item.get('reason', '세부 내용은 data_quality.json 참고')} |")
+    return "\n".join(lines) + "\n"
 
 
 def build(raw, processed, reports, reference=DATA / "reference"):
@@ -173,6 +218,7 @@ def build(raw, processed, reports, reference=DATA / "reference"):
         "validation_errors": errors,
     }
     write_json(reports / "data_quality.json", report)
+    (reports / "data_quality_report.md").write_text(quality_markdown(report), encoding="utf-8")
     write_json(reports / "missing_data.json", {
         "source_review_queue": load_reference(reference, "review_queue.csv"),
         "locations_missing_coordinates": coordinate_missing,

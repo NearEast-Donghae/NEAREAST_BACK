@@ -25,6 +25,10 @@ def validate(tables):
             errors.append(f"{key}: 유효하지 않은 위경도")
         if row.get("kind") not in LOCATION_KINDS or not row.get("name") or not row.get("sources"):
             errors.append(f"{key}: 유형·이름·출처 확인 필요")
+        sources = {source.get("source_ref") for source in row.get("sources", [])}
+        if None in sources or any(not refs or not set(refs) <= sources
+                                  for refs in row.get("field_sources", {}).values()):
+            errors.append(f"{key}: 출처 식별자 또는 필드 참조 불일치")
         if row.get("crs") != "EPSG:4326":
             errors.append(f"{key}: 좌표계 확인 필요")
         if row.get("coordinate_ready") != (issue is None):
@@ -41,6 +45,11 @@ def validate(tables):
             if any(row.get(field) != location.get(field)
                    for field in ("name", "address", "latitude", "longitude", "crs", "visit_allowed")):
                 errors.append(f"{row.get('id')}: 장소 상세 내용이 locations와 일치하지 않음")
+            sources = {source.get("source_ref") for source in row.get("sources", [])}
+            for reference_map in ("field_sources", "railway_line_sources"):
+                if any(not refs or not set(refs) <= sources
+                       for refs in row.get(reference_map, {}).values()):
+                    errors.append(f"{row.get('id')}: {reference_map} 출처 식별자 불일치")
     station_ids = {row.get("id") for row in tables["stations"]}
     for line in tables["railway_lines"]:
         if not set(line.get("station_ids", [])) <= station_ids:

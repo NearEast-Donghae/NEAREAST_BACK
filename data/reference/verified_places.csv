@@ -1,5 +1,11 @@
-name,kind,address,latitude,longitude,railway_lines,operation_status,passenger_handling,freight_handling,visit_allowed,place_type,source_url,source_date,checked_at
+name,kind,address,latitude,longitude,railway_lines,operation_status,passenger_handling,freight_handling,visit_allowed,place_type,source_url,source_date,checked_at,description,amenities
 묵호항역,station,강원특별자치도 동해시 향로봉길 91,,,,,,,,railway_station,https://js119.gwd.go.kr/dh119/partici/partici_notice?articleSeq=11070643,,2026-11-19
 삼화역,station,강원특별자치도 동해시 삼화로 54,,,,,,,,railway_station,https://js119.gwd.go.kr/dh119/partici/partici_notice?articleSeq=11070643,,2026-11-19
 묵호항역,station,강원특별자치도 동해시 향로봉길 91,,,,,,true,,railway_station,https://info.korail.com/info/contents.do?key=870,,2026-11-19
 삼화역,station,강원특별자치도 동해시 삼화로 54,,,,,,true,,railway_station,https://info.korail.com/info/contents.do?key=870,,2026-11-19
+동해역,station,강원특별자치도 동해시 동해역길 69,,,동해선,operating,true,,true,railway_station,https://info.korail.com/info/selectBbsNttView.do?bbsNo=199&key=911&nttNo=25904,,2026-11-19,동해선 KTX-이음 정차역입니다.
+묵호역,station,강원특별자치도 동해시 해안로 520,,,동해선,operating,true,,true,railway_station,https://info.korail.com/info/selectBbsNttView.do?bbsNo=199&key=911&nttNo=25904,,2026-11-19,동해선 KTX-이음 정차역입니다.
+동해시종합버스터미널,transport_hub,강원특별자치도 동해시 동해대로 5443,,,,,,,true,passenger_terminal,https://www.dhsisul.org/pages/sub.htm?nav_code=new1701855784&mv_data=aWR4PTE0JnR5cGU9dHJhZmZpYw==||,,2026-11-19,동해시시설관리공단이 안내하는 버스터미널입니다.,parking
+묵호항역,station,강원특별자치도 동해시 향로봉길 91,,,묵호항선,,,,,railway_station,https://www.codil.or.kr/filebank/original/RK/OTKCRK180993/OTKCRK180993.pdf,,2026-11-19,
+산업선전철준공기념비,tourism,강원특별자치도 동해시 동해역길 69,,,,,,,,railway_heritage,https://www.data.go.kr/data/15067652/fileData.do,2021-09-29,2026-11-19,국가철도공단 자료가 동해역 구내에 있다고 기록한 철도 기념물입니다.
+추암촛대바위(추암해수욕장),tourism,강원특별자치도 동해시 촛대바위길 6,,,,,,,true,attraction,https://access.visitkorea.or.kr/ms/detail_print.do?cotId=3d80ed0f-e004-4032-b0a6-312f218c3d4b,2026-10-23,2026-11-19,추암해변 인근의 해안 경관 명소입니다.,accessible_parking;accessible_restroom

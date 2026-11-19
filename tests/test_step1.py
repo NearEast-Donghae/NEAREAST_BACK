@@ -1,6 +1,5 @@
 import csv
 import json
-from pathlib import Path
 
 import httpx
 import pytest
@@ -126,9 +125,12 @@ def test_merge_coordinate_quarantine_and_output(tmp_path):
     assert result["coordinate_ready_count"] == 1
     assert result["routing_ready_count"] == 0
     assert result["issues"][0]["code"] == "quarantined_coordinates"
+    assert (reports / "data_quality_report.md").is_file()
     tables = {name: json.loads((processed / f"{name}.json").read_text(encoding="utf-8"))
               for name in TABLES}
     assert not validate(tables)
+    for location in tables["locations"]:
+        assert {source["source_ref"] for source in location["sources"]} >= set(location["field_sources"]["name"])
     assert tables["trains"] == []
     with (processed / "locations.csv").open(encoding="utf-8-sig", newline="") as stream:
         assert len(list(csv.DictReader(stream))) == 2

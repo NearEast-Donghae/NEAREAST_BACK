@@ -104,20 +104,24 @@ def normalize_location(record):
         "transport_hub": "passenger_terminal",
     }[kind]
     explicit_id = first(row, "source_id", "역번호", "contentid")
+    source_ref = identifier("source", source["dataset"], source.get("url") or "",
+                            source["file"], explicit_id or str(source["record_number"]))
     return {
         "name": name, "kind": kind, "place_type": subtype,
         "address": address, "alternate_address": alternate if alternate != address else None,
         "latitude": lat, "longitude": lng, "coordinate_issue": coordinate_issue,
-        "description": first(row, "description", "역소개", "장소설명", "설명", "overview"),
+        "description": first(row, "description", "장소설명", "설명", "overview"),
         "visit_allowed": truth(first(row, "visit_allowed")),
         "observed_stay_minutes": positive_minutes(first(row, "observed_stay_minutes", "체류시간(분)")),
         "operation_status": status,
         "passenger_handling": passenger if passenger is not None else service_flag(work, "여객"),
         "freight_handling": freight if freight is not None else service_flag(work, "화물"),
         "railway_lines": line_names if kind == "station" else [],
+        "amenities": [value for token in (first(row, "amenities") or "").split(";")
+                      if (value := clean(token))],
         "operator": first(row, "운영주체"),
         "facility_category": first(row, "구분"),
-        "source": {**source, "source_id": explicit_id},
+        "source": {**source, "source_id": explicit_id, "source_ref": source_ref},
     }
 
 
@@ -172,6 +176,9 @@ def merge_locations(records):
         for cluster in clusters:
             primary = cluster[0]
             anchor = primary["address"] or primary["source"]["source_id"]
+            if sum(row["address"] == anchor for row in candidates) > len(cluster):
+                provider_key = primary["source"]["source_id"] or primary["source"]["source_ref"]
+                anchor = f"{anchor}/{provider_key}"
             if not anchor:
                 anchor = repr((primary["latitude"], primary["longitude"]))
                 if primary["latitude"] is None:
@@ -179,6 +186,8 @@ def merge_locations(records):
             key = identifier("place", kind, normalized_name, anchor)
             merged = {"id": key, "name": primary["name"], "kind": kind,
                       "place_type": primary["place_type"], "crs": "EPSG:4326"}
+            field_sources = {field: [primary["source"]["source_ref"]]
+                             for field in ("name", "kind", "place_type")}
             uncertain = {"visit_allowed", "operation_status", "passenger_handling", "freight_handling"}
             for field in ("address", "alternate_address", "description", "visit_allowed",
                           "observed_stay_minutes", "operation_status", "passenger_handling",
@@ -189,6 +198,9 @@ def merge_locations(records):
                     merged[field] = None
                 else:
                     merged[field] = values[0] if values else None
+                if merged[field] is not None:
+                    field_sources[field] = [item["source"]["source_ref"] for item in cluster
+                                            if item[field] == merged[field]]
             coordinates = [item for item in cluster if item["latitude"] is not None]
             coordinate = coordinates[0] if coordinates else None
             if coordinate and any(not close_coordinates(coordinate, item) for item in coordinates[1:]):
@@ -196,10 +208,21 @@ def merge_locations(records):
                 coordinate = None
             merged["latitude"] = coordinate["latitude"] if coordinate else None
             merged["longitude"] = coordinate["longitude"] if coordinate else None
+            if coordinate:
+                field_sources["latitude"] = field_sources["longitude"] = [coordinate["source"]["source_ref"]]
             merged["coordinate_ready"] = coordinate is not None
             merged["routing_ready"] = coordinate is not None and merged["visit_allowed"] is True
             merged["default_stay_minutes"] = DEFAULT_STAY.get(primary["place_type"], DEFAULT_STAY[kind])
             merged["railway_lines"] = sorted({line for row in cluster for line in row["railway_lines"]})
+            merged["railway_line_sources"] = {
+                line: [item["source"]["source_ref"] for item in cluster if line in item["railway_lines"]]
+                for line in merged["railway_lines"]
+            }
+            merged["amenities"] = sorted({amenity for item in cluster for amenity in item["amenities"]})
+            if merged["amenities"]:
+                field_sources["amenities"] = [item["source"]["source_ref"] for item in cluster
+                                               if item["amenities"]]
+            merged["field_sources"] = field_sources
             merged["sources"] = [row["source"] for row in cluster]
             result.append(merged)
     return result, issues
@@ -274,7 +297,8 @@ def train_records(snapshots, stations, tago_index):
                 "stops": [{"tago_station_id": dep_id, "station_name": departure, "departure_at": dep_at},
                           {"tago_station_id": arr_id, "station_name": arrival, "arrival_at": arr_at}],
                 "intermediate_stops_available": False,
-                "source": {"url": snapshot["source_url"], "fetched_at": snapshot["fetched_at"],
+                "source": {"dataset": "tago", "source_ref": identifier("source", "tago", key),
+                           "url": snapshot["source_url"], "fetched_at": snapshot["fetched_at"],
                            "endpoint": snapshot["endpoint"]},
             }
     return list(trains.values()), issues
@@ -294,5 +318,7 @@ def railway_lines(stations):
                 "sources": [],
             })
             entry["station_ids"].append(station["id"])
-            entry["sources"].extend(s for s in station["sources"] if s not in entry["sources"])
+            source_refs = station["railway_line_sources"][line]
+            entry["sources"].extend(s for s in station["sources"]
+                                    if s["source_ref"] in source_refs and s not in entry["sources"])
     return list(lines.values())
