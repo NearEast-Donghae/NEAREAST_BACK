@@ -9,14 +9,14 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from neareast_api.modules.itineraries.dto import PlanningConditionsDto
+
 HISTORY_KEEP = 10  # most recent messages actually used
 HISTORY_ACCEPT = 200  # more than this is not a chat client; reject
 HISTORY_CHARS = 6000  # total history text sent to the model (bounds prompt cost)
 
 PlaceId = Annotated[str, Field(min_length=1, max_length=64)]
 Intent = Literal["knowledge", "train_lookup", "safety", "proposal", "smalltalk", "plan_request"]
-PlanMode = Literal["train_first", "visit_first", "balanced"]
-ClockTime = Annotated[str, Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 ToolName = Literal["station_rhythm", "search_trains", "nearby_spots"]
 # timetable: public timetable as-is / estimated: interpolated from neighbouring stations
 # planned: scheduled but same-day operation unconfirmed (e.g. freight) / None: not time-related
@@ -64,35 +64,13 @@ class Proposal(_Strict):
     certainty: Certainty | None = None
 
 
-class PlanPoint(_Strict):
-    place: PlaceId | None = None
-    time: ClockTime | None = None
-
-
-class PlanItem(_Strict):
-    # A pinned station is somewhere to be for trains; any other pin is a place to visit.
-    kind: Literal["station", "visit"]
-    place: PlaceId
-
-
-class PlanRequestPayload(_Strict):
-    """The day-plan request (planner spec, chapter 2) as far as the conversation knows it.
-    The plan screen fills in the rest: which trains, how long to stay, what is a must."""
-
-    date: dt.date
-    start: PlanPoint | None = Field(description="대화에서 말한 출발 장소·시각. 말하지 않았으면 null")
-    end: PlanPoint | None = Field(description="대화에서 말한 도착 장소·시각. 말하지 않았으면 null")
-    items: list[PlanItem] = Field(min_length=1, description="내 핀. 순서는 핀 순서 그대로")
-    mode: PlanMode | None = None
-    dismissed: list[PlaceId]
-    depth: Literal["reference", "light", "full"]
-
-
 class ChatAction(_Strict):
     """Something for the client to do. The chat itself never makes or changes a plan."""
 
     type: Literal["plan_request"]
-    payload: PlanRequestPayload
+    # The same shape POST /planning-requests takes as `conditions`, so the client can
+    # pass it on unchanged.
+    payload: PlanningConditionsDto
 
 
 class ChatResponse(_Strict):

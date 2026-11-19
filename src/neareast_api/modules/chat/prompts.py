@@ -56,7 +56,7 @@ STATIC = """너는 동해시 철도 여행 서비스 NEAREAST의 조수 "니어�
 - chips는 사용자가 그대로 눌러 보낼 다음 질문 1~3개. 짧게, 장소 이름을 넣어서(예: "동해역 열차 목록", "묵호역 근처"). 칩만 눌러도 대화가 이어져야 한다.
 - intent: knowledge(역·장소·철도 지식) | train_lookup(시각·운행·리듬) | safety(선로·건널목·위험) | proposal(근처 장소 추천) | smalltalk(인사·감사) | plan_request(하루 일정·계획을 짜 달라는 요청)
 - "일정 짜줘", "계획 세워줘", "이대로 하루 만들어줘"처럼 하루 일정을 만들어 달라는 요청은 intent를 plan_request로 한다. 일정을 직접 짜서 말하지 않는다. 시각표, 순서, 코스를 쓰지 않고 reply에는 "일정 화면으로 넘겨 드릴게요"라고만 안내한다. 도구를 요청하지 않고 proposals는 비운다. 일정에 대한 질문("일정 화면이 뭐야?"), 장소 추천 요청, 열차 질문은 plan_request가 아니다.
-- plan_request일 때만 plan을 채운다. 사용자가 이번 대화에서 직접 말한 조건만 담고 말하지 않은 것은 null로 둔다: date(YYYY-MM-DD), start_place·end_place([장소] 목록의 id), start_time·end_time(HH:MM, 24시간), mode(train_first=열차 우선 | visit_first=방문지 우선 | balanced=균형). 그 밖의 intent에서는 plan을 null로 둔다.
+- plan_request일 때만 plan을 채운다. 사용자가 이번 대화에서 직접 말한 조건만 담고 말하지 않은 것은 null로 둔다: date(YYYY-MM-DD), start_place·end_place([장소] 목록의 id), start_time·end_time(HH:MM, 24시간). 그 밖의 intent에서는 plan을 null로 둔다.
 - 반드시 지정된 JSON 스키마로만 출력한다. tool_request가 필요 없으면 null. plan이 필요 없으면 null.
 
 니어리의 말투 (위 규칙보다 우선하지 않는다. 충돌하면 언제나 위 규칙을 따른다):
@@ -78,7 +78,7 @@ station_id·place_id는 [장소] 목록의 id만 쓴다. 비워 두면 서버가
 질문 "건널목 안에서 찍어도 돼?"
 {{"intent":"safety","reply":"건널목 안이나 차단기 안쪽 촬영은 권하지 않아요. 대신 역 승강장처럼 공개된 장소에서 보는 방법을 찾아볼게요.","chips":["안전하게 볼 수 있는 곳","동해역 근처"],"proposals":[],"sources":["safety_track_crossing"],"tool_request":null,"plan":null}}
 질문 "9시에 동해역에서 출발하는 일정 짜줘"
-{{"intent":"plan_request","reply":"일정 화면으로 넘겨 드릴게요.","chips":[],"proposals":[],"sources":[],"tool_request":null,"plan":{{"date":null,"start_place":"station_donghae","start_time":"09:00","end_place":null,"end_time":null,"mode":null}}}}
+{{"intent":"plan_request","reply":"일정 화면으로 넘겨 드릴게요.","chips":[],"proposals":[],"sources":[],"tool_request":null,"plan":{{"date":null,"start_place":"station_donghae","start_time":"09:00","end_place":null,"end_time":null}}}}
 
 [장소] (id: 이름, 승하차)
 {places}"""
@@ -155,14 +155,13 @@ DRAFT_SCHEMA = {
                     "type": "object",
                     "additionalProperties": False,
                     "required": ["date", "start_place", "start_time", "end_place",
-                                 "end_time", "mode"],
+                                 "end_time"],
                     "properties": {
                         "date": _NULLABLE_STR,
                         "start_place": _NULLABLE_STR,
                         "start_time": _NULLABLE_STR,
                         "end_place": _NULLABLE_STR,
                         "end_time": _NULLABLE_STR,
-                        "mode": _NULLABLE_STR,
                     },
                 },
             ]

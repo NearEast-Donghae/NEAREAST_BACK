@@ -33,12 +33,10 @@ from neareast_api.modules.chat.schemas import (
     ChatRequest,
     ChatResponse,
     Intent,
-    PlanItem,
-    PlanPoint,
-    PlanRequestPayload,
     Proposal,
     ToolName,
 )
+from neareast_api.modules.itineraries.dto import PlanningConditionsDto, SelectedTrainDto
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +109,15 @@ class Draft:
 
 
 @dataclass(frozen=True)
+class SavedSelection:
+    """The logged-in user's saved items, as far as the chat needs them."""
+
+    placeIds: tuple[str, ...] = ()
+    mustPlaceIds: tuple[str, ...] = ()
+    trains: tuple[tuple[str, str, str], ...] = ()  # (train no, ride|observe, station id)
+
+
+@dataclass(frozen=True)
 class ResolvedContext:
     """Request context with ids checked against the place catalog."""
 
@@ -127,6 +134,8 @@ class ResolvedContext:
     unknown_already_told: bool = False  # an earlier reply already carried the notice
     first_turn: bool = True  # no earlier turns: the only time the persona greets
     timetable: timetable_service.Timetable | None = None  # None: train tools use example data
+    saved: SavedSelection = SavedSelection()
+    screen_pins: tuple[str, ...] = ()  # pins the request itself carried, before saved places
 
     @property
     def known_ids(self) -> list[str]:
@@ -184,15 +193,26 @@ def warm_up(settings: Settings) -> None:
         logger.warning("NEAREAST_CHAT_MOCK=false but no API key: answers will be fallback")
 
 
-def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
+def answer(
+    request: ChatRequest, settings: Settings, saved: SavedSelection | None = None
+) -> ChatResponse:
+    """`saved` is what a logged-in user has saved: those places count as pins, on top of
+    the pins the request carries, so they are known to Nearie and never proposed again."""
     try:
         content = retrieval.load_content(settings.content_dir)
     except retrieval.ContentError:
         logger.exception("chat content unavailable")
         raise ChatUnavailableError from None
+    saved = saved or SavedSelection()
+    screen_pins = tuple(request.context.pins)
+    if saved.placeIds:
+        pins = list(dict.fromkeys([*saved.placeIds, *screen_pins]))
+        request = request.model_copy(update={
+            "context": request.context.model_copy(update={"pins": pins})})
     context = dataclasses.replace(
         _resolve(request.context, content, request.message, request.history),
         timetable=timetable_service.load_or_none(settings.content_dir),
+        saved=saved, screen_pins=screen_pins,
     )
     if settings.chat_mock:
         return _finalize(_mock_draft(request.message, context), context, "mock")
@@ -374,12 +394,15 @@ PLAN_REQUEST = re.compile(
     r"(?:일정|계획|하루|코스|동선|스케줄|루트)[^.?!]{0,15}?"
     r"(?:짜|세워|세우|만들어|잡아|구성해)\s?(?:줘|주세요|주실|줄래|주라|주면|달라|서\s)"
 )
-PLAN_HANDOFF = ("{month}월 {day}일 하루 일정은 일정 화면에서 짜요. 담아 둔 곳({names})을 그대로 "
+# "일정은 내가 직접 짤게": the user keeps the planning. Not a request, whatever the responder says.
+OWN_PLAN = re.compile(
+    r"(?:내가|제가|직접|알아서|혼자)[^.?!]{0,10}(?:짤게|짤래|짤 ?거|짜 ?볼게|세울게|정할게|할게)")
+OWN_PLAN_REPLY = "좋아요, 일정은 직접 짜시면 돼요. 궁금한 열차나 장소가 있으면 언제든 물어봐 주세요."
+PLAN_HANDOFF = ("{month}월 {day}일 하루 일정은 일정 화면에서 짜요. 담아 둔 {what}을 그대로 "
                 "일정 화면으로 넘겨 드릴게요. 순서와 시간은 거기서 직접 고를 수 있어요.")
-PLAN_NEEDS_PINS = ("일정에 넣을 곳이 아직 없어요. 지도에서 가고 싶은 역이나 장소를 먼저 "
+PLAN_NEEDS_PINS = ("일정에 넣을 곳이 아직 없어요. 지도에서 가고 싶은 역이나 장소, 열차를 먼저 "
                    "담아 주시겠어요?")
 PLAN_NEEDS_DATE = "어느 날짜로 짤까요? 날짜만 정해 주시면 담아 둔 곳을 일정 화면으로 넘겨 드릴게요."
-PLAN_MODES = ("train_first", "visit_first", "balanced")
 _HHMM = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
 _KOREAN_DATE = re.compile(r"(\d{1,2})월\s*(\d{1,2})일")
@@ -410,22 +433,54 @@ def date_in_message(message: str, today: dt.date) -> dt.date | None:
 def _wants_plan(intent: str, message: str) -> bool:
     """A plan request by the responder's reading or by the wording. Asking to plan
     something on the tracks is a safety question first."""
-    if any(word in message for word in RISK_WORDS):
+    if any(word in message for word in RISK_WORDS) or OWN_PLAN.search(message):
         return False
     return intent == "plan_request" or is_plan_request(message)
 
 
-def _plan_point(place: object, clock: object, content: retrieval.Content) -> PlanPoint | None:
-    place = place if isinstance(place, str) and content.place(place) is not None else None
-    clock = clock if isinstance(clock, str) and _HHMM.fullmatch(clock) else None
-    return PlanPoint(place=place, time=clock) if place or clock else None
+def _plan_conditions(
+    date: dt.date, said: dict, context: ResolvedContext
+) -> PlanningConditionsDto:
+    """Planning conditions from what is saved, what is pinned on the screen and what the
+    user said. Values the responder reported are used only after checking them here."""
+    content = context.content
+
+    def place(value: object) -> str | None:
+        return value if isinstance(value, str) and content.place(value) is not None else None
+
+    def clock(value: object) -> str | None:
+        return value if isinstance(value, str) and _HHMM.fullmatch(value) else None
+
+    start, end = clock(said.get("start_time")), clock(said.get("end_time"))
+    if start and end and end <= start:
+        end = None  # not a same-day range: leave the end for the plan screen
+    # Required: places saved as "must" and the pins on the screen (a pin is a decision).
+    # Places saved as "interested" are known to the plan screen from the saved list.
+    known = {p.id for p in context.pins}
+    required = [p for p in dict.fromkeys([*context.saved.mustPlaceIds, *context.screen_pins])
+                if p in known]
+    # TODO(plan): how ride/observe is expressed is still being agreed with the planner
+    # owner. Until then both fields are filled: selectedTrainIds (train numbers, what the
+    # planner reads today) and selectedTrains (what each train is for, and where).
+    trains = [SelectedTrainDto(trainNo=no, action=action, stationId=station)
+              for no, action, station in context.saved.trains]
+    return PlanningConditionsDto(
+        travelDate=date,
+        startTime=start,
+        endTime=end,
+        departurePlaceId=place(said.get("start_place")),
+        arrivalPlaceId=place(said.get("end_place")),
+        requiredPlaceIds=required,
+        selectedTrainIds=list(dict.fromkeys(train.trainNo for train in trains)),
+        selectedTrains=trains,
+    )
 
 
 def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResponse:
     """The whole answer to a plan request is written here: whatever the responder said
     (an itinerary, times, places to add) is dropped. With every condition known the
     client gets an action to open the plan screen; otherwise one question, pins first."""
-    raw, content = context.raw, context.content
+    raw = context.raw
     today = dt.datetime.now(KST).date()
     said = draft.plan or {}
     date = date_in_message(context.message, today) or raw.date
@@ -441,7 +496,7 @@ def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResp
     stations = [p for p in context.pins if p.kind == "station"]
     chips = [f"{p.name} 열차 리듬" for p in stations[:1]]
     chips += [f"{p.name} 근처" for p in context.pins[:1] if _has_nearby(p)]
-    if not context.pins:
+    if not context.pins and not context.saved.trains:
         reply, chips = PLAN_NEEDS_PINS, []
     elif date is None:
         reply = PLAN_NEEDS_DATE
@@ -457,20 +512,16 @@ def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResp
         labels = {today: "오늘", today + dt.timedelta(days=1): "내일"}
         chips = [f"{labels.get(d) or f'{d.month}월 {d.day}일'}로 일정 짜줘" for d in days]
     else:
-        names = ", ".join(p.name for p in context.pins[:3])
-        if len(context.pins) > 3:
-            names += f" 등 {len(context.pins)}곳"
-        reply = PLAN_HANDOFF.format(month=date.month, day=date.day, names=names)
-        action = ChatAction(type="plan_request", payload=PlanRequestPayload(
-            date=date,
-            start=_plan_point(said.get("start_place"), said.get("start_time"), content),
-            end=_plan_point(said.get("end_place"), said.get("end_time"), content),
-            items=[PlanItem(kind="station" if p.kind == "station" else "visit", place=p.id)
-                   for p in context.pins],
-            mode=said.get("mode") if said.get("mode") in PLAN_MODES else None,
-            dismissed=list(raw.dismissed),
-            depth=raw.depth,
-        ))
+        what = []
+        if context.pins:
+            names = ", ".join(p.name for p in context.pins[:3])
+            if len(context.pins) > 3:
+                names += f" 등 {len(context.pins)}곳"
+            what.append(f"곳({names})")
+        if context.saved.trains:
+            what.append(f"열차 {len({no for no, _, _ in context.saved.trains})}편")
+        reply = PLAN_HANDOFF.format(month=date.month, day=date.day, what="과 ".join(what))
+        action = ChatAction(type="plan_request", payload=_plan_conditions(date, said, context))
     for chip in DEFAULT_CHIPS:
         if len(chips) < 2 and chip not in chips:
             chips.append(chip)
@@ -482,7 +533,10 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     """Every rule here holds no matter what the responder (mock or LLM) produced."""
     if _wants_plan(draft.intent, context.message):
         return _plan_handoff(draft, context, mode)
-    if draft.intent == "plan_request":  # asked about the tracks: answered as safety
+    if draft.intent == "plan_request" and OWN_PLAN.search(context.message):
+        draft = dataclasses.replace(  # planning stays with the user: nothing is handed over
+            draft, intent="smalltalk", reply=OWN_PLAN_REPLY, proposals=[], plan=None)
+    elif draft.intent == "plan_request":  # asked about the tracks: answered as safety
         draft = dataclasses.replace(draft, intent="safety", plan=None)
     raw = context.raw
     content = context.content

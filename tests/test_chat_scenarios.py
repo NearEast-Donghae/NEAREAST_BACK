@@ -143,15 +143,17 @@ def run_scenario(client, scenario, mode=None):
         if got != expect["action"]:
             failures.append(f"action {got} != {expect['action']}")
     payload = (body["action"] or {}).get("payload", {})
-    if "action_date" in expect and payload.get("date") != expect["action_date"]:
-        failures.append(f"action date {payload.get('date')} != {expect['action_date']}")
-    if "action_places" in expect:
-        places = [item["place"] for item in payload.get("items", [])]
-        if places != expect["action_places"]:
-            failures.append(f"action places {places} != {expect['action_places']}")
-    for edge in ("start", "end"):
-        if f"action_{edge}" in expect and payload.get(edge) != expect[f"action_{edge}"]:
-            failures.append(f"action {edge} {payload.get(edge)} != {expect[f'action_{edge}']}")
+    # The payload is planning conditions (travelDate, requiredPlaceIds, startTime, ...).
+    if "action_date" in expect and payload.get("travelDate") != expect["action_date"]:
+        failures.append(f"action date {payload.get('travelDate')} != {expect['action_date']}")
+    if "action_places" in expect and payload.get("requiredPlaceIds") != expect["action_places"]:
+        failures.append(
+            f"action places {payload.get('requiredPlaceIds')} != {expect['action_places']}")
+    for edge, place_key, time_key in (("start", "departurePlaceId", "startTime"),
+                                      ("end", "arrivalPlaceId", "endTime")):
+        got = {"place": payload.get(place_key), "time": payload.get(time_key)}
+        if f"action_{edge}" in expect and got != expect[f"action_{edge}"]:
+            failures.append(f"action {edge} {got} != {expect[f'action_{edge}']}")
     if expect.get("polite"):
         for _, step, _ in transcript:
             for sentence in impolite_sentences(step["reply"]):
