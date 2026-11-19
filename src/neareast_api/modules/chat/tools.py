@@ -10,14 +10,13 @@ import datetime as dt
 from dataclasses import dataclass
 
 from neareast_api.modules.chat.schemas import Certainty
+from neareast_api.modules.recommend.service import MARKET_ID, market_day  # noqa: F401 (used as tools.*)
 from neareast_api.modules.trains import service as timetable_service
 from neareast_api.modules.trains.service import Timetable
 
 MOCK = "mock"
 SNAPSHOT = "snapshot"
 SOURCE = MOCK  # source of the walking-minute data
-MARKET_ID = "poi_bukpyeong_market"
-MARKET_DAY_ENDINGS = (3, 8)  # 북평민속시장: days of the month ending in 3 or 8
 PASSING_BASIS = "통과 시각은 앞뒤 정차역 시각으로 어림했어요."
 MOCK_GAP_MINUTES = 120
 
@@ -100,14 +99,6 @@ _NEARBY: dict[str, tuple[tuple[str, int], ...]] = {
 def _minutes(hhmm: str) -> int:
     hours, minutes = hhmm.split(":")
     return int(hours) * 60 + int(minutes)
-
-
-def market_day(date: dt.date) -> tuple[bool, dt.date]:
-    """(is `date` a market day, the nearest market day on or after it)."""
-    day = date
-    while day.day % 10 not in MARKET_DAY_ENDINGS:
-        day += dt.timedelta(days=1)
-    return day == date, day
 
 
 def gap_minutes(gap: Gap) -> int:
