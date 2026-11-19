@@ -334,6 +334,9 @@ WALK_ASK_WORDS = ("얼마나", "몇 분", "걸려", "걸리", "갈 수 있", "�
 WALK_ESTIMATE = ("{a}에서 {b}까지는 걸어서 약 {minutes}분이에요. 직선거리에 1.3을 곱해 어림한 값이라 "
                  "실제 길에 따라 달라질 수 있어요.")
 WALK_NO_POSITION = "{a}에서 {b}까지는 아직 위치 정보가 없어 도보 시간을 계산할 수 없어요."
+# A question about going by train or road is not a walking question, whatever tool the
+# responder asks for ("기차로 얼마나 걸려?").
+RIDE_WORDS = ("기차", "열차", "KTX", "버스", "택시", "차로", "자전거")
 WALK_TOO_FAR = "{a}에서 {b}까지는 걸어가기에는 멀어요. 열차나 버스·택시를 권해요."
 
 
@@ -344,6 +347,8 @@ def _walk_pair(context: ResolvedContext) -> tuple[retrieval.Place, retrieval.Pla
     if not (any(word in message for word in WALK_WORDS)
             and any(word in message for word in WALK_ASK_WORDS)):
         return None
+    if any(word in message for word in RIDE_WORDS):
+        return None  # comparing with, or asking about, another way to go
     named = context.content.places_in_text(message)
     if len(named) >= 2:
         return named[0], named[1]
@@ -626,7 +631,8 @@ def _llm_draft(
     risky = any(word in request.message for word in RISK_WORDS)
     pair = None if risky else _walk_pair(context)
     asked = first.get("tool_request") or {}
-    if pair is None and not risky and asked.get("name") == "walk_time":
+    by_ride = any(word in request.message for word in RIDE_WORDS)
+    if pair is None and not risky and not by_ride and asked.get("name") == "walk_time":
         ends = [content.place(asked.get(key) or "") for key in ("station_id", "place_id")]
         if None not in ends and ends[0] != ends[1]:
             pair = (ends[0], ends[1])

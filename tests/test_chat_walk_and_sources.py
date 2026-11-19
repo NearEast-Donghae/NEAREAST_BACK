@@ -147,6 +147,14 @@ class WalkModelPathTests(_Case):
         self.assertIn("약 6분", body["reply"])
         self.assertEqual(chat.call_count, 1)
 
+    def test_a_train_question_is_not_a_walk_even_if_the_model_asks_for_the_walk_tool(self):
+        tool = {"name": "walk_time", "station_id": DONGHAE, "place_id": MUKHO, "after": None}
+        body, _ = self.ask("동해역에서 묵호역까지 기차로 얼마나 걸려?",
+                           [model(tool=tool), model("소요시간은 아직 확인된 정보가 없어요.")])
+        self.assertNotEqual(body["tool_used"], "walk_time")
+        self.assertNotIn("도보 시간", body["reply"])
+        self.assertNotIn("걸어서 약", body["reply"])
+
     def test_a_tool_request_with_unknown_places_is_not_answered_with_a_number(self):
         tool = {"name": "walk_time", "station_id": "station_nowhere", "place_id": MARKET,
                 "after": None}
