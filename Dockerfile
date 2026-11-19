@@ -13,6 +13,9 @@ RUN python -m pip install .
 
 COPY alembic.ini ./
 COPY alembic ./alembic
+# Chat content read at runtime from the working directory (NEAREAST_CONTENT_DIR=.).
+COPY knowledge ./knowledge
+COPY data ./data
 
 USER 10001:10001
 EXPOSE 8000

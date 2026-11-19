@@ -65,7 +65,10 @@ NearEast_Backend/
 │   ├── db/metadata.py       # 기능별 모델의 명시적 등록 위치
 │   ├── db/url.py            # 공통 설정으로 DB 접속 URL 구성
 │   └── modules/             # 합의된 기능을 Python 패키지로 추가할 위치
-│       └── chat/            # 지도 맥락을 아는 챗봇 (router/schemas/service/tools)
+│       └── chat/            # 지도 맥락을 아는 챗봇 (router/schemas/service/retrieval/tools)
+├── knowledge/              # 챗봇 지식 문서 (파일명 = 문서 id = 지도 마커 id)
+├── data/places.json        # 지도 마커와 챗봇이 공유하는 장소 id 목록
+├── scripts/ingest.py       # knowledge/ → data/embeddings.json 임베딩 캐시
 ├── alembic/                # 마이그레이션 환경과 비어 있는 versions/
 ├── alembic.ini             # 비밀번호 없는 Alembic 설정
 ├── tests/                  # 앱·Health·마이그레이션·챗봇 계약 검증
@@ -113,8 +116,36 @@ NearEast_Backend/
 - 모르는 `focused`/`pins` id는 오류가 아니라 **200**입니다. 그 id는 무시하고 답에 모른다고 밝힙니다.
 - 서버가 강제하는 규칙: 제안은 항상 `needs_confirm: true`, `dismissed`의 target은 다시 제안하지 않음,
   `depth: "reference"`면 제안 없음, `certainty`(`timetable`|`estimated`|`planned`|`null`)는 도구 결과에서 옮김.
-- 장소 id는 지도 마커 id와 같아야 합니다. 현재 id 목록은 `modules/chat/tools.py`의 임시 카탈로그이며
-  `data/places.json`이 생기면 그것으로 바뀝니다.
+- 장소 id는 **`data/places.json`** 이 기준이며 지도 마커 id와 같아야 합니다. 좌표는 아직 비어 있습니다.
+- 열차 시각과 도보 시간은 아직 예시 데이터(`modules/chat/tools.py`)이며 시간표 스냅샷으로 교체됩니다.
+
+### 지식 문서 — `knowledge/<id>.md`
+
+챗봇의 지식 답변은 이 문서들만 근거로 하며, 응답 `sources`에 문서 id가 담깁니다.
+장소 문서의 파일명·`id`는 `places.json`의 id와 같아야 합니다(테스트가 검사).
+확인된 사실만 적고, 확인이 필요한 내용은 본문 대신 `todo:`에 남깁니다.
+
+```markdown
+---
+id: station_donghae
+title: 동해역
+kind: station                 # station | poi | heritage | safety | rail
+places: [station_donghae]     # 이 문서가 연결되는 장소 id (화면 맥락 검색용)
+keywords: [동해역, 북평역]      # 질문에 이 단어가 있으면 찾음 (고유명사 위주)
+---
+첫 문단은 짧은 답변에 그대로 인용됩니다.
+
+둘째 문단부터는 보충 설명입니다.
+```
+
+검색 순서: ① 화면 맥락 id(`focused`, `pins`)로 직접 조회 → ② 키워드 → ③ 임베딩 유사도.
+③은 LLM 연결 후, `data/embeddings.json`이 있고 모델명이 같을 때만 쓰입니다.
+문서를 고친 뒤 임베딩 캐시를 갱신합니다(바뀐 문서만 다시 임베딩):
+
+```bash
+python scripts/ingest.py --dry-run   # 키 없이 바뀔 문서만 확인
+NEAREAST_OPENAI_API_KEY=... python scripts/ingest.py
+```
 
 ## Docker 밖에서 Python 직접 실행 — 선택 사항
 
@@ -159,6 +190,7 @@ python3.12 -m venv .venv
 | `NEAREAST_DB_USER` | `.env.example`: `neareast` | 개발용 DB 계정 |
 | `NEAREAST_DB_PASSWORD` | `.env.example`의 개발용 값 | Compose에서는 필수. 앱 설정에 없으면 readiness 실패 |
 | `NEAREAST_CHAT_MOCK` | `true` | 챗봇을 키 없이 내장 예시 데이터로 응답. `false`는 LLM 연결 전까지 503 |
+| `NEAREAST_CONTENT_DIR` | `.` | `knowledge/`·`data/`가 있는 폴더(실행 위치 기준). 이미지에서는 `/app` |
 
 앱은 생성 시 프로세스 환경변수를 읽고 검증합니다. 잘못된 bool 값은 시작 오류로 처리합니다.
 앱 자체가 `.env`를 탐색하거나 로딩하지 않습니다. 로컬에서는 명령의 `--env-file .env`,

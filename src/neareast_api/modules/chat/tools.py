@@ -1,8 +1,8 @@
 """Chat tools as plain service-layer functions.
 
-MOCK DATA: train times, numbers and place ids below are placeholders so the
-contract works without keys or files. Step 2 replaces the place catalog with
-data/places.json; step 4 replaces the timetable with data/timetable_*.json.
+Places come from data/places.json (see retrieval.py); ids here must exist there.
+MOCK DATA: train times/numbers and walking minutes below are placeholders so the
+contract works without keys. Step 4 replaces them with data/timetable_*.json.
 Every result carries `certainty` so the server (not the LLM) labels proposals.
 """
 
@@ -13,14 +13,6 @@ from neareast_api.modules.chat.schemas import Certainty
 
 SOURCE = "mock"
 GAP_MINUTES = 120
-
-
-@dataclass(frozen=True)
-class Place:
-    id: str
-    name: str
-    kind: str  # station | poi
-    passenger_stop: bool = True  # False: trains pass, observation only
 
 
 @dataclass(frozen=True)
@@ -52,25 +44,9 @@ class StationRhythm:
 
 @dataclass(frozen=True)
 class Spot:
-    place: Place
+    place_id: str
     walk_minutes: int
 
-
-_PLACES = {
-    p.id: p
-    for p in (
-        Place("station_donghae", "동해역", "station"),
-        Place("station_mukho", "묵호역", "station"),
-        Place("station_chuam", "추암역", "station"),
-        Place("station_mangsang", "망상역", "station", passenger_stop=False),
-        Place("poi_nongoldam", "논골담길", "poi"),
-        Place("poi_chotdaebawi", "촛대바위", "poi"),
-        Place("poi_dojjebigol", "도째비골 스카이밸리", "poi"),
-        Place("poi_mangsang_beach", "망상해수욕장", "poi"),
-        Place("poi_cheongok_cave", "천곡황금박쥐동굴", "poi"),
-        Place("poi_bukpyeong_market", "북평민속시장", "poi"),
-    )
-}
 
 _TIMETABLE: dict[str, tuple[Train, ...]] = {
     "station_donghae": (
@@ -106,16 +82,6 @@ _NEARBY: dict[str, tuple[tuple[str, int], ...]] = {
     "station_mangsang": (("poi_mangsang_beach", 5),),
     "poi_nongoldam": (("station_mukho", 10), ("poi_dojjebigol", 10)),
 }
-
-
-def get_place(place_id: str) -> Place | None:
-    return _PLACES.get(place_id)
-
-
-def find_place_in_text(text: str) -> Place | None:
-    """First catalog place whose name appears in free text (chips name places)."""
-    matches = [p for p in _PLACES.values() if p.name in text]
-    return min(matches, key=lambda p: text.index(p.name)) if matches else None
 
 
 def _minutes(hhmm: str) -> int:
@@ -167,7 +133,7 @@ def search_trains(
 
 def nearby_spots(place_id: str, walk_minutes: int = 20) -> list[Spot]:
     return [
-        Spot(_PLACES[spot_id], minutes)
+        Spot(spot_id, minutes)
         for spot_id, minutes in _NEARBY.get(place_id, ())
         if minutes <= walk_minutes
     ]

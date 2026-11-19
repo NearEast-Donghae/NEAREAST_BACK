@@ -16,6 +16,8 @@ class Settings(BaseModel):
     db_password: SecretStr = SecretStr("")
     # Fixed chat answers without an LLM, so tests and frontend work without keys.
     chat_mock: bool = True
+    # Folder holding knowledge/ and data/ (relative to the working directory).
+    content_dir: str = Field(default=".", min_length=1)
 
     @classmethod
     def from_env(cls) -> "Settings":

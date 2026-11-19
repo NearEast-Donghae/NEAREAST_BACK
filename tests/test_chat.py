@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from neareast_api.core.config import Settings
 from neareast_api.main import create_app
-from neareast_api.modules.chat import service
+from neareast_api.modules.chat import retrieval, service
 from neareast_api.modules.chat.schemas import ChatContext
 
 URL = "/api/v1/chat/messages"
@@ -136,7 +136,7 @@ class FinalizeRuleTests(unittest.TestCase):
     """A responder (later: the LLM) may break rules; _finalize must still hold them."""
 
     def finalize(self, draft, **context):
-        resolved = service._resolve(ChatContext(**context))
+        resolved = service._resolve(ChatContext(**context), retrieval.load_content("."))
         return service._finalize(draft, resolved)
 
     def test_rule_breaking_draft_is_corrected(self):
