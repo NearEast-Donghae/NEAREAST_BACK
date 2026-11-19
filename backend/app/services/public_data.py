@@ -160,6 +160,10 @@ def network_reason(error):
                 or "getaddrinfo failed" in str(underlying).lower()):
             return "DNS resolution failed"
         underlying = underlying.__cause__ or underlying.__context__
+    if isinstance(error, httpx.ConnectTimeout):
+        return "Connection establishment timed out"
+    if isinstance(error, httpx.ReadTimeout):
+        return "Waiting for the server response timed out"
     if isinstance(error, httpx.TimeoutException):
         return "Network request timed out"
     return f"Network request failed ({type(error).__name__})"

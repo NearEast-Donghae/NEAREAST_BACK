@@ -1,3 +1,4 @@
+import argparse
 import json
 from datetime import datetime
 
@@ -35,7 +36,9 @@ def check(session, probes=PROBES):
                     response_format=page.response_format, http_status=page.http_status, api_code=page.api_code,
                     parsed_rows=len(page.rows),
                 )
-                if any(expected_field not in {field.lower() for field in row} for row in page.rows):
+                if page.response_format != requested_format:
+                    result["reason"] = "Expected response format did not match"
+                elif any(expected_field not in {field.lower() for field in row} for row in page.rows):
                     result["reason"] = "Expected dataset field missing"
                 else:
                     result["status"] = "parsed" if page.rows else "parsed_empty"
@@ -47,14 +50,24 @@ def check(session, probes=PROBES):
 
 
 def main():
-    with httpx.Client(timeout=12) as session:
-        attempts = check(session)
+    parser = argparse.ArgumentParser(description="Verify the public APIs using live JSON and XML requests.")
+    parser.add_argument("--service", choices=[probe[0] for probe in PROBES],
+                        help="Check only the selected service.")
+    parser.add_argument("--read-timeout", type=int, default=12, metavar="SECONDS",
+                        help="Server response read timeout in seconds (default: 12).")
+    args = parser.parse_args()
+    if args.read_timeout < 1:
+        parser.error("--read-timeout must be at least 1 second.")
+    probes = [probe for probe in PROBES if args.service is None or probe[0] == args.service]
+    with httpx.Client(timeout=httpx.Timeout(12, read=args.read_timeout)) as session:
+        attempts = check(session, probes)
     report = {
         "checked_at": datetime.now(KST).isoformat(timespec="seconds"),
         "probe_rows_saved_as_data": False,
         "attempts": attempts,
     }
-    write_json(DATA / "reports" / "api_connectivity.json", report)
+    filename = f"{args.service}_connectivity.json" if args.service else "api_connectivity.json"
+    write_json(DATA / "reports" / filename, report)
     print(json.dumps(report, ensure_ascii=True, indent=2))
     return int(any(item["status"] == "failed" for item in attempts))
 
