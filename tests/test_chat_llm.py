@@ -53,6 +53,22 @@ class LLMResponderTests(unittest.TestCase):
             )
         return response, chat
 
+    def test_an_answer_with_nothing_to_go_by_offers_no_places_either(self):
+        made_up = {"type": "add", "target": "station_donghae", "reason": "카페 찾기에 좋아요",
+                   "time_bound": False}
+        response, _ = self.ask([draft("강릉에는 좋은 카페가 많아요.", proposals=[made_up])],
+                               message="강릉에 분위기 좋은 카페 있어?")
+        body = response.json()
+        self.assertIn("확인된 정보가 없어요", body["reply"])
+        self.assertEqual(body["proposals"], [])
+        # A grounded answer keeps its proposals.
+        response, _ = self.ask(
+            [draft("동해역은 분기역이에요.", sources=["station_donghae"],
+                   proposals=[{**made_up, "target": "poi_bukpyeong_market"}])],
+            focused="station_donghae")
+        self.assertEqual([p["target"] for p in response.json()["proposals"]],
+                         ["poi_bukpyeong_market"])
+
     def test_single_call_without_tool_and_sources_limited_to_given_docs(self):
         response, chat = self.ask(
             [draft("동해역은 분기역이에요.", sources=["station_donghae", "invented_doc"])],

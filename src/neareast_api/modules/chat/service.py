@@ -411,6 +411,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
             _log_replaced(f"no documents ({draft.intent})", reply)
         reply = NO_INFO
         chips = [c for c in chips if content.place_in_text(c) is not None]
+        proposals = []  # nothing to go by: no places are offered on the back of it either
     # Safety (principle 6): a clear "not recommended" plus a public alternative, always.
     # Only when the question itself is about tracks/crossings: a safe question the model
     # happened to label "safety" (e.g. photos on the platform) keeps its real answer.
