@@ -32,7 +32,7 @@
      "_note": "reply_contains_any: '어느 역을 볼까요?'처럼 역을 되묻는 것도 지도에서 열어 달라는 것과 같은 의도라 둘 중 하나면 통과(2026-11-19 평가에서 mini가 2회 이렇게 답함)"},
     {"id": "q1-unknown-focused", "group": "Q1",
      "request": {"message": "여기 뭐야?", "context": {"focused": "station_nowhere"}},
-     "expect": {"reply_contains": ["station_nowhere", "모르는 장소"], "sources": []}},
+     "expect": {"reply_contains": ["아직 모르는 곳"], "reply_not_contains": ["station_nowhere"], "sources": []}},
 
     {"id": "q2-chip-chain", "group": "Q2",
      "request": {"message": "동해역 열차 리듬", "context": {}},

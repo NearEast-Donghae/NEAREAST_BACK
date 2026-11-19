@@ -58,6 +58,9 @@ ALTERNATIVE_WORDS = ("공개된", "승강장", "맞이방")
 # The safety rewrite applies only when the user actually asks about these places.
 RISK_WORDS = ("선로", "건널목", "차단기", "철길", "철로")
 # "Leave the gap empty" is a valid choice (principle 2), not a question that needs documents.
+UNKNOWN_MARK = "아직 모르는 곳"
+UNKNOWN_FOCUSED = f"지금 열어 둔 장소는 {UNKNOWN_MARK}이라 빼고 답할게요."
+UNKNOWN_PINS = f"핀 가운데 {UNKNOWN_MARK}이 있어 빼고 답할게요."
 BOARDING_WORDS = ("탈 수", "타도", "타고", "타려", "탑승", "승차", "하차", "내릴", "내려", "정차")
 KEEP_EMPTY_WORDS = ("그대로", "쉬기", "쉴래", "쉴게", "비워")
 # Chips that ask for nearby places; they dead-end when the place has no nearby data.
@@ -107,6 +110,7 @@ class ResolvedContext:
     # Place the user named most recently in earlier turns: the default when this message
     # and the screen name none ("그럼 오후 열차는?").
     recalled: retrieval.Place | None = None
+    unknown_already_told: bool = False  # an earlier reply already carried the notice
 
     @property
     def known_ids(self) -> list[str]:
@@ -176,6 +180,7 @@ def _resolve(
     return ResolvedContext(
         context, content, focused, tuple(pins), tuple(unknown),
         content.place_in_text(message), message, recalled,
+        any(t.role == "assistant" and UNKNOWN_MARK in t.content for t in history),
     )
 
 
@@ -309,8 +314,13 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
         if PASSING_DOC in content.docs and PASSING_DOC not in sources:
             sources.append(PASSING_DOC)
     if context.unknown_ids:
-        names = ", ".join(context.unknown_ids)
-        reply = f"{names}은(는) 아직 모르는 장소라 빼고 답할게요. {reply}"
+        # Ids are for developers (log), not for the user; say it once per conversation.
+        logger.warning("unknown place ids ignored: %s", ", ".join(context.unknown_ids))
+        if not context.unknown_already_told:
+            notice = (
+                UNKNOWN_FOCUSED if raw.focused in context.unknown_ids else UNKNOWN_PINS
+            )
+            reply = f"{notice} {reply}"
 
     # Chips must lead somewhere: no "nearby" chip for a place without nearby data.
     kept = []

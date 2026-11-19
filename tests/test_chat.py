@@ -80,11 +80,26 @@ class ChatHttpTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertIn("station_nowhere", body["reply"])
-        self.assertIn("poi_ghost", body["reply"])
+        self.assertTrue(body["reply"].startswith("지금 열어 둔 장소는 아직 모르는 곳이라"))
+        self.assertNotIn("station_nowhere", body["reply"])  # internal ids stay out of the chat
+        self.assertNotIn("poi_ghost", body["reply"])
         self.assertIn("묵호역", body["reply"])  # falls back to the known pin
         self.assertNotIn("station_nowhere", body["sources"])
         self.assertNotIn("poi_ghost", body["sources"])
+
+    def test_unknown_place_notice_wording_and_repetition(self):
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING") as logs:
+            pins_only = post(self.client, "안녕", pins=["poi_ghost"]).json()
+        self.assertTrue(pins_only["reply"].startswith("핀 가운데 아직 모르는 곳이 있어"))
+        self.assertIn("poi_ghost", logs.output[0])  # developers still see which id
+        told = self.client.post(URL, json={
+            "message": "안녕", "context": {"focused": "station_nowhere"},
+            "history": [{"role": "user", "content": "여기 뭐야?"},
+                        {"role": "assistant", "content": pins_only["reply"]}],
+        }).json()
+        self.assertNotIn("모르는 곳", told["reply"])  # said once per conversation
+        known = post(self.client, "안녕", focused="station_donghae").json()
+        self.assertNotIn("모르는 곳", known["reply"])
 
     def test_dismissed_target_is_never_proposed_again(self):
         first = post(self.client, "근처 추천해줘", focused="station_mukho").json()
