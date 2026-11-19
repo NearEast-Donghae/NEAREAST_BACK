@@ -6,13 +6,14 @@ from sqlalchemy.orm import Session
 from neareast_api.db.entities import (
     KnowledgeChunkEntity,
     KnowledgeDocumentEntity,
+    PlaceEntity,
     TimetableSnapshotEntity,
     TrainRunEntity,
     TrainStopEntity,
     currentTime,
 )
-
-EMBEDDING_DIMENSIONS = 1536
+from neareast_api.modules.chat.retrieval import EMBEDDING_DIMENSIONS, Doc, embedding_text
+from neareast_api.modules.places.service import Place
 
 
 class IngestionService:
@@ -21,9 +22,19 @@ class IngestionService:
         documents = list(
             session.scalars(select(KnowledgeDocumentEntity).order_by(KnowledgeDocumentEntity.id))
         )
+        places = {
+            row.id: Place(row.id, row.name, row.kind, aliases=tuple(row.aliases))
+            for row in session.scalars(select(PlaceEntity))
+        }
         pending = []
         for document in documents:
-            text = f"{document.title}\n{document.body}"
+            # Title, other names (keywords, place aliases), related place names and body:
+            # the same text the server hashes to decide whether a stored vector is current.
+            text = embedding_text(
+                Doc(document.id, document.title, document.kind, tuple(document.places),
+                    tuple(document.keywords), document.body),
+                places,
+            )
             contentHash = hashlib.sha256(text.encode()).hexdigest()
             chunk = session.scalar(
                 select(KnowledgeChunkEntity).where(

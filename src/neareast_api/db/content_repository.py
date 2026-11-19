@@ -28,7 +28,7 @@ class ContentRepository:
 
     @staticmethod
     def knowledge():
-        from neareast_api.modules.chat.retrieval import Content, ContentError, Doc
+        from neareast_api.modules.chat.retrieval import Content, ContentError, Doc, content_hash
         from neareast_api.modules.places.service import PlacesError
 
         session = contentSession()
@@ -42,6 +42,10 @@ class ContentRepository:
         }
         if not documents:
             raise ContentError("Knowledge has not been imported")
+        try:
+            places = ContentRepository.places()
+        except PlacesError as exc:
+            raise ContentError("Place catalog has not been imported") from exc
         chunks = list(
             session.scalars(select(KnowledgeChunkEntity).where(KnowledgeChunkEntity.position == 0))
         )
@@ -49,19 +53,17 @@ class ContentRepository:
         model = None
         for chunk in chunks:
             document = documents.get(chunk.documentId)
+            # A vector made from an older text (document, alias or place name changed since)
+            # is left out until scripts/ingest.py embeds the document again.
             if (
                 document
                 and chunk.embedding is not None
-                and chunk.contentHash == document.content_hash
+                and chunk.contentHash == content_hash(document, places)
             ):
                 if model is None:
                     model = chunk.embeddingModel
                 if chunk.embeddingModel == model:
-                    vectors[chunk.documentId] = tuple(chunk.embedding)
-        try:
-            places = ContentRepository.places()
-        except PlacesError as exc:
-            raise ContentError("Place catalog has not been imported") from exc
+                    vectors[chunk.documentId] = tuple(float(v) for v in chunk.embedding)
         return Content(places, documents, model, vectors)
 
     @staticmethod

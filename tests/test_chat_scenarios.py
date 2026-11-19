@@ -160,7 +160,7 @@ class ChatScenarioTests(unittest.TestCase):
         counts = {}
         for scenario in SCENARIOS:
             counts[scenario["group"]] = counts.get(scenario["group"], 0) + 1
-        targets = {"Q1": 10, "Q3": 10, "Q4": 20, "Q5": 5, "Q6": 5, "P": 5, "M": 5}
+        targets = {"Q1": 10, "Q3": 10, "Q4": 20, "Q5": 5, "Q6": 5, "P": 5, "M": 5, "V": 10}
         for group, minimum in targets.items():
             self.assertGreaterEqual(counts.get(group, 0), minimum, group)
         self.assertEqual(len({s["id"] for s in SCENARIOS}), len(SCENARIOS), "duplicate ids")

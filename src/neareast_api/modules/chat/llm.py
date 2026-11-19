@@ -158,20 +158,50 @@ def record_request(settings: Settings, entry: dict) -> None:
         logger.warning("cannot write llm usage log %s", settings.llm_usage_log)
 
 
+EMBEDDING_CACHE_SIZE = 512
+_embedding_cache: dict[tuple[str, str], tuple[float, ...]] = {}
+_embedding_lock = threading.Lock()
+
+
+def clear_embedding_cache() -> None:
+    with _embedding_lock:
+        _embedding_cache.clear()
+
+
 def embed_query(
     settings: Settings, text: str, deadline: Deadline | None = None
 ) -> tuple[str, Sequence[float]]:
+    """The question as a vector, in the same model and size as the stored documents.
+    The same question is embedded once per process (chips repeat questions word for word).
+    Raises LLMError on any failure or when it takes too long; the caller then answers
+    without the vector step. Failures are not remembered."""
     from openai import OpenAIError
 
+    from neareast_api.modules.chat.retrieval import EMBEDDING_DIMENSIONS
+
+    key = (settings.embedding_model, text)
+    with _embedding_lock:
+        cached = _embedding_cache.get(key)
+    if cached is not None:
+        return settings.embedding_model, cached
     client = _client_for(settings)
-    timeout = _call_timeout(settings, deadline, "embedding")
+    # Its own, shorter limit: a slow embedding must not use up the answer's time.
+    timeout = min(_call_timeout(settings, deadline, "embedding"),
+                  settings.embedding_timeout_seconds)
+    started = time.perf_counter()
     try:
         response = client.with_options(timeout=timeout, max_retries=0).embeddings.create(
-            model=settings.embedding_model, input=[text]
+            model=settings.embedding_model, input=[text], dimensions=EMBEDDING_DIMENSIONS
         )
     except OpenAIError as exc:
         raise LLMError(
             f"embedding call failed: {_describe(exc, settings.embedding_model)}"
         ) from exc
-    record_usage(settings, "embedding:query", settings.embedding_model, response.usage)
-    return settings.embedding_model, response.data[0].embedding
+    record_usage(settings, "embedding:query", settings.embedding_model, response.usage,
+                 time.perf_counter() - started)
+    vector = tuple(response.data[0].embedding)
+    with _embedding_lock:
+        if len(_embedding_cache) >= EMBEDDING_CACHE_SIZE:
+            _embedding_cache.pop(next(iter(_embedding_cache)))  # oldest first
+        _embedding_cache[key] = vector
+    return settings.embedding_model, vector
