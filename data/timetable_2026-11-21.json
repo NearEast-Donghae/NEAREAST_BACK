@@ -1,0 +1,10062 @@
+{
+ "meta": {
+  "target_date": "2026-11-21",
+  "certainty": "estimated",
+  "basis": {
+   "record_dates": [
+    "2026-11-14",
+    "2026-11-07",
+    "2026-10-31"
+   ],
+   "plan_date": "2026-12-19",
+   "summary": "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준",
+   "weekly_saturday": "세 토요일 모두 운행한 열차",
+   "times": "운행 기록은 지연이 섞인 실제 시각이라, 동해·묵호·추암·정동진은 3주 가운데 출발은 가장 이른 시각, 도착은 가운데 값을 쓴다. 다른 역은 11/14 실제 기록",
+   "in_plan": "2026-12-19(토) 운행계획에도 있는 열차",
+   "passing": "통과 시각은 앞뒤 정차역 시각을 선로 거리 비율로 어림"
+  },
+  "limits": [
+   "2026-11-21 당일 운행 여부는 공공데이터로 확인할 수 없음(운행계획은 약 한 달 뒤 날짜만 제공)",
+   "여객열차의 정차 기록만 있음: 화물열차와 통과 기록은 공식 데이터 없음",
+   "열차 종류는 데이터에 없음: data/train_types.json에 손으로 채운 것만 표시"
+  ],
+  "source": "공공데이터포털 한국철도공사_열차운행정보(운행정보·운행계획), 철도운영정보_역키로정내역",
+  "generated_at": "2026-11-19T16:56:27",
+  "not_on_base_day": []
+ },
+ "stations": {
+  "station_donghae": {
+   "name": "동해",
+   "code": "3900580",
+   "records": true
+  },
+  "station_mukho": {
+   "name": "묵호",
+   "code": "3900581",
+   "records": true
+  },
+  "station_chuam": {
+   "name": "추암",
+   "code": "3900595",
+   "records": true
+  },
+  "station_mangsang": {
+   "name": "망상",
+   "code": null,
+   "records": false
+  }
+ },
+ "trains": [
+  {
+   "no": "751",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "부전",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 3,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": null,
+     "dep": "07:50",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "08:32",
+     "dep": "08:34",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "08:54",
+     "dep": "08:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "09:20",
+     "dep": "09:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "09:40",
+     "dep": "09:43",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "10:15",
+     "dep": "10:18",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "10:42",
+     "dep": "10:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "10:59",
+     "dep": "10:59",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "11:08",
+     "dep": "11:08",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "11:14",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 11:08 출발과 정동진 11:29 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "11:29",
+     "dep": "11:29",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "11:46",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "752",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "부전",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 8,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "09:36",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "09:50",
+     "dep": "09:53",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "10:08",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 09:53 출발과 묵호 10:13 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "10:13",
+     "dep": "10:14",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "10:20",
+     "dep": "10:23",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 8
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "10:42",
+     "dep": "10:48",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "11:11",
+     "dep": "11:14",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "11:44",
+     "dep": "11:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "12:04",
+     "dep": "12:08",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "12:28",
+     "dep": "12:33",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "12:54",
+     "dep": "12:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": "13:36",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "753",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "부전",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": null,
+     "dep": "13:59",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "14:42",
+     "dep": "14:44",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "15:02",
+     "dep": "15:05",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "15:24",
+     "dep": "15:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "15:46",
+     "dep": "15:49",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "16:20",
+     "dep": "16:23",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "16:46",
+     "dep": "16:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "17:05",
+     "dep": "17:07",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "17:14",
+     "dep": "17:15",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "17:21",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 17:15 출발과 정동진 17:36 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "17:36",
+     "dep": "17:38",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "17:50",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "754",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "부전",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 6,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "14:56",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "15:10",
+     "dep": "15:12",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 7
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "15:26",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 15:12 출발과 묵호 15:31 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "15:31",
+     "dep": "15:32",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 6
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "15:39",
+     "dep": "15:40",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 6
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "15:55",
+     "dep": "15:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "16:21",
+     "dep": "16:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "16:56",
+     "dep": "16:58",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "17:15",
+     "dep": "17:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "17:42",
+     "dep": "17:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "18:06",
+     "dep": "18:07",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": "18:50",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "755",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "부전",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 2,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": null,
+     "dep": "19:40",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "20:22",
+     "dep": "20:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "20:45",
+     "dep": "20:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "21:08",
+     "dep": "21:12",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "21:30",
+     "dep": "21:33",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "22:08",
+     "dep": "22:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "22:34",
+     "dep": "22:37",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "22:50",
+     "dep": "22:52",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "22:58",
+     "dep": "23:00",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "23:05",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 23:00 출발과 정동진 23:18 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "23:18",
+     "dep": "23:19",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "23:35",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "756",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "부전",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "18:35",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "18:48",
+     "dep": "18:51",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "19:07",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 18:51 출발과 묵호 19:13 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "19:13",
+     "dep": "19:14",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "19:20",
+     "dep": "19:22",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "19:36",
+     "dep": "19:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "20:03",
+     "dep": "20:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "20:39",
+     "dep": "20:40",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "20:56",
+     "dep": "21:00",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "21:20",
+     "dep": "21:25",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "21:43",
+     "dep": "21:51",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": "22:31",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "840",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "서울",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "07:05",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "07:12",
+     "dep": "07:14",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "07:19",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 07:14 출발과 정동진 07:33 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "07:33",
+     "dep": "07:34",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "진부",
+     "place_id": null,
+     "code": "3901060",
+     "arr": "08:01",
+     "dep": "08:03",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "08:10",
+     "dep": "08:12",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "둔내",
+     "place_id": null,
+     "code": "3901058",
+     "arr": "08:20",
+     "dep": "08:21",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "08:34",
+     "dep": "08:37",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "08:57",
+     "dep": "08:59",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "09:26",
+     "dep": "09:27",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "09:33",
+     "dep": "09:36",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": "09:54",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "841",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 5,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "07:06",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "07:13",
+     "dep": "07:15",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "07:37",
+     "dep": "07:39",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "08:01",
+     "dep": "08:03",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "횡성",
+     "place_id": null,
+     "code": "3901057",
+     "arr": "08:12",
+     "dep": "08:13",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "08:29",
+     "dep": "08:30",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "진부",
+     "place_id": null,
+     "code": "3901060",
+     "arr": "08:37",
+     "dep": "08:39",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "09:02",
+     "dep": "09:02",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "09:17",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 09:02 출발과 묵호 09:23 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "09:23",
+     "dep": "09:23",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "09:32",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 4
+    }
+   ]
+  },
+  {
+   "no": "842",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "10:04",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "10:10",
+     "dep": "10:13",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "10:18",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 10:13 출발과 정동진 10:32 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "10:32",
+     "dep": "10:33",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "11:12",
+     "dep": "11:13",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "둔내",
+     "place_id": null,
+     "code": "3901058",
+     "arr": "11:21",
+     "dep": "11:22",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "11:35",
+     "dep": "11:37",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "11:59",
+     "dep": "12:01",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "12:23",
+     "dep": "12:25",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "12:30",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "843",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "서울",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 3,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": null,
+     "dep": "10:59",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "11:17",
+     "dep": "11:21",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "11:47",
+     "dep": "11:49",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "12:06",
+     "dep": "12:09",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "횡성",
+     "place_id": null,
+     "code": "3901057",
+     "arr": "12:19",
+     "dep": "12:21",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "진부",
+     "place_id": null,
+     "code": "3901060",
+     "arr": "12:40",
+     "dep": "12:42",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "13:08",
+     "dep": "13:09",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "13:24",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 13:09 출발과 묵호 13:30 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "13:30",
+     "dep": "13:30",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "13:39",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    }
+   ]
+  },
+  {
+   "no": "844",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "서울",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "14:02",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "14:09",
+     "dep": "14:10",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "14:15",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 14:10 출발과 정동진 14:29 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "14:29",
+     "dep": "14:31",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "진부",
+     "place_id": null,
+     "code": "3901060",
+     "arr": "14:58",
+     "dep": "15:00",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "횡성",
+     "place_id": null,
+     "code": "3901057",
+     "arr": "15:19",
+     "dep": "15:20",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "15:28",
+     "dep": "15:30",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "15:51",
+     "dep": "15:53",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "16:18",
+     "dep": "16:21",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": "16:42",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "845",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "서울",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 3,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": null,
+     "dep": "15:01",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "15:20",
+     "dep": "15:22",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "15:27",
+     "dep": "15:28",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "16:08",
+     "dep": "16:11",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "횡성",
+     "place_id": null,
+     "code": "3901057",
+     "arr": "16:21",
+     "dep": "16:23",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "진부",
+     "place_id": null,
+     "code": "3901060",
+     "arr": "16:43",
+     "dep": "16:45",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "17:09",
+     "dep": "17:13",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "17:30",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 17:13 출발과 묵호 17:36 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "17:36",
+     "dep": "17:37",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "17:44",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 2
+    }
+   ]
+  },
+  {
+   "no": "846",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "서울",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "19:04",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "19:10",
+     "dep": "19:14",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "19:19",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 19:14 출발과 정동진 19:33 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "19:33",
+     "dep": "19:35",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "진부",
+     "place_id": null,
+     "code": "3901060",
+     "arr": "20:01",
+     "dep": "20:03",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "20:10",
+     "dep": "20:12",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "횡성",
+     "place_id": null,
+     "code": "3901057",
+     "arr": "20:25",
+     "dep": "20:27",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "20:34",
+     "dep": "20:36",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "20:57",
+     "dep": "20:59",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "21:20",
+     "dep": "21:22",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "21:28",
+     "dep": "21:31",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": "21:50",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "847",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "서울",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 3,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": null,
+     "dep": "18:20",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "18:40",
+     "dep": "18:43",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "19:29",
+     "dep": "19:33",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "둔내",
+     "place_id": null,
+     "code": "3901058",
+     "arr": "19:47",
+     "dep": "19:48",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "19:58",
+     "dep": "20:00",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "20:27",
+     "dep": "20:29",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "20:43",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 20:29 출발과 묵호 20:48 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "20:48",
+     "dep": "20:50",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "20:57",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    }
+   ]
+  },
+  {
+   "no": "848",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "서울",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "21:32",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "21:39",
+     "dep": "21:40",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "21:45",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 21:40 출발과 정동진 21:59 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "21:59",
+     "dep": "22:00",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "진부",
+     "place_id": null,
+     "code": "3901060",
+     "arr": "22:29",
+     "dep": "22:31",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "22:38",
+     "dep": "22:40",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "둔내",
+     "place_id": null,
+     "code": "3901058",
+     "arr": "22:48",
+     "dep": "22:50",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "23:03",
+     "dep": "23:05",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "23:26",
+     "dep": "23:28",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "23:53",
+     "dep": "23:55",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": "00:13",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "849",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "서울",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "서울",
+     "place_id": null,
+     "code": "3900023",
+     "arr": null,
+     "dep": "19:50",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "20:11",
+     "dep": "20:14",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "20:58",
+     "dep": "21:01",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "횡성",
+     "place_id": null,
+     "code": "3901057",
+     "arr": "21:08",
+     "dep": "21:10",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "21:25",
+     "dep": "21:27",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "21:57",
+     "dep": "22:00",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "22:14",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 22:00 출발과 묵호 22:19 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "22:19",
+     "dep": "22:20",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "22:27",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    }
+   ]
+  },
+  {
+   "no": "881",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 4,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "09:37",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "09:50",
+     "dep": "09:51",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "10:06",
+     "dep": "10:07",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "10:26",
+     "dep": "10:28",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "10:50",
+     "dep": "10:51",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "11:25",
+     "dep": "11:27",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 6
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "11:42",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 11:27 출발과 묵호 11:48 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "11:48",
+     "dep": "11:49",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 4
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "11:57",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 3
+    }
+   ]
+  },
+  {
+   "no": "883",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "13:03",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "13:08",
+     "dep": "13:10",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "13:53",
+     "dep": "13:55",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "14:45",
+     "dep": "14:47",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "15:01",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 14:47 출발과 묵호 15:06 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "15:06",
+     "dep": "15:08",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "15:14",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    }
+   ]
+  },
+  {
+   "no": "884",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "12:20",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "12:26",
+     "dep": "12:28",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "12:33",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 12:28 출발과 정동진 12:47 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "12:47",
+     "dep": "12:49",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "13:43",
+     "dep": "13:46",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "14:28",
+     "dep": "14:30",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "14:35",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "886",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 8,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "15:40",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "15:47",
+     "dep": "15:48",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 8
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "15:54",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 15:48 출발과 정동진 16:09 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "16:09",
+     "dep": "16:09",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 9
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "17:08",
+     "dep": "17:09",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "17:45",
+     "dep": "17:45",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "17:57",
+     "dep": "17:58",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "18:04",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "887",
+   "line": "강릉선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 8,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "13:42",
+     "stop_type": "시발",
+     "line": "강릉선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "14:09",
+     "dep": "14:11",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "14:37",
+     "dep": "14:39",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "14:58",
+     "dep": "15:00",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "15:24",
+     "dep": "15:27",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 12
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "15:42",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 15:27 출발과 묵호 15:48 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "15:48",
+     "dep": "15:49",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 8
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "15:58",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 6
+    }
+   ]
+  },
+  {
+   "no": "888",
+   "line": "강릉선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "16:45",
+     "stop_type": "시발",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "16:51",
+     "dep": "16:53",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "16:58",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 16:53 출발과 정동진 17:12 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "17:12",
+     "dep": "17:14",
+     "stop_type": "여객승하차",
+     "line": "강릉선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "평창",
+     "place_id": null,
+     "code": "3901059",
+     "arr": "17:48",
+     "dep": "17:53",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "둔내",
+     "place_id": null,
+     "code": "3901058",
+     "arr": "18:01",
+     "dep": "18:02",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "횡성",
+     "place_id": null,
+     "code": "3901057",
+     "arr": "18:11",
+     "dep": "18:13",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "만종",
+     "place_id": null,
+     "code": "3900141",
+     "arr": "18:20",
+     "dep": "18:22",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "상봉",
+     "place_id": null,
+     "code": "3900898",
+     "arr": "19:07",
+     "dep": "19:09",
+     "stop_type": "여객승하차",
+     "line": "강릉선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "19:14",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "강릉선"
+    }
+   ]
+  },
+  {
+   "no": "1641",
+   "line": "태백선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 4,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "17:09",
+     "stop_type": "시발",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "18:01",
+     "dep": "18:04",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "18:22",
+     "dep": "18:26",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "18:55",
+     "dep": "18:58",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "19:41",
+     "dep": "19:42",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "19:51",
+     "dep": "19:56",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "20:15",
+     "dep": "20:16",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "20:43",
+     "dep": "20:44",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "21:22",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 4
+    }
+   ]
+  },
+  {
+   "no": "1642",
+   "line": "태백선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "07:43",
+     "stop_type": "시발",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "08:22",
+     "dep": "08:23",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "08:49",
+     "dep": "08:50",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "09:09",
+     "dep": "09:10",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "09:18",
+     "dep": "09:19",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "09:59",
+     "dep": "10:01",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "10:30",
+     "dep": "10:33",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "10:53",
+     "dep": "10:56",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "11:49",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선"
+    }
+   ]
+  },
+  {
+   "no": "1671",
+   "line": "태백선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 7,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "07:34",
+     "stop_type": "시발",
+     "line": "태백선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "07:47",
+     "dep": "07:50",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "08:06",
+     "dep": "08:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "08:15",
+     "dep": "08:16",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "지평",
+     "place_id": null,
+     "code": "3900133",
+     "arr": "08:20",
+     "dep": "08:25",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "석불",
+     "place_id": null,
+     "code": "3900134",
+     "arr": "08:29",
+     "dep": "08:30",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "일신",
+     "place_id": null,
+     "code": "3900135",
+     "arr": "08:34",
+     "dep": "08:35",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "매곡",
+     "place_id": null,
+     "code": "3900136",
+     "arr": "08:39",
+     "dep": "08:40",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "08:44",
+     "dep": "08:44",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "삼산",
+     "place_id": null,
+     "code": "3900138",
+     "arr": "08:49",
+     "dep": "08:50",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "08:56",
+     "dep": "08:58",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "09:03",
+     "dep": "09:06",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "09:27",
+     "dep": "09:31",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "10:07",
+     "dep": "10:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "10:28",
+     "dep": "10:29",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "10:51",
+     "dep": "10:52",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "11:00",
+     "dep": "11:01",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "11:07",
+     "dep": "11:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "11:21",
+     "dep": "11:22",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "11:33",
+     "dep": "11:34",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "11:50",
+     "dep": "11:50",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "12:07",
+     "dep": "12:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "12:30",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 7
+    }
+   ]
+  },
+  {
+   "no": "1672",
+   "line": "태백선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "05:55",
+     "stop_type": "시발",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "06:33",
+     "dep": "06:34",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "06:59",
+     "dep": "07:01",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "07:15",
+     "dep": "07:17",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "07:23",
+     "dep": "07:25",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "07:32",
+     "dep": "07:33",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "07:54",
+     "dep": "07:55",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "08:15",
+     "dep": "08:16",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "쌍룡",
+     "place_id": null,
+     "code": "3900601",
+     "arr": "08:32",
+     "dep": "08:33",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "08:46",
+     "dep": "08:49",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "09:09",
+     "dep": "09:14",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "09:22",
+     "dep": "09:24",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "삼산",
+     "place_id": null,
+     "code": "3900138",
+     "arr": "09:28",
+     "dep": "09:30",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "09:33",
+     "dep": "09:35",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "일신",
+     "place_id": null,
+     "code": "3900135",
+     "arr": "09:40",
+     "dep": "09:41",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "지평",
+     "place_id": null,
+     "code": "3900133",
+     "arr": "09:47",
+     "dep": "09:49",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "09:53",
+     "dep": "09:54",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "10:01",
+     "dep": "10:03",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "10:18",
+     "dep": "10:19",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "10:31",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선"
+    }
+   ]
+  },
+  {
+   "no": "1673",
+   "line": "태백선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "09:53",
+     "stop_type": "시발",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "10:21",
+     "dep": "10:22",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "10:29",
+     "dep": "10:31",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "10:40",
+     "dep": "10:41",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "삼산",
+     "place_id": null,
+     "code": "3900138",
+     "arr": "10:45",
+     "dep": "10:47",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "10:52",
+     "dep": "10:54",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "10:59",
+     "dep": "11:02",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "봉양",
+     "place_id": null,
+     "code": "3900151",
+     "arr": "11:17",
+     "dep": "11:20",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "11:27",
+     "dep": "11:29",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "11:58",
+     "dep": "12:00",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "12:24",
+     "dep": "12:25",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "12:47",
+     "dep": "12:48",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "12:56",
+     "dep": "12:57",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "13:02",
+     "dep": "13:03",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "13:17",
+     "dep": "13:18",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "13:29",
+     "dep": "13:30",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "13:46",
+     "dep": "13:48",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "14:30",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 1
+    }
+   ]
+  },
+  {
+   "no": "1674",
+   "line": "태백선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "13:43",
+     "stop_type": "시발",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "14:23",
+     "dep": "14:25",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "14:39",
+     "dep": "14:40",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "14:51",
+     "dep": "14:53",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "15:06",
+     "dep": "15:07",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "15:14",
+     "dep": "15:15",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "15:22",
+     "dep": "15:25",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "15:46",
+     "dep": "15:47",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "16:07",
+     "dep": "16:09",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "16:38",
+     "dep": "16:41",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "봉양",
+     "place_id": null,
+     "code": "3900151",
+     "arr": "16:47",
+     "dep": "16:49",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "17:05",
+     "dep": "17:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "17:17",
+     "dep": "17:20",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "삼산",
+     "place_id": null,
+     "code": "3900138",
+     "arr": "17:24",
+     "dep": "17:26",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "17:30",
+     "dep": "17:31",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "매곡",
+     "place_id": null,
+     "code": "3900136",
+     "arr": "17:27",
+     "dep": "17:28",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "일신",
+     "place_id": null,
+     "code": "3900135",
+     "arr": "17:40",
+     "dep": "17:41",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "석불",
+     "place_id": null,
+     "code": "3900134",
+     "arr": "17:39",
+     "dep": "17:41",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "지평",
+     "place_id": null,
+     "code": "3900133",
+     "arr": "17:50",
+     "dep": "17:53",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "17:57",
+     "dep": "18:00",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "18:06",
+     "dep": "18:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "18:24",
+     "dep": "18:26",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "18:38",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선"
+    }
+   ]
+  },
+  {
+   "no": "1675",
+   "line": "태백선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 9,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "12:18",
+     "stop_type": "시발",
+     "line": "태백선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "12:34",
+     "dep": "12:36",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "12:51",
+     "dep": "12:53",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "13:00",
+     "dep": "13:02",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "지평",
+     "place_id": null,
+     "code": "3900133",
+     "arr": "13:06",
+     "dep": "13:11",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "석불",
+     "place_id": null,
+     "code": "3900134",
+     "arr": "13:12",
+     "dep": "13:13",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "일신",
+     "place_id": null,
+     "code": "3900135",
+     "arr": "13:19",
+     "dep": "13:20",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "매곡",
+     "place_id": null,
+     "code": "3900136",
+     "arr": "13:21",
+     "dep": "13:22",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "13:28",
+     "dep": "13:30",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "13:37",
+     "dep": "13:38",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "13:44",
+     "dep": "13:47",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "14:06",
+     "dep": "14:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "쌍룡",
+     "place_id": null,
+     "code": "3900601",
+     "arr": "14:21",
+     "dep": "14:22",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "14:38",
+     "dep": "14:40",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "15:00",
+     "dep": "15:01",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "15:24",
+     "dep": "15:25",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "15:34",
+     "dep": "15:35",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "15:41",
+     "dep": "15:42",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "15:55",
+     "dep": "15:57",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "16:07",
+     "dep": "16:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "16:25",
+     "dep": "16:26",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "17:05",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 9
+    }
+   ]
+  },
+  {
+   "no": "1676",
+   "line": "태백선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 4,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "15:06",
+     "stop_type": "시발",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 4
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "15:30",
+     "dep": "15:31",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "15:49",
+     "dep": "15:49",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "16:04",
+     "dep": "16:12",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "16:24",
+     "dep": "16:25",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "16:39",
+     "dep": "16:40",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "16:46",
+     "dep": "16:47",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "16:54",
+     "dep": "16:55",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "17:16",
+     "dep": "17:16",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "17:36",
+     "dep": "17:37",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "쌍룡",
+     "place_id": null,
+     "code": "3900601",
+     "arr": "17:53",
+     "dep": "17:54",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "18:07",
+     "dep": "18:10",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "18:30",
+     "dep": "18:32",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "18:36",
+     "dep": "18:38",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "삼산",
+     "place_id": null,
+     "code": "3900138",
+     "arr": "18:43",
+     "dep": "18:44",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "18:48",
+     "dep": "18:53",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "매곡",
+     "place_id": null,
+     "code": "3900136",
+     "arr": "18:58",
+     "dep": "18:59",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "일신",
+     "place_id": null,
+     "code": "3900135",
+     "arr": "19:03",
+     "dep": "19:04",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "석불",
+     "place_id": null,
+     "code": "3900134",
+     "arr": "19:07",
+     "dep": "19:08",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "지평",
+     "place_id": null,
+     "code": "3900133",
+     "arr": "19:12",
+     "dep": "19:13",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "19:16",
+     "dep": "19:18",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "19:24",
+     "dep": "19:26",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "19:42",
+     "dep": "19:43",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "19:56",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선"
+    }
+   ]
+  },
+  {
+   "no": "1677",
+   "line": "태백선",
+   "direction": "D",
+   "origin": "청량리",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1436,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": null,
+     "dep": "19:10",
+     "stop_type": "시발",
+     "line": "태백선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "19:24",
+     "dep": "19:26",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "19:43",
+     "dep": "19:45",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "19:52",
+     "dep": "19:53",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "지평",
+     "place_id": null,
+     "code": "3900133",
+     "arr": "19:57",
+     "dep": "20:02",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "석불",
+     "place_id": null,
+     "code": "3900134",
+     "arr": "20:05",
+     "dep": "20:06",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "일신",
+     "place_id": null,
+     "code": "3900135",
+     "arr": "20:10",
+     "dep": "20:11",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "매곡",
+     "place_id": null,
+     "code": "3900136",
+     "arr": "20:14",
+     "dep": "20:15",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "20:19",
+     "dep": "20:20",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "20:28",
+     "dep": "20:30",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "20:36",
+     "dep": "20:38",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "20:58",
+     "dep": "21:01",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "21:33",
+     "dep": "21:34",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "21:54",
+     "dep": "21:55",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "22:17",
+     "dep": "22:19",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "22:27",
+     "dep": "22:28",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "22:34",
+     "dep": "22:34",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "22:48",
+     "dep": "22:50",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "23:00",
+     "dep": "23:01",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "23:18",
+     "dep": "23:19",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "23:57",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 1436
+    }
+   ]
+  },
+  {
+   "no": "1678",
+   "line": "태백선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "청량리",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "18:26",
+     "stop_type": "시발",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "19:04",
+     "dep": "19:05",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "19:30",
+     "dep": "19:32",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "19:46",
+     "dep": "19:49",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "19:55",
+     "dep": "19:57",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "20:05",
+     "dep": "20:06",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "20:28",
+     "dep": "20:29",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "20:49",
+     "dep": "20:50",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "21:20",
+     "dep": "21:23",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "원주",
+     "place_id": null,
+     "code": "3901099",
+     "arr": "21:43",
+     "dep": "21:45",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "서원주",
+     "place_id": null,
+     "code": "3900997",
+     "arr": "21:49",
+     "dep": "21:52",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양동",
+     "place_id": null,
+     "code": "3900137",
+     "arr": "21:58",
+     "dep": "22:00",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "용문",
+     "place_id": null,
+     "code": "3900132",
+     "arr": "22:10",
+     "dep": "22:11",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "양평",
+     "place_id": null,
+     "code": "3900130",
+     "arr": "22:18",
+     "dep": "22:19",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "덕소",
+     "place_id": null,
+     "code": "3900122",
+     "arr": "22:35",
+     "dep": "22:36",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "청량리",
+     "place_id": null,
+     "code": "3900388",
+     "arr": "22:48",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선"
+    }
+   ]
+  },
+  {
+   "no": "1681",
+   "line": "태백선",
+   "direction": "D",
+   "origin": "제천",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 9,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": null,
+     "dep": "14:55",
+     "stop_type": "시발",
+     "line": "태백선"
+    },
+    {
+     "name": "쌍룡",
+     "place_id": null,
+     "code": "3900601",
+     "arr": "15:08",
+     "dep": "15:09",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "15:25",
+     "dep": "15:27",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "15:56",
+     "dep": "15:57",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "16:21",
+     "dep": "16:23",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "16:31",
+     "dep": "16:33",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "16:40",
+     "dep": "16:40",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "16:55",
+     "dep": "16:56",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "17:06",
+     "dep": "17:07",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "17:24",
+     "dep": "17:24",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "17:41",
+     "dep": "17:41",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "18:05",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 9
+    }
+   ]
+  },
+  {
+   "no": "1682",
+   "line": "태백선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "제천",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "10:05",
+     "stop_type": "시발",
+     "line": "태백선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "10:27",
+     "dep": "10:30",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "10:47",
+     "dep": "10:48",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "11:03",
+     "dep": "11:06",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "태백",
+     "place_id": null,
+     "code": "3900615",
+     "arr": "11:16",
+     "dep": "11:21",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "고한",
+     "place_id": null,
+     "code": "3900613",
+     "arr": "11:36",
+     "dep": "11:36",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "사북",
+     "place_id": null,
+     "code": "3900612",
+     "arr": "11:42",
+     "dep": "11:43",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "민둥산",
+     "place_id": null,
+     "code": "3900611",
+     "arr": "11:51",
+     "dep": "11:52",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "예미",
+     "place_id": null,
+     "code": "3900608",
+     "arr": "12:14",
+     "dep": "12:14",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "영월",
+     "place_id": null,
+     "code": "3900604",
+     "arr": "12:35",
+     "dep": "12:36",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "쌍룡",
+     "place_id": null,
+     "code": "3900601",
+     "arr": "12:52",
+     "dep": "12:53",
+     "stop_type": "여객승하차",
+     "line": "태백선"
+    },
+    {
+     "name": "제천",
+     "place_id": null,
+     "code": "3900153",
+     "arr": "13:08",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "태백선"
+    }
+   ]
+  },
+  {
+   "no": "1721",
+   "line": "영동선",
+   "direction": "D",
+   "origin": "동해",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "21:03",
+     "stop_type": "시발",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "21:10",
+     "dep": "21:12",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "21:17",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 21:12 출발과 정동진 21:30 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "21:30",
+     "dep": "21:32",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "21:45",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  },
+  {
+   "no": "1771",
+   "line": "영동선",
+   "direction": "D",
+   "origin": "동대구",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": null,
+     "dep": "06:05",
+     "stop_type": "시발",
+     "line": "영동선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "06:22",
+     "dep": "06:24",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "군위",
+     "place_id": null,
+     "code": "3901160",
+     "arr": "06:50",
+     "dep": "06:53",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "의성",
+     "place_id": null,
+     "code": "3900177",
+     "arr": "07:08",
+     "dep": "07:10",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "안동",
+     "place_id": null,
+     "code": "3901102",
+     "arr": "07:27",
+     "dep": "07:29",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": "07:48",
+     "dep": "07:57",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "08:12",
+     "dep": "08:14",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "08:38",
+     "dep": "08:40",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "09:03",
+     "dep": "09:05",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "09:09",
+     "dep": "09:10",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "09:18",
+     "dep": "09:20",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "09:28",
+     "dep": "09:29",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "09:42",
+     "dep": "09:44",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "09:52",
+     "dep": "09:53",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "10:10",
+     "dep": "10:12",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "10:28",
+     "dep": "10:29",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "10:52",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 0
+    }
+   ]
+  },
+  {
+   "no": "1772",
+   "line": "영동선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "동대구",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "11:02",
+     "stop_type": "시발",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "11:42",
+     "dep": "11:50",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "12:05",
+     "dep": "12:07",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "12:15",
+     "dep": "12:17",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "12:30",
+     "dep": "12:30",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "12:39",
+     "dep": "12:41",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "12:45",
+     "dep": "12:46",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "12:54",
+     "dep": "12:55",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "현동",
+     "place_id": null,
+     "code": "3900559",
+     "arr": "13:03",
+     "dep": "13:04",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "임기",
+     "place_id": null,
+     "code": "3900558",
+     "arr": "13:10",
+     "dep": "13:12",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "13:22",
+     "dep": "13:24",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "13:44",
+     "dep": "13:46",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": "14:00",
+     "dep": "14:01",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "안동",
+     "place_id": null,
+     "code": "3901102",
+     "arr": "14:21",
+     "dep": "14:23",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "의성",
+     "place_id": null,
+     "code": "3900177",
+     "arr": "14:39",
+     "dep": "14:40",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "군위",
+     "place_id": null,
+     "code": "3901160",
+     "arr": "14:55",
+     "dep": "14:57",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "15:27",
+     "dep": "15:29",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": "15:44",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  },
+  {
+   "no": "1773",
+   "line": "영동선",
+   "direction": "D",
+   "origin": "동대구",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 7,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": null,
+     "dep": "17:47",
+     "stop_type": "시발",
+     "line": "영동선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "18:04",
+     "dep": "18:06",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "군위",
+     "place_id": null,
+     "code": "3901160",
+     "arr": "18:32",
+     "dep": "18:34",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "의성",
+     "place_id": null,
+     "code": "3900177",
+     "arr": "18:50",
+     "dep": "18:52",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "안동",
+     "place_id": null,
+     "code": "3901102",
+     "arr": "19:08",
+     "dep": "19:09",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": "19:27",
+     "dep": "19:32",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "19:47",
+     "dep": "19:50",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "20:12",
+     "dep": "20:15",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "임기",
+     "place_id": null,
+     "code": "3900558",
+     "arr": "20:25",
+     "dep": "20:27",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "현동",
+     "place_id": null,
+     "code": "3900559",
+     "arr": "20:33",
+     "dep": "20:35",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "20:43",
+     "dep": "20:44",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "20:51",
+     "dep": "20:52",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "20:57",
+     "dep": "21:00",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "21:09",
+     "dep": "21:10",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "21:22",
+     "dep": "21:24",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "21:32",
+     "dep": "21:35",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "21:51",
+     "dep": "21:52",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "22:32",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 7
+    }
+   ]
+  },
+  {
+   "no": "1774",
+   "line": "영동선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "동대구",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 6,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "17:58",
+     "stop_type": "시발",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 6
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "18:41",
+     "dep": "18:42",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "18:56",
+     "dep": "18:57",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "19:05",
+     "dep": "19:06",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "19:20",
+     "dep": "19:21",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "19:30",
+     "dep": "19:32",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "19:36",
+     "dep": "19:37",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "19:46",
+     "dep": "19:47",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "현동",
+     "place_id": null,
+     "code": "3900559",
+     "arr": "19:54",
+     "dep": "19:56",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "임기",
+     "place_id": null,
+     "code": "3900558",
+     "arr": "20:02",
+     "dep": "20:04",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "20:14",
+     "dep": "20:16",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "20:39",
+     "dep": "20:40",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": "20:55",
+     "dep": "21:03",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "안동",
+     "place_id": null,
+     "code": "3901102",
+     "arr": "21:22",
+     "dep": "21:23",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "의성",
+     "place_id": null,
+     "code": "3900177",
+     "arr": "21:39",
+     "dep": "21:41",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "군위",
+     "place_id": null,
+     "code": "3901160",
+     "arr": "21:57",
+     "dep": "21:59",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "22:27",
+     "dep": "22:31",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": "22:46",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  },
+  {
+   "no": "1775",
+   "line": "영동선",
+   "direction": "D",
+   "origin": "영주",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 2,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": null,
+     "dep": "10:41",
+     "stop_type": "시발",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "10:55",
+     "dep": "10:57",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "11:18",
+     "dep": "11:19",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "임기",
+     "place_id": null,
+     "code": "3900558",
+     "arr": "11:28",
+     "dep": "11:30",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "현동",
+     "place_id": null,
+     "code": "3900559",
+     "arr": "11:36",
+     "dep": "11:37",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "11:45",
+     "dep": "11:50",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "11:52",
+     "dep": "11:53",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "12:02",
+     "dep": "12:04",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "12:13",
+     "dep": "12:13",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "12:29",
+     "dep": "12:30",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "12:38",
+     "dep": "12:39",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "12:56",
+     "dep": "12:59",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "13:15",
+     "dep": "13:16",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "13:39",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 2
+    }
+   ]
+  },
+  {
+   "no": "1776",
+   "line": "영동선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "영주",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 5,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "06:08",
+     "stop_type": "시발",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "06:30",
+     "dep": "06:32",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "06:49",
+     "dep": "06:49",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "07:04",
+     "dep": "07:05",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "07:13",
+     "dep": "07:16",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "07:29",
+     "dep": "07:31",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "07:40",
+     "dep": "07:42",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "07:48",
+     "dep": "07:49",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "07:56",
+     "dep": "07:58",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "현동",
+     "place_id": null,
+     "code": "3900559",
+     "arr": "08:06",
+     "dep": "08:07",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "임기",
+     "place_id": null,
+     "code": "3900558",
+     "arr": "08:13",
+     "dep": "08:14",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "08:24",
+     "dep": "08:26",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "08:47",
+     "dep": "08:49",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": "09:04",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  },
+  {
+   "no": "1777",
+   "line": "영동선",
+   "direction": "D",
+   "origin": "영주",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 3,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": null,
+     "dep": "18:59",
+     "stop_type": "시발",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "19:13",
+     "dep": "19:15",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "19:36",
+     "dep": "19:37",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "임기",
+     "place_id": null,
+     "code": "3900558",
+     "arr": "19:47",
+     "dep": "19:48",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "현동",
+     "place_id": null,
+     "code": "3900559",
+     "arr": "19:56",
+     "dep": "19:57",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "20:05",
+     "dep": "20:06",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "20:10",
+     "dep": "20:11",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "20:18",
+     "dep": "20:19",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "20:28",
+     "dep": "20:28",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "20:41",
+     "dep": "20:43",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "20:51",
+     "dep": "20:53",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "21:11",
+     "dep": "21:11",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "21:28",
+     "dep": "21:29",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "21:51",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 3
+    }
+   ]
+  },
+  {
+   "no": "1778",
+   "line": "영동선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "영주",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "15:54",
+     "stop_type": "시발",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "신기",
+     "place_id": null,
+     "code": "3900576",
+     "arr": "16:17",
+     "dep": "16:19",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "16:36",
+     "dep": "16:37",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동백산",
+     "place_id": null,
+     "code": "3900567",
+     "arr": "16:52",
+     "dep": "16:52",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "17:00",
+     "dep": "17:04",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "석포",
+     "place_id": null,
+     "code": "3900563",
+     "arr": "17:17",
+     "dep": "17:20",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "17:29",
+     "dep": "17:31",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "17:37",
+     "dep": "17:38",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "17:46",
+     "dep": "17:47",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "현동",
+     "place_id": null,
+     "code": "3900559",
+     "arr": "17:56",
+     "dep": "17:57",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "18:12",
+     "dep": "18:13",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "18:34",
+     "dep": "18:35",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": "18:50",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  },
+  {
+   "no": "1781",
+   "line": "영동선",
+   "direction": "D",
+   "origin": "동해",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "07:55",
+     "stop_type": "시발",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "08:01",
+     "dep": "08:03",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "08:08",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 08:03 출발과 정동진 08:22 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "08:22",
+     "dep": "08:24",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "08:38",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  },
+  {
+   "no": "1782",
+   "line": "영동선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "06:52",
+     "stop_type": "시발",
+     "line": "영동선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "07:05",
+     "dep": "07:08",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "07:27",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 07:08 출발과 묵호 07:34 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "07:34",
+     "dep": "07:35",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "07:41",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 1
+    }
+   ]
+  },
+  {
+   "no": "1801",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "부전",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": null,
+     "dep": "05:12",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "센텀",
+     "place_id": null,
+     "code": "3900627",
+     "arr": "05:21",
+     "dep": "05:22",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "05:28",
+     "dep": "05:29",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "05:38",
+     "dep": "05:39",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "남창",
+     "place_id": null,
+     "code": "3900636",
+     "arr": "05:58",
+     "dep": "06:00",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "06:16",
+     "dep": "06:18",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "06:24",
+     "dep": "06:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "06:45",
+     "dep": "06:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "06:54",
+     "dep": "06:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "07:11",
+     "dep": "07:15",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "07:30",
+     "dep": "07:32",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "07:42",
+     "dep": "07:44",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "07:58",
+     "dep": "08:00",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "08:08",
+     "dep": "08:10",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "08:18",
+     "dep": "08:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "매화",
+     "place_id": null,
+     "code": "3901153",
+     "arr": "08:28",
+     "dep": "08:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "08:36",
+     "dep": "08:39",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "08:44",
+     "dep": "08:45",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "08:51",
+     "dep": "08:53",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "09:16",
+     "dep": "09:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "09:34",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    }
+   ]
+  },
+  {
+   "no": "1802",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "부전",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "12:12",
+     "stop_type": "시발",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "12:27",
+     "dep": "12:31",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "12:52",
+     "dep": "12:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "13:00",
+     "dep": "13:04",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "13:09",
+     "dep": "13:13",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "13:25",
+     "dep": "13:29",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "13:45",
+     "dep": "13:48",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "13:54",
+     "dep": "13:55",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "14:03",
+     "dep": "14:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "14:26",
+     "dep": "14:33",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "14:49",
+     "dep": "14:53",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "15:03",
+     "dep": "15:07",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "15:25",
+     "dep": "15:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "15:34",
+     "dep": "15:36",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "16:05",
+     "dep": "16:08",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "16:16",
+     "dep": "16:17",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": "16:31",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1803",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "부전",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 4,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": null,
+     "dep": "09:38",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "09:54",
+     "dep": "09:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "10:05",
+     "dep": "10:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "10:35",
+     "dep": "10:37",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "10:44",
+     "dep": "10:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "11:05",
+     "dep": "11:08",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "11:17",
+     "dep": "11:22",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "11:37",
+     "dep": "11:44",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "11:53",
+     "dep": "11:59",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "12:04",
+     "dep": "12:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "12:19",
+     "dep": "12:21",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "12:30",
+     "dep": "12:32",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "12:36",
+     "dep": "12:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "12:45",
+     "dep": "12:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "평해",
+     "place_id": null,
+     "code": "3901151",
+     "arr": "12:51",
+     "dep": "12:52",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "매화",
+     "place_id": null,
+     "code": "3901153",
+     "arr": "13:03",
+     "dep": "13:04",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "13:10",
+     "dep": "13:15",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "13:20",
+     "dep": "13:23",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "13:28",
+     "dep": "13:29",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "근덕",
+     "place_id": null,
+     "code": "3901159",
+     "arr": "13:45",
+     "dep": "13:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "13:56",
+     "dep": "13:58",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "14:13",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 4
+    }
+   ]
+  },
+  {
+   "no": "1805",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "부전",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 0,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": null,
+     "dep": "11:10",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "11:23",
+     "dep": "11:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "11:33",
+     "dep": "11:35",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "12:04",
+     "dep": "12:08",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "12:15",
+     "dep": "12:18",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "12:34",
+     "dep": "12:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "12:46",
+     "dep": "12:49",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "13:05",
+     "dep": "13:09",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "13:30",
+     "dep": "13:32",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "13:45",
+     "dep": "13:49",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "14:04",
+     "dep": "14:07",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "14:20",
+     "dep": "14:27",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "14:34",
+     "dep": "14:35",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "15:00",
+     "dep": "15:03",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "15:17",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 0
+    }
+   ]
+  },
+  {
+   "no": "1806",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "부전",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "18:03",
+     "stop_type": "시발",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "18:20",
+     "dep": "18:23",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "근덕",
+     "place_id": null,
+     "code": "3901159",
+     "arr": "18:32",
+     "dep": "18:33",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "임원",
+     "place_id": null,
+     "code": "3901158",
+     "arr": "18:40",
+     "dep": "18:42",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "옥원",
+     "place_id": null,
+     "code": "3901157",
+     "arr": "18:46",
+     "dep": "18:49",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "18:57",
+     "dep": "18:58",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "19:07",
+     "dep": "19:08",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "19:22",
+     "dep": "19:26",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "19:35",
+     "dep": "19:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "19:45",
+     "dep": "19:48",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "19:53",
+     "dep": "19:55",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "20:04",
+     "dep": "20:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "20:23",
+     "dep": "20:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "20:32",
+     "dep": "20:36",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "20:52",
+     "dep": "20:58",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "21:08",
+     "dep": "21:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "21:28",
+     "dep": "21:31",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "21:37",
+     "dep": "21:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "22:06",
+     "dep": "22:16",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "22:23",
+     "dep": "22:25",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": "22:42",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1807",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "부전",
+   "destination": "동해",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 3,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": null,
+     "dep": "15:33",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "센텀",
+     "place_id": null,
+     "code": "3900627",
+     "arr": "15:43",
+     "dep": "15:44",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "15:51",
+     "dep": "15:51",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "16:01",
+     "dep": "16:03",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "남창",
+     "place_id": null,
+     "code": "3900636",
+     "arr": "16:20",
+     "dep": "16:22",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "16:36",
+     "dep": "16:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "16:44",
+     "dep": "16:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "17:04",
+     "dep": "17:07",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "17:16",
+     "dep": "17:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "17:35",
+     "dep": "17:41",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "17:55",
+     "dep": "17:58",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "18:08",
+     "dep": "18:09",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "18:22",
+     "dep": "18:25",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "18:32",
+     "dep": "18:34",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "18:43",
+     "dep": "18:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "19:02",
+     "dep": "19:08",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "19:16",
+     "dep": "19:19",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "근덕",
+     "place_id": null,
+     "code": "3901159",
+     "arr": "19:35",
+     "dep": "19:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "19:55",
+     "dep": "19:58",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "20:12",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 3
+    }
+   ]
+  },
+  {
+   "no": "1814",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "동해",
+   "destination": "부전",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": null,
+     "dep": "17:20",
+     "stop_type": "시발",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "추암",
+     "place_id": "station_chuam",
+     "code": "3900595",
+     "arr": "17:27",
+     "dep": "17:28",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "삼척해변",
+     "place_id": null,
+     "code": "3900596",
+     "arr": "17:32",
+     "dep": "17:34",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "17:40",
+     "dep": "17:43",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "옥원",
+     "place_id": null,
+     "code": "3901157",
+     "arr": "18:00",
+     "dep": "18:05",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "18:11",
+     "dep": "18:13",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "18:17",
+     "dep": "18:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "18:25",
+     "dep": "18:29",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "매화",
+     "place_id": null,
+     "code": "3901153",
+     "arr": "18:38",
+     "dep": "18:39",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "18:45",
+     "dep": "18:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "19:00",
+     "dep": "19:03",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "19:10",
+     "dep": "19:14",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "19:26",
+     "dep": "19:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "19:49",
+     "dep": "19:55",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "20:10",
+     "dep": "20:13",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "20:22",
+     "dep": "20:26",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "20:44",
+     "dep": "20:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "20:53",
+     "dep": "20:54",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "남창",
+     "place_id": null,
+     "code": "3900636",
+     "arr": "21:08",
+     "dep": "21:10",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "21:29",
+     "dep": "21:31",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "21:39",
+     "dep": "21:41",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "센텀",
+     "place_id": null,
+     "code": "3900627",
+     "arr": "21:48",
+     "dep": "21:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": "22:00",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1822",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "부전",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 2,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "05:46",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "06:00",
+     "dep": "06:02",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "06:16",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 06:02 출발과 묵호 06:21 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "06:21",
+     "dep": "06:22",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "06:28",
+     "dep": "06:30",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "06:46",
+     "dep": "06:48",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "07:19",
+     "dep": "07:23",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "07:45",
+     "dep": "07:48",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "07:56",
+     "dep": "07:59",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "08:13",
+     "dep": "08:21",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "08:41",
+     "dep": "08:44",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "08:58",
+     "dep": "09:00",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "경주",
+     "place_id": null,
+     "code": "3900895",
+     "arr": "09:09",
+     "dep": "09:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "북울산",
+     "place_id": null,
+     "code": "3901113",
+     "arr": "09:28",
+     "dep": "09:32",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "태화강",
+     "place_id": null,
+     "code": "3900639",
+     "arr": "09:38",
+     "dep": "09:39",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "남창",
+     "place_id": null,
+     "code": "3900636",
+     "arr": "09:52",
+     "dep": "10:01",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기장",
+     "place_id": null,
+     "code": "3900631",
+     "arr": "10:22",
+     "dep": "10:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "신해운대",
+     "place_id": null,
+     "code": "3900629",
+     "arr": "10:32",
+     "dep": "10:34",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "센텀",
+     "place_id": null,
+     "code": "3900627",
+     "arr": "10:40",
+     "dep": "10:41",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "부전",
+     "place_id": null,
+     "code": "3900621",
+     "arr": "10:50",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1824",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "동대구",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 2,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "19:57",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "20:12",
+     "dep": "20:14",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "20:28",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 20:14 출발과 묵호 20:33 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "20:33",
+     "dep": "20:34",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "20:41",
+     "dep": "20:42",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "21:00",
+     "dep": "21:03",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "21:32",
+     "dep": "21:37",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "21:51",
+     "dep": "21:59",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "22:28",
+     "dep": "22:30",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "22:44",
+     "dep": "22:45",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "22:53",
+     "dep": "22:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "23:12",
+     "dep": "23:14",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "23:37",
+     "dep": "23:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "23:47",
+     "dep": "23:49",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": "00:04",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1831",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "동대구",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 2,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": null,
+     "dep": "15:15",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "15:32",
+     "dep": "15:34",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "15:40",
+     "dep": "15:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "16:07",
+     "dep": "16:09",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "16:23",
+     "dep": "16:27",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "16:37",
+     "dep": "16:40",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "16:52",
+     "dep": "16:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "17:06",
+     "dep": "17:07",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "17:11",
+     "dep": "17:14",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "17:21",
+     "dep": "17:22",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "17:43",
+     "dep": "17:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "17:56",
+     "dep": "17:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "18:21",
+     "dep": "18:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척해변",
+     "place_id": null,
+     "code": "3900596",
+     "arr": "18:29",
+     "dep": "18:31",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "추암",
+     "place_id": "station_chuam",
+     "code": "3900595",
+     "arr": "18:33",
+     "dep": "18:34",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "18:40",
+     "dep": "18:42",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "18:49",
+     "dep": "18:50",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "18:56",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 18:50 출발과 정동진 19:12 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "19:12",
+     "dep": "19:12",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 4
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "19:30",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1855",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "동대구",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 1,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": null,
+     "dep": "18:44",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "19:01",
+     "dep": "19:03",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "19:13",
+     "dep": "19:14",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "19:33",
+     "dep": "19:35",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "19:51",
+     "dep": "19:55",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "20:06",
+     "dep": "20:08",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "20:13",
+     "dep": "20:18",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "강구",
+     "place_id": null,
+     "code": "3901067",
+     "arr": "20:23",
+     "dep": "20:24",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "20:29",
+     "dep": "20:39",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "20:49",
+     "dep": "20:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "20:55",
+     "dep": "20:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "21:05",
+     "dep": "21:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "평해",
+     "place_id": null,
+     "code": "3901151",
+     "arr": "21:12",
+     "dep": "21:12",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "21:17",
+     "dep": "21:19",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "매화",
+     "place_id": null,
+     "code": "3901153",
+     "arr": "21:27",
+     "dep": "21:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "21:35",
+     "dep": "21:38",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "22:09",
+     "dep": "22:13",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "22:27",
+     "dep": "22:29",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "22:36",
+     "dep": "22:37",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 0
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "22:42",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 22:37 출발과 정동진 22:56 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "22:56",
+     "dep": "22:58",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "23:12",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1856",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "동대구",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 2,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "12:29",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "12:44",
+     "dep": "12:47",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "13:01",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 12:47 출발과 묵호 13:06 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "13:06",
+     "dep": "13:08",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "13:14",
+     "dep": "13:16",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "13:33",
+     "dep": "13:37",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "근덕",
+     "place_id": null,
+     "code": "3901159",
+     "arr": "13:45",
+     "dep": "13:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "임원",
+     "place_id": null,
+     "code": "3901158",
+     "arr": "13:54",
+     "dep": "13:55",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "옥원",
+     "place_id": null,
+     "code": "3901157",
+     "arr": "14:00",
+     "dep": "14:03",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "14:10",
+     "dep": "14:12",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "14:17",
+     "dep": "14:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "14:25",
+     "dep": "14:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "매화",
+     "place_id": null,
+     "code": "3901153",
+     "arr": "14:36",
+     "dep": "14:37",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "14:45",
+     "dep": "14:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "15:00",
+     "dep": "15:01",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "15:09",
+     "dep": "15:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "15:25",
+     "dep": "15:27",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "15:37",
+     "dep": "15:40",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "15:46",
+     "dep": "15:47",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "15:57",
+     "dep": "16:00",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "안강",
+     "place_id": null,
+     "code": "3901038",
+     "arr": "16:11",
+     "dep": "16:17",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "16:24",
+     "dep": "16:28",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "아화",
+     "place_id": null,
+     "code": "3900190",
+     "arr": "16:43",
+     "dep": "16:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "16:56",
+     "dep": "16:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "17:06",
+     "dep": "17:09",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": "17:24",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1861",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "동대구",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 11,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": null,
+     "dep": "06:25",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "06:43",
+     "dep": "06:45",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "06:53",
+     "dep": "06:54",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "아화",
+     "place_id": null,
+     "code": "3900190",
+     "arr": "07:05",
+     "dep": "07:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "07:23",
+     "dep": "07:25",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "안강",
+     "place_id": null,
+     "code": "3901038",
+     "arr": "07:33",
+     "dep": "07:35",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "07:45",
+     "dep": "07:49",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "07:59",
+     "dep": "08:02",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "강구",
+     "place_id": null,
+     "code": "3901067",
+     "arr": "08:15",
+     "dep": "08:16",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "08:21",
+     "dep": "08:22",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "08:33",
+     "dep": "08:35",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "08:40",
+     "dep": "08:43",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "08:50",
+     "dep": "08:53",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "평해",
+     "place_id": null,
+     "code": "3901151",
+     "arr": "08:57",
+     "dep": "08:59",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "09:03",
+     "dep": "09:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "09:24",
+     "dep": "09:27",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "09:34",
+     "dep": "09:35",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "09:40",
+     "dep": "09:41",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "옥원",
+     "place_id": null,
+     "code": "3901157",
+     "arr": "09:47",
+     "dep": "09:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "임원",
+     "place_id": null,
+     "code": "3901158",
+     "arr": "09:55",
+     "dep": "09:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "10:08",
+     "dep": "10:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척해변",
+     "place_id": null,
+     "code": "3900596",
+     "arr": "10:18",
+     "dep": "10:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "추암",
+     "place_id": "station_chuam",
+     "code": "3900595",
+     "arr": "10:13",
+     "dep": "10:15",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 11
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "10:23",
+     "dep": "10:27",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 8
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "10:34",
+     "dep": "10:37",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 6
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "10:42",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 10:37 출발과 정동진 10:57 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "10:57",
+     "dep": "10:57",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "11:16",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1862",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "동대구",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 2,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "06:30",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "06:44",
+     "dep": "06:46",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "07:01",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 06:46 출발과 묵호 07:06 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "07:06",
+     "dep": "07:12",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "07:19",
+     "dep": "07:21",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "추암",
+     "place_id": "station_chuam",
+     "code": "3900595",
+     "arr": "07:29",
+     "dep": "07:31",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 1
+    },
+    {
+     "name": "삼척해변",
+     "place_id": null,
+     "code": "3900596",
+     "arr": "07:34",
+     "dep": "07:36",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "07:42",
+     "dep": "07:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "근덕",
+     "place_id": null,
+     "code": "3901159",
+     "arr": "07:55",
+     "dep": "07:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "임원",
+     "place_id": null,
+     "code": "3901158",
+     "arr": "08:04",
+     "dep": "08:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "옥원",
+     "place_id": null,
+     "code": "3901157",
+     "arr": "08:11",
+     "dep": "08:14",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "08:21",
+     "dep": "08:23",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "08:28",
+     "dep": "08:31",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "08:36",
+     "dep": "08:40",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "매화",
+     "place_id": null,
+     "code": "3901153",
+     "arr": "08:47",
+     "dep": "08:48",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "08:56",
+     "dep": "09:05",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "평해",
+     "place_id": null,
+     "code": "3901151",
+     "arr": "09:09",
+     "dep": "09:10",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "09:15",
+     "dep": "09:17",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "09:25",
+     "dep": "09:27",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "09:33",
+     "dep": "09:34",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "09:42",
+     "dep": "09:44",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "강구",
+     "place_id": null,
+     "code": "3901067",
+     "arr": "09:50",
+     "dep": "09:51",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "09:56",
+     "dep": "09:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "10:03",
+     "dep": "10:04",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "10:13",
+     "dep": "10:18",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "안강",
+     "place_id": null,
+     "code": "3901038",
+     "arr": "10:28",
+     "dep": "10:30",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "10:37",
+     "dep": "10:40",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "아화",
+     "place_id": null,
+     "code": "3900190",
+     "arr": "10:55",
+     "dep": "10:58",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "11:08",
+     "dep": "11:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "11:20",
+     "dep": "11:22",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": "11:36",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1863",
+   "line": "동해선",
+   "direction": "D",
+   "origin": "동대구",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 10,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": null,
+     "dep": "12:12",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "12:29",
+     "dep": "12:30",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "12:38",
+     "dep": "12:40",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "아화",
+     "place_id": null,
+     "code": "3900190",
+     "arr": "12:49",
+     "dep": "12:50",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "13:02",
+     "dep": "13:13",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "안강",
+     "place_id": null,
+     "code": "3901038",
+     "arr": "13:19",
+     "dep": "13:21",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "13:30",
+     "dep": "13:33",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "13:43",
+     "dep": "13:45",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "13:51",
+     "dep": "13:52",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "강구",
+     "place_id": null,
+     "code": "3901067",
+     "arr": "13:58",
+     "dep": "13:59",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "14:04",
+     "dep": "14:07",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "14:16",
+     "dep": "14:18",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "14:23",
+     "dep": "14:27",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "14:35",
+     "dep": "14:36",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "평해",
+     "place_id": null,
+     "code": "3901151",
+     "arr": "14:42",
+     "dep": "14:43",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "기성",
+     "place_id": null,
+     "code": "3901152",
+     "arr": "14:47",
+     "dep": "14:51",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "매화",
+     "place_id": null,
+     "code": "3901153",
+     "arr": "14:58",
+     "dep": "15:00",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "15:06",
+     "dep": "15:10",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "15:19",
+     "dep": "15:21",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "옥원",
+     "place_id": null,
+     "code": "3901157",
+     "arr": "15:28",
+     "dep": "15:30",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "근덕",
+     "place_id": null,
+     "code": "3901159",
+     "arr": "15:40",
+     "dep": "15:41",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "15:50",
+     "dep": "15:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척해변",
+     "place_id": null,
+     "code": "3900596",
+     "arr": "16:02",
+     "dep": "16:04",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "추암",
+     "place_id": "station_chuam",
+     "code": "3900595",
+     "arr": "16:06",
+     "dep": "16:07",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "16:15",
+     "dep": "16:16",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 10
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "16:24",
+     "dep": "16:24",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 9
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "16:29",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 16:24 출발과 정동진 16:44 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "16:44",
+     "dep": "16:45",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 10
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "17:00",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "1864",
+   "line": "동해선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "동대구",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 6,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "08:55",
+     "stop_type": "시발",
+     "line": "동해선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "09:10",
+     "dep": "09:12",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 4
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "09:26",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 09:12 출발과 묵호 09:31 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "09:31",
+     "dep": "09:31",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "09:39",
+     "dep": "09:39",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 5
+    },
+    {
+     "name": "추암",
+     "place_id": "station_chuam",
+     "code": "3900595",
+     "arr": "09:48",
+     "dep": "09:48",
+     "stop_type": "여객승하차",
+     "line": "동해선",
+     "weeks": 3,
+     "spread_min": 6
+    },
+    {
+     "name": "삼척해변",
+     "place_id": null,
+     "code": "3900596",
+     "arr": "09:55",
+     "dep": "09:57",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "삼척",
+     "place_id": null,
+     "code": "3900597",
+     "arr": "10:03",
+     "dep": "10:10",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "임원",
+     "place_id": null,
+     "code": "3901158",
+     "arr": "10:24",
+     "dep": "10:25",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "옥원",
+     "place_id": null,
+     "code": "3901157",
+     "arr": "10:27",
+     "dep": "10:31",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "흥부",
+     "place_id": null,
+     "code": "3901156",
+     "arr": "10:38",
+     "dep": "10:40",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "죽변",
+     "place_id": null,
+     "code": "3901155",
+     "arr": "10:42",
+     "dep": "10:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "울진",
+     "place_id": null,
+     "code": "3901154",
+     "arr": "10:51",
+     "dep": "10:54",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "후포",
+     "place_id": null,
+     "code": "3901150",
+     "arr": "11:16",
+     "dep": "11:20",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "고래불",
+     "place_id": null,
+     "code": "3901149",
+     "arr": "11:28",
+     "dep": "11:37",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영해",
+     "place_id": null,
+     "code": "3901148",
+     "arr": "11:44",
+     "dep": "11:45",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영덕",
+     "place_id": null,
+     "code": "3901068",
+     "arr": "11:54",
+     "dep": "12:00",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "강구",
+     "place_id": null,
+     "code": "3901067",
+     "arr": "12:04",
+     "dep": "12:06",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "장사",
+     "place_id": null,
+     "code": "3901066",
+     "arr": "12:10",
+     "dep": "12:11",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "월포",
+     "place_id": null,
+     "code": "3901065",
+     "arr": "12:17",
+     "dep": "12:18",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "포항",
+     "place_id": null,
+     "code": "3901040",
+     "arr": "12:26",
+     "dep": "12:34",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "안강",
+     "place_id": null,
+     "code": "3901038",
+     "arr": "12:44",
+     "dep": "12:46",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "서경주",
+     "place_id": null,
+     "code": "3901037",
+     "arr": "12:54",
+     "dep": "12:56",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "아화",
+     "place_id": null,
+     "code": "3900190",
+     "arr": "13:11",
+     "dep": "13:14",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "영천",
+     "place_id": null,
+     "code": "3900187",
+     "arr": "13:23",
+     "dep": "13:26",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "하양",
+     "place_id": null,
+     "code": "3900672",
+     "arr": "13:35",
+     "dep": "13:37",
+     "stop_type": "여객승하차",
+     "line": "동해선"
+    },
+    {
+     "name": "동대구",
+     "place_id": null,
+     "code": "3900096",
+     "arr": "13:51",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "동해선"
+    }
+   ]
+  },
+  {
+   "no": "2502",
+   "line": "영동선",
+   "direction": "U",
+   "origin": "강릉",
+   "destination": "영주",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 4,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": null,
+     "dep": "10:18",
+     "stop_type": "시발",
+     "line": "영동선"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "10:32",
+     "dep": "10:33",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 2
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "10:51",
+     "stop_type": "통과(어림)",
+     "basis": "정동진 10:33 출발과 묵호 10:58 도착 사이를 거리 비율(0.74)로 어림"
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "10:58",
+     "dep": "11:06",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 4
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "11:15",
+     "dep": "11:15",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "12:02",
+     "dep": "12:03",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "12:25",
+     "dep": "12:29",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "12:50",
+     "dep": "12:54",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "12:56",
+     "dep": "12:58",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "13:07",
+     "dep": "13:09",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "13:31",
+     "dep": "13:33",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "13:54",
+     "dep": "13:55",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": "14:10",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  },
+  {
+   "no": "2503",
+   "line": "영동선",
+   "direction": "D",
+   "origin": "영주",
+   "destination": "강릉",
+   "saturdays_run": [
+    "2026-10-31",
+    "2026-11-07",
+    "2026-11-14"
+   ],
+   "weekly_saturday": true,
+   "spread_min": 3,
+   "in_plan": true,
+   "stops": [
+    {
+     "name": "영주",
+     "place_id": null,
+     "code": "3900164",
+     "arr": null,
+     "dep": "15:00",
+     "stop_type": "시발",
+     "line": "영동선"
+    },
+    {
+     "name": "봉화",
+     "place_id": null,
+     "code": "3900552",
+     "arr": "15:14",
+     "dep": "15:18",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "춘양",
+     "place_id": null,
+     "code": "3900556",
+     "arr": "15:39",
+     "dep": "15:44",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "분천",
+     "place_id": null,
+     "code": "3900560",
+     "arr": "16:06",
+     "dep": "16:07",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "양원",
+     "place_id": null,
+     "code": "3900561",
+     "arr": "16:15",
+     "dep": "16:17",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "승부",
+     "place_id": null,
+     "code": "3900562",
+     "arr": "16:21",
+     "dep": "16:30",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "철암",
+     "place_id": null,
+     "code": "3900565",
+     "arr": "16:50",
+     "dep": "17:02",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "도계",
+     "place_id": null,
+     "code": "3900572",
+     "arr": "17:31",
+     "dep": "17:32",
+     "stop_type": "여객승하차",
+     "line": "영동선"
+    },
+    {
+     "name": "동해",
+     "place_id": "station_donghae",
+     "code": "3900580",
+     "arr": "18:20",
+     "dep": "18:20",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "묵호",
+     "place_id": "station_mukho",
+     "code": "3900581",
+     "arr": "18:28",
+     "dep": "18:28",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 3
+    },
+    {
+     "name": "망상",
+     "place_id": "station_mangsang",
+     "code": null,
+     "arr": null,
+     "dep": null,
+     "pass": "18:34",
+     "stop_type": "통과(어림)",
+     "basis": "묵호 18:28 출발과 정동진 18:50 도착 사이를 거리 비율(0.26)로 어림"
+    },
+    {
+     "name": "정동진",
+     "place_id": null,
+     "code": "3900585",
+     "arr": "18:50",
+     "dep": "18:50",
+     "stop_type": "여객승하차",
+     "line": "영동선",
+     "weeks": 3,
+     "spread_min": 4
+    },
+    {
+     "name": "강릉",
+     "place_id": null,
+     "code": "3900587",
+     "arr": "19:06",
+     "dep": null,
+     "stop_type": "종착",
+     "line": "영동선"
+    }
+   ]
+  }
+ ]
+}
