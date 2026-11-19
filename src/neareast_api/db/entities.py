@@ -2,7 +2,17 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,6 +20,13 @@ from neareast_api.db.base import Base
 
 JSON_VALUE = JSON().with_variant(JSONB(), "postgresql")
 EMBEDDING_VALUE = Vector(1536).with_variant(JSON(), "sqlite")
+
+
+# Kept in step with modules/trains/schemas.TRAIN_TYPES (a test compares them).
+TRAIN_TYPES = ("KTX-이음", "ITX-마음", "ITX-새마을", "누리로", "무궁화호")
+TRAIN_TYPE_RULE = "train_type IS NULL OR train_type IN ({})".format(
+    ", ".join(f"'{name}'" for name in TRAIN_TYPES)
+)
 
 
 def currentTime() -> datetime:
@@ -93,13 +110,18 @@ class TimetableSnapshotEntity(Base):
 
 class TrainRunEntity(Base):
     __tablename__ = "train_services"
-    __table_args__ = (UniqueConstraint("snapshot_id", "train_number"),)
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "train_number"),
+        CheckConstraint(TRAIN_TYPE_RULE, name="ck_train_services_train_type"),
+    )
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     snapshotId: Mapped[str] = mapped_column(
         "snapshot_id", ForeignKey("timetable_snapshots.id", ondelete="CASCADE")
     )
     trainNumber: Mapped[str] = mapped_column("train_number", String(20), index=True)
     trainType: Mapped[str | None] = mapped_column("train_type", String(40))
+    # Where the type was confirmed (who looked, where, when). Null while the type is null.
+    trainTypeSource: Mapped[str | None] = mapped_column("train_type_source", String(200))
     details: Mapped[dict] = mapped_column(JSON_VALUE)
 
 

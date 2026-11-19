@@ -21,9 +21,15 @@ class Basis(_Model):
     limits: list[str] = Field(description="이 데이터로 알 수 없는 것")
 
 
+# The only train types the service knows. Anything else is rejected where it is written
+# (database constraint, timetable import, planning conditions) rather than shown.
+TRAIN_TYPES = ("KTX-이음", "ITX-마음", "ITX-새마을", "누리로", "무궁화호")
+TrainType = Literal["KTX-이음", "ITX-마음", "ITX-새마을", "누리로", "무궁화호"]
+
+
 class TrainSummary(_Model):
     no: str
-    type: str | None = Field(description="열차 종류. DB에 별도 확인하여 등록한 것만, 없으면 null")
+    type: TrainType | None = Field(description="열차 종류. 사람이 확인해 등록한 것만, 없으면 null")
     line: str
     direction: Direction
     origin: str

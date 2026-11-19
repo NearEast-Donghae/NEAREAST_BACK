@@ -208,11 +208,11 @@ class KnowledgeEnrichmentMigrationTests(unittest.TestCase):
                     self.assertNotIn(word, body)
         self.assertNotIn("시부터", self.migration.AFTER["poi_dojjebigol"][1])
 
-    def test_it_follows_market_aliases(self):
+    def test_it_follows_market_aliases_in_one_chain(self):
         self.assertEqual(self.migration.down_revision, "market_aliases")
         config = Config(str(PROJECT_ROOT / "alembic.ini"))
         config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
-        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["knowledge_enrichment"])
+        self.assertEqual(len(ScriptDirectory.from_config(config).get_heads()), 1)
 
     def test_postgresql_sql_updates_four_documents(self):
         output = io.StringIO()

@@ -142,10 +142,10 @@ class TrainTypeTests(unittest.TestCase):
         blank = service.detail(timetable, train["no"])
         self.assertEqual(blank.type, timetable.types.get(train["no"]))
         filled = service.Timetable(timetable.meta, timetable.stations, timetable.trains,
-                                   {train["no"]: "무궁화"})
+                                   {train["no"]: "무궁화호"})
         named = service.detail(filled, train["no"])
-        self.assertEqual(named.type, "무궁화")
-        self.assertTrue(service.describe(named).startswith(f"무궁화 {train['no']} "))
+        self.assertEqual(named.type, "무궁화호")
+        self.assertTrue(service.describe(named).startswith(f"무궁화호 {train['no']} "))
         if blank.type is None:
             self.assertTrue(service.describe(blank).startswith(f"{train['no']}({train['line']})"))
 

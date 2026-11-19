@@ -94,6 +94,7 @@ history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다�
 
 `0001_service_storage`는 테이블과 vector 확장, `0002_reference_content`는 기존 PR의 최초 자료를 적재합니다.
 `market_aliases`는 북평민속시장 문서의 별칭(재래시장, 장터, 전통시장)을 더합니다. 적용 뒤 `scripts/ingest.py`를 실행하면 그 문서만 다시 임베딩됩니다.
+`train_types`는 열차 종류를 다섯 가지(`KTX-이음`, `ITX-마음`, `ITX-새마을`, `누리로`, `무궁화호`)로 제한하는 DB 제약과, 종류를 어디서 확인했는지 적는 `train_type_source` 칸을 추가합니다. 종류는 수집 데이터에 없어 사람이 확인한 것만 넣고, 확인하지 않은 열차는 비워 둡니다. 시간표를 다시 수집·적재해도 열차번호 기준으로 종류와 출처가 유지됩니다. 여행 조건의 `preferredTrainTypes`도 같은 다섯 값만 받습니다(그 밖은 422).
 `knowledge_enrichment`는 촛대바위·논골담길·망상해수욕장·도째비골 스카이밸리 문서를 보강하고 출처 URL을 `source_url`에 적습니다(한 줄에 하나). 적용 뒤 `scripts/ingest.py`를 실행하면 이 네 문서만 다시 임베딩됩니다.
 초기 seed SQL은 새 DB 재현용 이력입니다. 서버 요청 중에 읽지 않으며 새 데이터를 넣을 때마다 Git에 갱신하지 않습니다.
 모델 변경 후 `alembic revision --autogenerate -m "..."`로 새 이력을 만들고 검토 후 적용합니다.

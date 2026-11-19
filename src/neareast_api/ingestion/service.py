@@ -99,9 +99,11 @@ class IngestionService:
     @staticmethod
     def importTimetable(session: Session, snapshot: dict) -> None:
         snapshotId = snapshot["meta"]["target_date"]
+        # Train types are confirmed by hand and are not in the collected data: whatever
+        # is already known for a train number is carried over, with where it was confirmed.
         existingTypes = {
-            run.trainNumber: run.trainType
-            for run in session.scalars(select(TrainRunEntity))
+            run.trainNumber: (run.trainType, run.trainTypeSource)
+            for run in session.scalars(select(TrainRunEntity).order_by(TrainRunEntity.snapshotId))
             if run.trainType
         }
         session.execute(
@@ -120,7 +122,8 @@ class IngestionService:
                     id=serviceId,
                     snapshotId=snapshotId,
                     trainNumber=train["no"],
-                    trainType=existingTypes.get(train["no"]),
+                    trainType=existingTypes.get(train["no"], (None, None))[0],
+                    trainTypeSource=existingTypes.get(train["no"], (None, None))[1],
                     details={key: value for key, value in train.items() if key != "stops"},
                 )
             )
