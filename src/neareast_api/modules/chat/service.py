@@ -479,6 +479,7 @@ _HHMM = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
 _KOREAN_DATE = re.compile(r"(\d{1,2})월\s*(\d{1,2})일")
 _RELATIVE_DAYS = {"오늘": 0, "내일": 1, "모레": 2}
+_TRAVEL_TALK = re.compile(r"출발|도착|떠나|돌아|복귀|부터|까지|시작|끝내|마무리")
 _DAY_TALK = re.compile(r"\d{1,2}\s*[월일]|\d{4}-\d|\d{1,2}/\d{1,2}|오늘|내일|모레|요일|주말")
 
 
@@ -518,10 +519,13 @@ def _plan_conditions(
     user said. Values the responder reported are used only after checking them here."""
     content = context.content
 
-    # A condition counts as said only if the user's own words carry it: the place is
-    # named there, the hour appears there. Otherwise it is the responder's guess (seen in
-    # evaluation: the first saved station given as the departure) and is left out.
-    spoken = context.user_text or context.message
+    # A condition counts as said only if the user's own words carry it. Those words are
+    # this message and earlier messages that talk about setting out or getting back; a
+    # place merely asked about earlier ("묵호등대는 언제…") is not a departure. Anything
+    # else is the responder's guess (seen on the real model: a saved station given as the
+    # departure) and is left out.
+    turns = (context.user_text or context.message).split("\n")
+    spoken = "\n".join([*(t for t in turns[:-1] if _TRAVEL_TALK.search(t)), turns[-1]])
     named = {p.id for p in content.places_in_text(spoken)}
     hours = {int(h) for h in re.findall(r"(?<!\d)(\d{1,2})\s*(?:시|:\d{2})", spoken)}
 

@@ -204,6 +204,17 @@ class ModelPathTests(_Case):
         self.assertEqual(
             [payload[k] for k in ("departurePlaceId", "arrivalPlaceId", "startTime", "endTime")],
             [None, None, None, None])
+        # A place only asked about earlier is not a departure ("묵호" inside 묵호등대).
+        asked = [{"role": "user", "content": "묵호등대는 언제 처음 불을 밝혔어?"},
+                 {"role": "assistant", "content": "1963년이에요."},
+                 {"role": "user", "content": "동해역 열차 9시쯤 있어?"},
+                 {"role": "assistant", "content": "확인해 볼게요."}]
+        with patch.object(llm, "chat_json", return_value=model(plan=guessed)):
+            body = self.ask("이대로 하루 일정 짜줘", history=asked, date="2026-11-21", pins=PINS)
+        payload = body["action"]["payload"]
+        self.assertEqual(
+            [payload[k] for k in ("departurePlaceId", "arrivalPlaceId", "startTime", "endTime")],
+            [None, None, None, None])
         # Said in an earlier turn of the conversation: taken.
         earlier = [{"role": "user", "content": "아침 9시에 묵호역에서 출발할 거야"},
                    {"role": "assistant", "content": "좋아요."}]
