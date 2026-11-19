@@ -93,6 +93,7 @@ history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다�
 지식 원문은 `knowledge_documents.body`, 임베딩은 `knowledge_chunks.embedding vector(1536)`에 저장합니다.
 
 `0001_service_storage`는 테이블과 vector 확장, `0002_reference_content`는 기존 PR의 최초 자료를 적재합니다.
+`0003_place_coordinates`는 장소 좌표를 채웁니다(목록에 없는 장소는 NULL 그대로). 이미 적용한 뒤에 좌표를 더하려면 새 마이그레이션을 만듭니다.
 초기 seed SQL은 새 DB 재현용 이력입니다. 서버 요청 중에 읽지 않으며 새 데이터를 넣을 때마다 Git에 갱신하지 않습니다.
 모델 변경 후 `alembic revision --autogenerate -m "..."`로 새 이력을 만들고 검토 후 적용합니다.
 이미 적용한 마이그레이션은 수정하지 않습니다.

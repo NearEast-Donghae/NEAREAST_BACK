@@ -1,6 +1,7 @@
 """Verify migration scaffolding in temporary folders, without PostgreSQL."""
 
 import argparse
+import importlib.util
 import io
 import os
 import shutil
@@ -8,8 +9,6 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import importlib.util
 
 from alembic.config import Config
 from alembic.migration import MigrationContext
