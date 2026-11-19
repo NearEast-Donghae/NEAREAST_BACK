@@ -81,11 +81,39 @@ NearEast_Backend/
 └── Dockerfile              # 이 FastAPI 앱의 실행 이미지
 ```
 
-## 챗봇 API — `POST /api/v1/chat/messages`
+## 챗봇 API — 니어리
+
+챗봇 이름은 **니어리**입니다. 해요체로 친근하게 말하지만, 말투가 규칙(문서 근거만, 시각은 도구로만,
+계획 직접 수정 금지, 안전 대안)보다 앞서지 않습니다.
+
+### `GET /api/v1/chat/persona`
+
+채팅 화면이 쓸 이름·인사말·로딩 문구입니다. 첫 화면 인사와 응답 대기 중 문구에 그대로 씁니다.
+
+```jsonc
+{
+  "name": "니어리",
+  "greeting": "안녕하세요, 동해 철도 여행을 함께 짜는 니어리예요.",
+  "loading": {
+    "default": "니어리가 생각하고 있어요…",
+    "train": "열차 시간표를 살펴보고 있어요…",
+    "place": "{place} 주변을 둘러보고 있어요…",   // {place}에 장소 이름을 넣어 표시
+    "knowledge": "자료를 찾아보고 있어요…",
+    "safety": "안전한 방법을 확인하고 있어요.",
+    "slow": "조금 오래 걸리고 있어요. 잠시만 기다려 주세요."
+  }
+}
+```
+
+**프론트 안내**: 요청을 보낸 뒤 바로 `loading`의 상황별 문구를 보여 주고, **5초가 넘으면 `slow` 문구로 바꿔** 주세요.
+보통 응답은 2~3초, 도구를 쓰는 답은 4초 안팎입니다. 서버는 멈춘 호출을 8초에 끊고 한 번 다시 시도하며,
+그래도 안 되면 503을 돌려줍니다.
+
+### `POST /api/v1/chat/messages`
 
 화면 맥락(열어 둔 마커, 내 핀, 날짜)을 함께 보내면 답변·다음 행동 칩·제안을 돌려줍니다.
-지금은 **mock 모드**(`NEAREAST_CHAT_MOCK=true`, 기본값)라 API 키 없이 내장 예시 데이터로 답합니다.
-열차 시각이 담긴 답에는 `(예시 데이터)`가 붙습니다. `false`로 두면 LLM 연결 전까지 503을 반환합니다.
+기본은 **mock 모드**(`NEAREAST_CHAT_MOCK=true`)라 API 키 없이 내장 예시 데이터로 답합니다.
+열차 시각이 담긴 답에는 `(예시 데이터)`가 붙습니다. `false`면 OpenAI로 답하며, 키가 없거나 호출이 실패하면 503입니다.
 
 ```jsonc
 // 요청
@@ -118,6 +146,30 @@ NearEast_Backend/
   `depth: "reference"`면 제안 없음, `certainty`(`timetable`|`estimated`|`planned`|`null`)는 도구 결과에서 옮김.
 - 장소 id는 **`data/places.json`** 이 기준이며 지도 마커 id와 같아야 합니다. 좌표는 아직 비어 있습니다.
 - 열차 시각과 도보 시간은 아직 예시 데이터(`modules/chat/tools.py`)이며 시간표 스냅샷으로 교체됩니다.
+
+### LLM 모드와 평가
+
+메시지 1건에 LLM 호출은 1회이며, 모델이 도구(열차 리듬·열차 목록·주변 장소)를 요청한 경우에만 2회입니다.
+고정 시스템 프롬프트를 맨 앞에 두어 OpenAI 자동 프롬프트 캐싱이 적용되게 했습니다.
+모델 출력은 서버가 다시 검사합니다(모델이 규칙을 어겨도 응답은 규칙을 지킴):
+
+- 근거 문서 없는 지식 답변 → "아직 확인된 정보가 없어요." 고정 문장으로 교체
+- 도구 없이 말한 열차 시각·편수·소요시간 → 안내 문장으로 교체
+- 예시(mock) 데이터를 쓴 답 → `(예시 데이터)` 표시
+- 승하차 불가 역이 대상이면 → "관찰만" 안내와 `safety_passing_station` 근거 추가
+- 근처 데이터가 없는 장소의 "근처" 칩 제거, 근거 문서 밖의 `sources` 제거, `certainty`는 도구 결과에서 지정
+- 이어지는 대화에서 인사말 반복과 마크다운 제거
+
+`tests/chat_scenarios/scenarios.json`의 품질 시나리오를 실제 모델로 돌립니다(**토큰을 씁니다**).
+
+```bash
+python scripts/eval_chat.py --quiet                      # 전체, 그룹별 통과율·토큰·추정 비용·캐시 비율
+python scripts/eval_chat.py --model gpt-5.4-nano --reasoning-effort low --quiet  # 다른 설정과 비교
+python scripts/eval_chat.py --rerun-failed               # 그 모델·설정에서 지난번 실패한 것만
+```
+
+결과에는 그룹별 통과율, API 호출 수, 토큰(캐시 비율), 추정 비용, 응답 시간(평균·최대)이 나옵니다.
+시나리오의 `_note`는 기준을 완화한 이유이며, `llm_only`는 mock 모드 단위 테스트에서 제외됩니다.
 
 ### 지식 문서 — `knowledge/<id>.md`
 
@@ -191,6 +243,13 @@ python3.12 -m venv .venv
 | `NEAREAST_DB_PASSWORD` | `.env.example`의 개발용 값 | Compose에서는 필수. 앱 설정에 없으면 readiness 실패 |
 | `NEAREAST_CHAT_MOCK` | `true` | 챗봇을 키 없이 내장 예시 데이터로 응답. `false`는 LLM 연결 전까지 503 |
 | `NEAREAST_CONTENT_DIR` | `.` | `knowledge/`·`data/`가 있는 폴더(실행 위치 기준). 이미지에서는 `/app` |
+| `NEAREAST_OPENAI_API_KEY` | 없음 | LLM 모드에서 필수. **`.env`에만** 두고 커밋·공유하지 않음 |
+| `NEAREAST_CHAT_MODEL` | `gpt-5.4-nano` | 답변 생성 모델 (평가 비교 후 선택) |
+| `NEAREAST_EMBEDDING_MODEL` | `text-embedding-3-small` | 문서·질의 임베딩 모델 (`scripts/ingest.py`와 같아야 함) |
+| `NEAREAST_CHAT_MAX_TOKENS` | `1000` | 호출 1회의 출력 토큰 상한. 추론 토큰도 포함되므로 넉넉히 둠(답 길이는 프롬프트와 서버가 제한) |
+| `NEAREAST_LLM_TIMEOUT_SECONDS` | `8` | OpenAI 호출 1회 타임아웃. 멈춘 호출은 1회 재시도 후 실패하면 503 |
+| `NEAREAST_CHAT_REASONING_EFFORT` | 없음 | 추론 모델(gpt-5 계열)만: `none`·`minimal`·`low`·`medium`·`high`. gpt-4.1 계열에는 두지 않음 |
+| `NEAREAST_LLM_USAGE_LOG` | `llm_usage.jsonl` | 호출마다 토큰 사용량(캐시 포함)과 응답 시간을 한 줄씩 기록. Compose에서는 `/tmp/llm_usage.jsonl` |
 
 앱은 생성 시 프로세스 환경변수를 읽고 검증합니다. 잘못된 bool 값은 시작 오류로 처리합니다.
 앱 자체가 `.env`를 탐색하거나 로딩하지 않습니다. 로컬에서는 명령의 `--env-file .env`,
