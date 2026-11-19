@@ -2,7 +2,7 @@
 
 Python 3.12 / FastAPI / PostgreSQL 17 로컬 개발 시작점입니다.
 Compose 명령 하나로 백엔드와 DB를 띄우고 Swagger에서 연결 상태를 확인합니다.
-업무 테이블·마이그레이션 이력은 없으며, 상태 확인 API 두 개와 챗봇 API(mock 모드)를 제공합니다.
+업무 테이블·마이그레이션 이력은 없으며, 상태 확인 API와 서비스 API(장소, 열차 시간표, 니어리 챗봇)를 제공합니다.
 SQLAlchemy 공통 Base와 Alembic 설정은 준비되어 있습니다. 실행 시 DB 구조를 자동 변경하지 않습니다.
 앱 자체는 DB 연결 없이 시작할 수 있지만 DB가 응답해야 readiness가 성공합니다.
 `/`의 404는 정상이며 Swagger 주소는 `/docs`입니다.
@@ -65,9 +65,14 @@ NearEast_Backend/
 │   ├── db/metadata.py       # 기능별 모델의 명시적 등록 위치
 │   ├── db/url.py            # 공통 설정으로 DB 접속 URL 구성
 │   └── modules/             # 합의된 기능을 Python 패키지로 추가할 위치
-│       └── chat/            # 지도 맥락을 아는 챗봇 (router/schemas/service/retrieval/tools)
+│       ├── places/          # 장소 목록·상세 (지도 마커 id의 기준)
+│       ├── trains/          # 서비스 공용 시간표: 역별 열차·구간 검색·열차 상세
+│       └── chat/            # 니어리 챗봇. 열차 도구는 trains 모듈을 호출
 ├── knowledge/              # 챗봇 지식 문서 (파일명 = 문서 id = 지도 마커 id)
-├── data/places.json        # 지도 마커와 챗봇이 공유하는 장소 id 목록
+├── data/places.json        # 지도 마커·챗봇·시간표가 공유하는 장소 id 목록
+├── data/timetable_*.json   # 토요일 시간표 스냅샷 (scripts/fetch_timetable.py 산출물)
+├── data/train_types.json   # 열차 종류 표 (손으로 채움)
+├── scripts/fetch_timetable.py  # 공공데이터 운행 기록 → 시간표 스냅샷 (원본은 data/raw/, 커밋 안 함)
 ├── scripts/ingest.py       # knowledge/ → data/embeddings.json 임베딩 캐시
 ├── alembic/                # 마이그레이션 환경과 비어 있는 versions/
 ├── alembic.ini             # 비밀번호 없는 Alembic 설정
@@ -79,6 +84,146 @@ NearEast_Backend/
 ├── .dockerignore
 ├── compose.yaml            # 개발용 backend + db, 상태 확인, DB 볼륨
 └── Dockerfile              # 이 FastAPI 앱의 실행 이미지
+```
+
+## 장소 API
+
+지도 마커와 역·장소 상세 화면용입니다. 여기의 `id`를 열차 API의 역 id, 챗봇의 `context.focused`·`pins`,
+제안의 `target`이 그대로 씁니다.
+
+### `GET /api/v1/places` — 목록 (`?kind=station|poi|heritage|spot`)
+
+```jsonc
+{
+  "places": [
+    {"id": "station_donghae", "name": "동해역", "kind": "station",
+     "passenger_stop": true,          // 역: true 승하차 가능 / false 불가(관찰만) / null 미확인
+     "aliases": ["동해"], "lat": null, "lng": null}   // 좌표는 아직 비어 있음
+  ]
+}
+```
+
+### `GET /api/v1/places/{id}` — 상세
+
+```jsonc
+// GET /api/v1/places/poi_cheongok_cave
+{
+  "id": "poi_cheongok_cave", "name": "천곡황금박쥐동굴", "kind": "poi", "passenger_stop": null,
+  "aliases": ["천곡동굴", "황금박쥐동굴"], "lat": null, "lng": null,
+  "summary": "천곡황금박쥐동굴은 도심에 있는 유일한 천연 석회석 동굴이에요. …",   // 소개 첫 문단
+  "description": "… \n\n운영 시간은 09:00~18:00이고, …",   // 전문, 문단은 빈 줄로 구분
+  "source": "poi_cheongok_cave",     // 근거 문서 id (없으면 summary·description과 함께 null)
+  "has_trains": false                // true면 /stations/{id}/trains 로 열차를 볼 수 있음
+}
+```
+
+없는 id는 **404** `{"detail": "place not found"}`, 장소 파일을 읽을 수 없으면 **503**입니다.
+
+## 열차 API (서비스 공용 시간표)
+
+화면과 니어리가 같은 시간표를 씁니다. **모든 응답에 `basis`(근거)가 있습니다.** 화면에 `basis.summary`를 보여 주세요.
+
+```jsonc
+"basis": {
+  "certainty": "estimated",
+  "summary": "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준",
+  "target_date": "2026-11-21",
+  "record_dates": ["2026-11-14", "2026-11-07", "2026-10-31"],
+  "plan_date": "2026-12-19",
+  "limits": ["2026-11-21 당일 운행 여부는 공공데이터로 확인할 수 없음(…)",
+             "여객열차의 정차 기록만 있음: 화물열차와 통과 기록은 공식 데이터 없음",
+             "열차 종류는 데이터에 없음: data/train_types.json에 손으로 채운 것만 표시"]
+}
+```
+
+공통 열차 필드: `no`(열차번호), `type`(종류, 표에 없으면 `null` → 번호·노선·행선지로 표시), `line`(노선),
+`direction`(`U` 상행 / `D` 하행), `origin`·`destination`(시발·종착역), `weekly_saturday`(3주 모두 운행),
+`in_plan`(12/19 토요일 운행계획에도 있음), `spread_min`(주별 시각 차이, 분).
+
+### `GET /api/v1/stations/{station_id}/trains` — 역별 열차와 리듬
+
+쿼리: `after=HH:MM`(이후만), `direction=U|D`.
+
+```jsonc
+// GET /api/v1/stations/station_donghae/trains?after=16:00
+{
+  "station_id": "station_donghae", "station_name": "동해",
+  "boarding": true,       // false면 승하차 불가 역(관찰만), 시각은 어림
+  "note": null,           // 통과역·기록 없는 역이면 안내 문장
+  "trains": [
+    {"no": "1863", "type": null, "line": "동해선", "direction": "D",
+     "origin": "동대구", "destination": "강릉",
+     "weekly_saturday": true, "in_plan": true, "spread_min": 10,
+     "time": "16:16",     // 정렬 기준: 출발, 없으면 도착, 통과역은 통과 시각
+     "arr": "16:15", "dep": "16:16", "passing": false, "stop_type": "여객승하차", "time_basis": null}
+    // … 시각 순
+  ],
+  "rhythm": {
+    "hourly": {"16": 2, "17": 5, "18": 5, "19": 2, "20": 3, "21": 4, "22": 4, "23": 1},  // 시간대별 열차 수 (필터 적용 후)
+    "busiest_hour": "17",
+    "gaps": [{"start": "22:52", "end": "23:57", "minutes": 65}]   // 60분 이상 비는 구간
+  },
+  "basis": { … }
+}
+```
+
+- 망상역(`station_mangsang`)은 `boarding: false`이고 열차마다 `passing: true`, `arr`/`dep`은 `null`,
+  `time_basis`에 "묵호 10:37 출발과 정동진 10:57 도착 사이를 거리 비율(0.26)로 어림"처럼 근거가 담깁니다.
+- 삼화·묵호항처럼 여객 기록이 없는 역은 `trains: []`와 `note`("… 화물열차 시각은 공식 데이터가 없어요.")를 돌려줍니다.
+- 역이 아닌 id나 없는 id는 **404**, `after`·`direction` 형식 오류는 **422**, 스냅샷이 없으면 **503**입니다.
+
+### `GET /api/v1/trains?from=&to=&after=` — 구간 열차 검색
+
+출발역에서 타서 도착역에서 내릴 수 있는 열차만 출발 시각 순으로 돌려줍니다(통과역은 타고 내릴 수 없어 결과 없음).
+
+```jsonc
+// GET /api/v1/trains?from=station_donghae&to=station_mukho&after=16:00
+{
+  "from_id": "station_donghae", "to_id": "station_mukho", "after": "16:00",
+  "trains": [
+    {"no": "1863", "type": null, "line": "동해선", "direction": "D", "origin": "동대구",
+     "destination": "강릉", "weekly_saturday": true, "in_plan": true, "spread_min": 10,
+     "dep": "16:16", "arr": "16:24", "minutes": 8}
+  ],
+  "basis": { … }
+}
+```
+
+### `GET /api/v1/trains/{train_no}` — 열차 상세
+
+```jsonc
+// GET /api/v1/trains/1861   (앞자리 0이 붙은 01861도 됨)
+{
+  "no": "1861", "type": null, "line": "동해선", "direction": "D",
+  "origin": "동대구", "destination": "강릉",
+  "weekly_saturday": true, "in_plan": true, "spread_min": 11,
+  "stops": [
+    {"name": "동해", "place_id": "station_donghae", "arr": "10:23", "dep": "10:27",
+     "pass_time": null, "stop_type": "여객승하차", "time_basis": null},
+    {"name": "망상", "place_id": "station_mangsang", "arr": null, "dep": null,
+     "pass_time": "10:42", "stop_type": "통과(어림)",
+     "time_basis": "묵호 10:37 출발과 정동진 10:57 도착 사이를 거리 비율(0.26)로 어림"}
+    // … 시발역부터 종착역까지 전체. 장소 목록에 없는 역은 place_id가 null
+  ],
+  "basis": { … }
+}
+```
+
+없는 열차번호는 **404** `{"detail": "train not found"}`입니다.
+
+### 시간표 스냅샷 만들기
+
+공공데이터 "한국철도공사_열차운행정보"는 대회 당일 운행계획, 통과 기록, 화물열차, 열차 종류를 주지 않습니다.
+그래서 최근 토요일 3주의 실제 운행 기록으로 스냅샷을 만들고 모두 `estimated`로 표시합니다.
+
+- 운행 기록은 지연이 섞인 실제 시각이라, 3주 가운데 출발은 가장 이른 시각, 도착은 가운데 값을 씁니다.
+- 망상 통과 시각은 앞뒤 정차역(묵호~정동진) 사이를 역키로정 거리 비율로 어림합니다.
+- 열차 종류는 `data/train_types.json`의 `type` 칸에 직접 채웁니다(비워 두면 `null`). 채운 값은 다시 만들어도 유지됩니다.
+
+```bash
+# .env에 NEAREAST_DATA_GO_KR_KEY(디코딩 키). 원본은 data/raw/에 저장되어 다시 실행해도 API를 부르지 않음
+python scripts/fetch_timetable.py
+python scripts/fetch_timetable.py --refresh   # 원본을 버리고 다시 받기
 ```
 
 ## 챗봇 API — 니어리
@@ -174,7 +319,9 @@ NearEast_Backend/
 
 - 장소 id는 **`data/places.json`** 이 기준이며 지도 마커 id와 같아야 합니다. 좌표는 아직 비어 있습니다.
   `aliases`는 질문에서 그 장소로 알아듣는 다른 표현입니다.
-- 열차 시각과 도보 시간은 아직 예시 데이터(`modules/chat/tools.py`)이며 시간표 스냅샷으로 교체됩니다.
+- 열차 시각은 아래 "열차 API"와 같은 시간표 스냅샷에서 나오며, 답 끝에 근거 문장("최근 토요일 3주 … 운행 기록 기준의
+  어림 시각이에요.")이 붙고 제안의 `certainty`는 `estimated`입니다. 스냅샷 파일이 없을 때만 내장 예시 시각으로
+  답하고 `(예시 데이터)`를 붙입니다. 도보 시간은 아직 예시 데이터입니다.
 
 ### LLM 모드와 평가
 
