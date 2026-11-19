@@ -23,7 +23,7 @@ class Basis(_Model):
 
 class TrainSummary(_Model):
     no: str
-    type: str | None = Field(description="열차 종류. data/train_types.json에 채운 것만, 없으면 null")
+    type: str | None = Field(description="열차 종류. DB에 별도 확인하여 등록한 것만, 없으면 null")
     line: str
     direction: Direction
     origin: str
@@ -80,7 +80,7 @@ class TrainSearch(_Model):
 
 class Stop(_Model):
     name: str
-    place_id: str | None = Field(description="data/places.json에 있는 역이면 그 id")
+    place_id: str | None = Field(description="장소 테이블에 있는 역이면 그 id")
     arr: str | None
     dep: str | None
     pass_time: str | None = Field(description="통과역의 어림 통과 시각")
