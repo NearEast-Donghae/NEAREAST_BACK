@@ -4,17 +4,20 @@ services:
     ports:
       - "127.0.0.1:${NEAREAST_HTTP_PORT:-8012}:8000"
     environment:
+      NEAREAST_SESSION_COOKIE_NAME: "${NEAREAST_SESSION_COOKIE_NAME:-neareast_session}"
+      NEAREAST_SESSION_LIFETIME_HOURS: "${NEAREAST_SESSION_LIFETIME_HOURS:-168}"
+      NEAREAST_COOKIE_SECURE: "${NEAREAST_COOKIE_SECURE:-false}"
       NEAREAST_DOCS_ENABLED: "${NEAREAST_DOCS_ENABLED:-true}"
       NEAREAST_CORS_ALLOW_ORIGINS: "${NEAREAST_CORS_ALLOW_ORIGINS:-}"
       NEAREAST_CHAT_MOCK: "${NEAREAST_CHAT_MOCK:-true}"
       NEAREAST_CHAT_RATE_LIMIT_PER_MINUTE: "${NEAREAST_CHAT_RATE_LIMIT_PER_MINUTE:-60}"
-      NEAREAST_OPENAI_API_KEY: "${NEAREAST_OPENAI_API_KEY:-}"
+      NEAREAST_OPENAI_API_KEY: "${NEAREAST_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}"
       NEAREAST_CHAT_MODEL: "${NEAREAST_CHAT_MODEL:-gpt-5.4-nano}"
       NEAREAST_EMBEDDING_MODEL: "${NEAREAST_EMBEDDING_MODEL:-text-embedding-3-small}"
       NEAREAST_CHAT_MAX_TOKENS: "${NEAREAST_CHAT_MAX_TOKENS:-1000}"
       NEAREAST_LLM_TIMEOUT_SECONDS: "${NEAREAST_LLM_TIMEOUT_SECONDS:-8}"
       NEAREAST_CHAT_DEADLINE_SECONDS: "${NEAREAST_CHAT_DEADLINE_SECONDS:-12}"
-      # Not passed on purpose: NEAREAST_CONTENT_DIR (the image keeps content in /app) and
+      # Not passed on purpose: NEAREAST_CONTENT_DIR (deprecated after PostgreSQL migration) and
       # NEAREAST_CHAT_REASONING_EFFORT (an empty value is invalid; set it here if needed).
       # The app user cannot write /app; keep the usage record in a writable place.
       NEAREAST_LLM_USAGE_LOG: /tmp/llm_usage.jsonl
@@ -35,7 +38,7 @@ services:
       retries: 3
 
   db:
-    image: postgres:17-bookworm
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: "${NEAREAST_DB_NAME:?Create .env from .env.example}"
       POSTGRES_USER: "${NEAREAST_DB_USER:?Create .env from .env.example}"
