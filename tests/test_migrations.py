@@ -153,5 +153,80 @@ class MarketAliasesMigrationTests(unittest.TestCase):
 
 
 
+class KnowledgeEnrichmentMigrationTests(unittest.TestCase):
+    """knowledge_enrichment and the seed file hold the same four documents."""
+
+    def setUp(self):
+        path = PROJECT_ROOT / "alembic" / "versions" / "knowledge_enrichment.py"
+        spec = importlib.util.spec_from_file_location("knowledge_enrichment", path)
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        self.engine = create_engine("sqlite://")
+        self.addCleanup(self.engine.dispose)
+        metadata.create_all(self.engine)
+        with self.engine.connect() as connection:
+            connection.connection.driver_connection.executescript(
+                (PROJECT_ROOT / "alembic" / "seed" / "0002_reference.sql").read_text("utf-8"))
+            connection.commit()
+
+    def documents(self):
+        with self.engine.connect() as connection:
+            rows = connection.execute(text(
+                "SELECT id, keywords, body, source_url FROM knowledge_documents"))
+            return {row.id: (json.loads(row.keywords), row.body,
+                             row.source_url.split("\n") if row.source_url else [])
+                    for row in rows}
+
+    def run_step(self, step):
+        with self.engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)):
+                step()
+
+    def test_seed_and_revision_agree_and_downgrade_restores_the_old_text(self):
+        untouched = {k: v for k, v in self.documents().items() if k not in self.migration.AFTER}
+        for doc_id, expected in self.migration.AFTER.items():
+            self.assertEqual(self.documents()[doc_id], tuple(expected), doc_id)  # from the seed
+        self.run_step(self.migration.downgrade)
+        for doc_id, expected in self.migration.BEFORE.items():
+            self.assertEqual(self.documents()[doc_id], tuple(expected), doc_id)
+        self.run_step(self.migration.upgrade)  # databases seeded earlier: from the revision
+        for doc_id, expected in self.migration.AFTER.items():
+            self.assertEqual(self.documents()[doc_id], tuple(expected), doc_id)
+        self.assertEqual(untouched, {k: v for k, v in self.documents().items()
+                                     if k not in self.migration.AFTER})
+
+    def test_every_document_names_its_sources_and_nothing_unconfirmed(self):
+        self.assertEqual(set(self.migration.AFTER), {
+            "poi_chotdaebawi", "poi_nongoldam", "poi_mangsang_beach", "poi_dojjebigol"})
+        for doc_id, (keywords, body, urls) in self.migration.AFTER.items():
+            with self.subTest(doc_id):
+                self.assertTrue(urls and all(u.startswith("http") for u in urls))
+                self.assertNotIn("http", body)  # sources live in source_url, not in the text
+                self.assertEqual(keywords[:len(self.migration.BEFORE[doc_id][0])],
+                                 self.migration.BEFORE[doc_id][0])  # old names still work
+                for word in ("입장료", "원이에요", "무료"):
+                    self.assertNotIn(word, body)
+        self.assertNotIn("시부터", self.migration.AFTER["poi_dojjebigol"][1])
+
+    def test_it_follows_market_aliases(self):
+        self.assertEqual(self.migration.down_revision, "market_aliases")
+        config = Config(str(PROJECT_ROOT / "alembic.ini"))
+        config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["knowledge_enrichment"])
+
+    def test_postgresql_sql_updates_four_documents(self):
+        output = io.StringIO()
+        config = Config(str(PROJECT_ROOT / "alembic.ini"), output_buffer=output)
+        config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+        with patch.dict(os.environ, {}, clear=True), patch("sqlalchemy.create_engine") as engine:
+            command.upgrade(config, "market_aliases:knowledge_enrichment", sql=True)
+        engine.assert_not_called()
+        sql = output.getvalue()
+        self.assertEqual(sql.count("UPDATE knowledge_documents"), 4)
+        self.assertIn("1963년 6월 8일", sql)
+        self.assertIn("seantour.kr", sql)
+
+
+
 if __name__ == "__main__":
     unittest.main()

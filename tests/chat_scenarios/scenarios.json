@@ -385,6 +385,20 @@
      "request": {"message": "일본 여행 코스 추천해줘", "context": {}},
      "expect": {"sources": [], "no_proposals": true},
      "llm_only": true,
-     "_note": "동해 철도와 무관한 질문: 벡터 검색이 가까운 문서를 억지로 붙이면 안 됨"}
+     "_note": "동해 철도와 무관한 질문: 벡터 검색이 가까운 문서를 억지로 붙이면 안 됨"},
+    {"id": "q4-lighthouse-from-doc", "group": "Q4",
+     "request": {"message": "묵호등대는 언제 처음 불을 밝혔어?", "context": {}},
+     "expect": {"sources_include": ["poi_nongoldam"], "reply_contains": ["1963"], "reply_not_contains": ["확인된 정보가 없어요"]},
+     "llm_only": true,
+     "_note": "보강한 문서의 사실: 묵호등대 1963년 6월 8일. llm_only: mock은 '언제'를 열차 질문으로 분류한다"},
+    {"id": "q4-suspension-bridge-from-doc", "group": "Q4",
+     "request": {"message": "촛대바위 근처에 출렁다리 있어?", "context": {}},
+     "expect": {"sources_include": ["poi_chotdaebawi"], "reply_contains_any": ["200m", "2019", "72m"], "reply_not_contains": ["확인된 정보가 없어요"]},
+     "llm_only": true,
+     "_note": "보강한 문서의 사실: 촛대바위에서 약 200m, 2019년 6월 개통. llm_only: mock은 '근처'를 주변 장소 질문으로 분류한다"},
+    {"id": "q4-dojjebigol-fee-unknown", "group": "Q4",
+     "request": {"message": "도째비골 스카이밸리 입장료 얼마야?", "context": {}},
+     "expect": {"reply_not_contains": ["원이에요", "무료예요"]},
+     "_note": "걸리면 안 되는 경우: 문서에 없는 입장료를 지어내면 안 된다"}
   ]
 }
