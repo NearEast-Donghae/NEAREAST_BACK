@@ -28,10 +28,14 @@ from neareast_api.modules.chat.schemas import (
     Certainty,
     PersonaLoading,
     PersonaResponse,
+    ChatAction,
     ChatContext,
     ChatRequest,
     ChatResponse,
     Intent,
+    PlanItem,
+    PlanPoint,
+    PlanRequestPayload,
     Proposal,
     ToolName,
 )
@@ -103,6 +107,7 @@ class Draft:
     tool_place: str | None = None  # place the tool was run for (subject of the answer)
     evidence: str = ""  # tool result as text; times in the reply are checked against it
     train_count: int | None = None  # trains in the tool result, bounds "N편" claims
+    plan: dict | None = None  # plan conditions the model heard; checked in _plan_handoff
 
 
 @dataclass(frozen=True)
@@ -361,8 +366,124 @@ def _has_nearby(place: retrieval.Place) -> bool:
     return bool(tools.nearby_spots(place.id, walk_minutes=10**6))
 
 
+# --- plan request: handed to the plan screen, never planned in the chat -----------
+
+# "일정 짜줘", "계획 세워줘", "이대로 하루 만들어줘": a thing to plan, then asking to make it.
+# Talking about plans ("계획 짜는 팁", "일정은 내가 짤게") does not match.
+PLAN_REQUEST = re.compile(
+    r"(?:일정|계획|하루|코스|동선|스케줄|루트)[^.?!]{0,15}?"
+    r"(?:짜|세워|세우|만들어|잡아|구성해)\s?(?:줘|주세요|주실|줄래|주라|주면|달라|서\s)"
+)
+PLAN_HANDOFF = ("{month}월 {day}일 하루 일정은 일정 화면에서 짜요. 담아 둔 곳({names})을 그대로 "
+                "일정 화면으로 넘겨 드릴게요. 순서와 시간은 거기서 직접 고를 수 있어요.")
+PLAN_NEEDS_PINS = ("일정에 넣을 곳이 아직 없어요. 지도에서 가고 싶은 역이나 장소를 먼저 "
+                   "담아 주시겠어요?")
+PLAN_NEEDS_DATE = "어느 날짜로 짤까요? 날짜만 정해 주시면 담아 둔 곳을 일정 화면으로 넘겨 드릴게요."
+PLAN_MODES = ("train_first", "visit_first", "balanced")
+_HHMM = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
+_ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
+_KOREAN_DATE = re.compile(r"(\d{1,2})월\s*(\d{1,2})일")
+_RELATIVE_DAYS = {"오늘": 0, "내일": 1, "모레": 2}
+
+
+def is_plan_request(message: str) -> bool:
+    return PLAN_REQUEST.search(message) is not None
+
+
+def date_in_message(message: str, today: dt.date) -> dt.date | None:
+    """A date the user spelled out: 2026-11-21, 11월 21일 (the next one), 오늘/내일/모레."""
+    try:
+        if found := _ISO_DATE.search(message):
+            return dt.date(*map(int, found.groups()))
+        if found := _KOREAN_DATE.search(message):
+            month, day = map(int, found.groups())
+            date = dt.date(today.year, month, day)
+            return date if date >= today else dt.date(today.year + 1, month, day)
+    except ValueError:
+        return None
+    for word, days in _RELATIVE_DAYS.items():
+        if word in message:
+            return today + dt.timedelta(days=days)
+    return None
+
+
+def _wants_plan(intent: str, message: str) -> bool:
+    """A plan request by the responder's reading or by the wording. Asking to plan
+    something on the tracks is a safety question first."""
+    if any(word in message for word in RISK_WORDS):
+        return False
+    return intent == "plan_request" or is_plan_request(message)
+
+
+def _plan_point(place: object, clock: object, content: retrieval.Content) -> PlanPoint | None:
+    place = place if isinstance(place, str) and content.place(place) is not None else None
+    clock = clock if isinstance(clock, str) and _HHMM.fullmatch(clock) else None
+    return PlanPoint(place=place, time=clock) if place or clock else None
+
+
+def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResponse:
+    """The whole answer to a plan request is written here: whatever the responder said
+    (an itinerary, times, places to add) is dropped. With every condition known the
+    client gets an action to open the plan screen; otherwise one question, pins first."""
+    raw, content = context.raw, context.content
+    today = dt.datetime.now(KST).date()
+    said = draft.plan or {}
+    date = date_in_message(context.message, today) or raw.date
+    if date is None and isinstance(said.get("date"), str):
+        try:
+            date = dt.date.fromisoformat(said["date"])
+        except ValueError:
+            date = None
+    if draft.reply and draft.reply != PLAN_HANDOFF:
+        logger.info("plan request: responder reply dropped, server text used")
+
+    action = None
+    stations = [p for p in context.pins if p.kind == "station"]
+    chips = [f"{p.name} 열차 리듬" for p in stations[:1]]
+    chips += [f"{p.name} 근처" for p in context.pins[:1] if _has_nearby(p)]
+    if not context.pins:
+        reply, chips = PLAN_NEEDS_PINS, []
+    elif date is None:
+        reply = PLAN_NEEDS_DATE
+        # Each chip is a complete answer: tapping it comes back as a plan request with a date.
+        days = [today, today + dt.timedelta(days=1)]
+        snapshot = (context.timetable.meta.get("target_date") if context.timetable else None)
+        try:
+            target = dt.date.fromisoformat(snapshot) if snapshot else None
+        except ValueError:
+            target = None
+        if target is not None and target > days[-1]:
+            days.insert(0, target)
+        labels = {today: "오늘", today + dt.timedelta(days=1): "내일"}
+        chips = [f"{labels.get(d) or f'{d.month}월 {d.day}일'}로 일정 짜줘" for d in days]
+    else:
+        names = ", ".join(p.name for p in context.pins[:3])
+        if len(context.pins) > 3:
+            names += f" 등 {len(context.pins)}곳"
+        reply = PLAN_HANDOFF.format(month=date.month, day=date.day, names=names)
+        action = ChatAction(type="plan_request", payload=PlanRequestPayload(
+            date=date,
+            start=_plan_point(said.get("start_place"), said.get("start_time"), content),
+            end=_plan_point(said.get("end_place"), said.get("end_time"), content),
+            items=[PlanItem(kind="station" if p.kind == "station" else "visit", place=p.id)
+                   for p in context.pins],
+            mode=said.get("mode") if said.get("mode") in PLAN_MODES else None,
+            dismissed=list(raw.dismissed),
+            depth=raw.depth,
+        ))
+    for chip in DEFAULT_CHIPS:
+        if len(chips) < 2 and chip not in chips:
+            chips.append(chip)
+    return ChatResponse(reply=reply, intent="plan_request", action=action,
+                        chips=chips[:MAX_CHIPS], mode=mode)
+
+
 def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> ChatResponse:
     """Every rule here holds no matter what the responder (mock or LLM) produced."""
+    if _wants_plan(draft.intent, context.message):
+        return _plan_handoff(draft, context, mode)
+    if draft.intent == "plan_request":  # asked about the tracks: answered as safety
+        draft = dataclasses.replace(draft, intent="safety", plan=None)
     raw = context.raw
     content = context.content
     pinned = {p.id for p in context.pins}
@@ -553,7 +674,8 @@ def _llm_draft(
 
     first = call(None, "first")
     run = None
-    if first.get("tool_request"):
+    # A plan request is handed over as it is: no tool call is spent on it.
+    if first.get("tool_request") and not _wants_plan(str(first.get("intent")), request.message):
         with stages.timed("tool"):
             run = _run_tool(first["tool_request"], context)
         final = call(run.result, "after_tool")  # a second tool request is ignored
@@ -610,6 +732,7 @@ def _parse_draft(raw: dict) -> Draft:
                 if p.get("type") in ("add", "remove")
             ],
             sources=[str(s) for s in raw["sources"]],
+            plan=raw.get("plan") if isinstance(raw.get("plan"), dict) else None,
         )
     except (KeyError, TypeError) as exc:
         raise llm.LLMError(f"answer did not match the schema: {exc}") from exc
@@ -770,6 +893,8 @@ def _has(text: str, words: tuple[str, ...]) -> bool:
 def _mock_draft(message: str, context: ResolvedContext) -> Draft:
     if _has(message, _SAFETY):
         return _mock_safety(message, context)
+    if is_plan_request(message):
+        return Draft(reply="", intent="plan_request")  # _plan_handoff writes the answer
     if _has(message, _TRAIN):
         return _mock_train(message, context)
     if _has(message, _KEEP_EMPTY):

@@ -82,6 +82,43 @@ history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다�
 목록에는 `limit`, `offset`을 지원합니다. 메시지는 시간순, 여행·대화방 목록은 최신순입니다.
 여행·여행 조건 수정에는 `expectedRevision`을 보내며 이전 버전이면 409를 반환합니다.
 
+## 챗봇 응답의 `action` — "일정 짜줘"
+
+`/chat/messages`와 `/conversations/{id}/messages`의 챗봇 응답에 `action`이 추가됐습니다(기본 `null`).
+사용자가 "일정 짜줘", "계획 세워줘", "이대로 하루 만들어줘"처럼 하루 일정을 요청하면 `intent`가 `plan_request`가 되고,
+니어리는 일정을 직접 짜지 않고 일정 화면으로 넘긴다는 안내만 합니다(이 답은 서버가 씁니다).
+
+```jsonc
+// 요청: {"message": "일정 짜줘", "context": {"date": "2026-11-21", "pins": ["station_donghae", "poi_bukpyeong_market"]}}
+{
+  "reply": "11월 21일 하루 일정은 일정 화면에서 짜요. 담아 둔 곳(동해역, 북평민속시장)을 그대로 일정 화면으로 넘겨 드릴게요. 순서와 시간은 거기서 직접 고를 수 있어요.",
+  "intent": "plan_request",
+  "action": {
+    "type": "plan_request",
+    "payload": {
+      "date": "2026-11-21",
+      "start": null,                       // 대화에서 말했을 때만 {"place": id|null, "time": "HH:MM"|null}
+      "end": null,
+      "items": [                           // 내 핀 순서 그대로. 역은 station, 그 밖은 visit
+        {"kind": "station", "place": "station_donghae"},
+        {"kind": "visit", "place": "poi_bukpyeong_market"}
+      ],
+      "mode": null,                        // train_first | visit_first | balanced, 말했을 때만
+      "dismissed": [],
+      "depth": "light"
+    }
+  },
+  "chips": ["동해역 열차 리듬", "동해역 근처"],
+  "proposals": [], "sources": [], "tool_used": null, "mode": "mock"
+}
+```
+
+- `action`이 있으면 프론트는 `payload`를 들고 일정 화면을 엽니다. `payload` 형식은 계획 계산 요청 형식을 따르며 담당자와 맞추는 중이라 바뀔 수 있습니다.
+- 조건이 모자라면 `action`은 `null`이고 니어리가 **하나만** 묻습니다. 핀이 없으면 먼저 담아 달라고 하고,
+  날짜가 없으면 날짜를 묻고 칩("오늘로 일정 짜줘" 등)을 줍니다. 칩을 누르면 `action`이 담겨 돌아옵니다.
+- 메시지에 날짜가 있으면(`2026-11-21`, `11월 21일`, 오늘·내일·모레) 화면의 날짜보다 우선합니다.
+- 일정에 대한 질문("일정 화면은 뭐 하는 곳이야?")이나 장소 추천 요청은 `plan_request`가 아닙니다.
+
 ## 저장 구조
 
 13개 테이블: `users`, `auth_sessions`, `places`, `knowledge_documents`, `knowledge_chunks`,
