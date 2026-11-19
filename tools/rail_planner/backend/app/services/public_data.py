@@ -68,7 +68,7 @@ def todayKst():
     return datetime.now(KST).date().isoformat()
 
 
-def readSettings():
+def readSettings(settingNames=SETTINGS):
     values = {}
     try:
         lines = (ROOT / ".env").read_text(encoding="utf-8-sig").splitlines()
@@ -79,7 +79,7 @@ def readSettings():
     for line in lines:
         name, _, raw = line.partition("=")
         name = name.strip().removeprefix("export ").strip()
-        if name not in SETTINGS:
+        if name not in settingNames:
             continue
         try:
             tokens = shlex.split(raw, comments=True)
@@ -88,7 +88,7 @@ def readSettings():
         if len(tokens) > 1:
             raise DataApiError(f"{name} 설정 형식 오류")
         values[name] = tokens[0] if tokens else ""
-    return {name: os.environ.get(name, values.get(name, "")).strip() for name in SETTINGS}
+    return {name: os.environ.get(name, values.get(name, "")).strip() for name in settingNames}
 
 
 def readResponseEnvelope(response, responseFormat):
