@@ -57,6 +57,8 @@ SAFETY_ALTERNATIVE = "대신 역 맞이방이나 승강장처럼 공개된 장�
 ALTERNATIVE_WORDS = ("공개된", "승강장", "맞이방")
 # The safety rewrite applies only when the user actually asks about these places.
 RISK_WORDS = ("선로", "건널목", "차단기", "철길", "철로")
+# "Leave the gap empty" is a valid choice (principle 2), not a question that needs documents.
+KEEP_EMPTY_WORDS = ("그대로", "쉬기", "쉴래", "쉴게", "비워")
 # Chips that ask for nearby places; they dead-end when the place has no nearby data.
 NEARBY_WORDS = ("근처", "주변", "같이 볼", "볼 곳", "갈 곳", "가는 길")
 _CERTAINTY_ORDER = ("timetable", "estimated", "planned")
@@ -248,8 +250,12 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
         logger.warning("dropped unverified time claims: %s", ", ".join(unverified))
         reply = NO_TIME_WITHOUT_TOOL
     # Knowledge only from documents: an ungrounded answer becomes the fixed no-info reply.
+    # A proposal-intent answer counts as grounded when the model did propose catalog places
+    # (even if depth/pins/dismissed filtered them out) or the user is declining to fill time.
+    declining = any(w in context.message for w in KEEP_EMPTY_WORDS)
     ungrounded = draft.tool_used is None and not sources and (
-        draft.intent == "knowledge" or (draft.intent == "proposal" and not proposals)
+        draft.intent == "knowledge"
+        or (draft.intent == "proposal" and not draft.proposals and not declining)
     )
     if ungrounded and reply != NO_TIME_WITHOUT_TOOL:
         if reply != NO_INFO:
@@ -510,7 +516,7 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
 
 _SAFETY = RISK_WORDS
 _TRAIN = ("열차", "기차", "시각", "시간표", "몇 시", "몇시", "몇 편", "편수", "운행", "언제", "몰려", "리듬")
-_KEEP_EMPTY = ("그대로", "쉬기", "쉴래")
+_KEEP_EMPTY = KEEP_EMPTY_WORDS
 _PROPOSAL = ("추천", "근처", "볼 곳", "볼 수 있는", "갈 곳", "뭐 하", "뭘 하", "일정")
 _SMALLTALK = ("안녕", "고마", "감사")
 

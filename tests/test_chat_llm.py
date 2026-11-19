@@ -199,6 +199,28 @@ class LLMResponderTests(unittest.TestCase):
         # chips about unknown places dropped, then padded to two
         self.assertEqual(body["chips"], ["동해역 열차 리듬", "동해역 근처"])
 
+    def test_proposal_answers_that_are_not_ungrounded_are_kept(self):
+        nongoldam = {"type": "add", "target": "poi_nongoldam", "reason": "가까워요",
+                     "time_bound": False}
+        cases = (
+            ("빈 시간은 그대로 둘래요", "좋아요, 빈 시간은 그대로 둘게요.", [], {}),
+            ("근처 추천", "묵호역 근처에는 논골담길이 있어요.", [nongoldam],
+             {"focused": "station_mukho", "depth": "reference"}),  # server drops the proposal
+            ("근처 추천", "논골담길은 이미 핀에 있어요.", [nongoldam],
+             {"focused": "station_mukho", "pins": ["poi_nongoldam"]}),
+        )
+        for message, reply, proposals, context in cases:
+            with self.subTest(reply):
+                response, _ = self.ask([draft(reply, intent="proposal", proposals=proposals)],
+                                       message=message, **context)
+                self.assertEqual(response.json()["reply"], reply)
+                self.assertEqual(response.json()["proposals"], [])
+
+    def test_ungrounded_recommendation_is_still_replaced(self):
+        response, _ = self.ask([draft("해운대 근처 카페 거리가 좋아요.", intent="proposal")],
+                               message="부산 카페 추천해줘")
+        self.assertTrue(response.json()["reply"].startswith("아직 확인된 정보가 없어요."))
+
     def test_mock_tool_answer_is_always_labelled(self):
         tool = {"name": "search_trains", "station_id": "station_chuam", "place_id": None, "after": None}
         response, _ = self.ask(
