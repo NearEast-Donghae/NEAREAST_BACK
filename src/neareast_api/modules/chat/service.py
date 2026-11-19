@@ -12,6 +12,7 @@ cannot break them:
 
 import dataclasses
 import datetime as dt
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -35,8 +36,13 @@ logger = logging.getLogger(__name__)
 
 MAX_CHIPS = 3
 KST = ZoneInfo("Asia/Seoul")
-# Clock times, "N시", train counts and durations: only tools may supply these.
-TIME_CLAIM = re.compile(r"\d{1,2}:\d{2}|\d{1,2}\s*시(?!즌)|\d+\s*편|\d+\s*분")
+# Clock times ("10:20", "오후 4시 10분", "10시대") and train counts ("3편") must be backed
+# by a tool result or a cited document. Durations ("도보 7분", "1시간 거리") are not clock times.
+CLOCK = re.compile(
+    r"(\d{1,2}):(\d{2})"
+    r"|(?:(오전|아침|오후|저녁|밤|낮)\s*)?(\d{1,2})\s*시(?!간|즌)(?:\s*(\d{1,2})\s*분|\s*(반))?"
+)
+TRAIN_COUNT = re.compile(r"(\d+)\s*편")
 NO_TIME_WITHOUT_TOOL = (
     "열차 시각과 편수는 확인된 시간표 결과로만 안내할 수 있어요. "
     "역을 열어 두고 열차 리듬을 물어봐 주세요."
@@ -80,6 +86,8 @@ class Draft:
     tool_certainty: Certainty | None = None
     tool_source: str | None = None  # "mock" when the tool answered from example data
     tool_place: str | None = None  # place the tool was run for (subject of the answer)
+    evidence: str = ""  # tool result as text; times in the reply are checked against it
+    train_count: int | None = None  # trains in the tool result, bounds "N편" claims
 
 
 @dataclass(frozen=True)
@@ -165,6 +173,41 @@ def _subject(draft: Draft, context: ResolvedContext) -> retrieval.Place | None:
     return context.mentioned or context.focused
 
 
+def _clock_claims(text: str) -> list[tuple[frozenset[int], int | None]]:
+    """Clock times in text as (possible 24h hours, minute or None for "N시/N시대")."""
+    claims = []
+    for m in CLOCK.finditer(text):
+        if m.group(1) is not None:
+            claims.append((frozenset({int(m.group(1))}), int(m.group(2))))
+            continue
+        meridiem, hour = m.group(3), int(m.group(4))
+        minute = int(m.group(5)) if m.group(5) else 30 if m.group(6) else None
+        if meridiem in ("오후", "저녁", "밤") and hour < 12:
+            hours = {hour + 12}
+        elif meridiem in ("오전", "아침", "낮") or hour >= 12:
+            hours = {hour}
+        else:  # bare "4시" may mean 04:00 or 16:00
+            hours = {hour, hour + 12}
+        claims.append((frozenset(hours), minute))
+    return claims
+
+
+def unverified_time_claims(reply: str, evidence: str, train_count: int | None) -> list[str]:
+    """Clock times and train counts in the reply that the evidence does not contain."""
+    known = {(h, m) for hours, m in _clock_claims(evidence) for h in hours}
+    known_hours = {h for h, _ in known}
+    problems = []
+    for hours, minute in _clock_claims(reply):
+        ok = hours & known_hours if minute is None else any((h, minute) in known for h in hours)
+        if not ok:
+            problems.append(f"time {sorted(hours)}:{minute}")
+    for m in TRAIN_COUNT.finditer(reply):
+        count = int(m.group(1))
+        if m.group(0) not in evidence and not (train_count is not None and count <= train_count):
+            problems.append(f"count {count}")
+    return problems
+
+
 def _has_nearby(place: retrieval.Place) -> bool:
     return bool(tools.nearby_spots(place.id, walk_minutes=10**6))
 
@@ -196,9 +239,12 @@ def _finalize(draft: Draft, context: ResolvedContext) -> ChatResponse:
     sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
     chips = list(draft.chips)
 
-    # Times only from tools.
-    if draft.tool_used is None and TIME_CLAIM.search(reply):
-        logger.warning("dropped a time claim made without a tool result")
+    # Times only from tools or cited documents: every clock time and train count in the
+    # reply must appear there, even when some other tool was used.
+    cited = "\n".join(content.docs[s].body for s in sources)
+    unverified = unverified_time_claims(reply, f"{draft.evidence}\n{cited}", draft.train_count)
+    if unverified:
+        logger.warning("dropped unverified time claims: %s", ", ".join(unverified))
         reply = NO_TIME_WITHOUT_TOOL
     # Knowledge only from documents: an ungrounded answer becomes the fixed no-info reply.
     ungrounded = draft.tool_used is None and not sources and (
@@ -333,6 +379,8 @@ def _llm_draft(request: ChatRequest, context: ResolvedContext, settings: Setting
         draft.tool_certainty = run.certainty
         draft.tool_source = run.source
         draft.tool_place = run.place_id
+        draft.evidence = json.dumps(run.result, ensure_ascii=False, default=str)
+        draft.train_count = len(run.result["trains"]) if "trains" in run.result else None
     return draft
 
 
@@ -538,6 +586,7 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
             intent="train_lookup",
             chips=["동해역 열차 리듬", f"{station.name} 근처"],
         )
+    evidence = json.dumps(dataclasses.asdict(rhythm), ensure_ascii=False, default=str)
     if "목록" in message:
         trains = tools.search_trains(context.raw.date, station=station.id)
         listed = ", ".join(
@@ -547,6 +596,8 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
             reply=f"{MOCK_NOTE} {station.name} 열차: {listed}.",
             intent="train_lookup",
             chips=[f"{station.name} 열차 리듬", f"{station.name} 근처"],
+            evidence=evidence,
+            train_count=len(rhythm.trains),
             tool_used="search_trains",
             tool_source=tools.SOURCE,
             tool_place=station.id,
@@ -559,6 +610,8 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
         ),
         intent="train_lookup",
         chips=[f"{station.name} 열차 목록", f"{station.name} 근처", "빈 시간은 그대로 둘래요"],
+        evidence=evidence,
+        train_count=len(rhythm.trains),
         tool_used="station_rhythm",
         tool_source=tools.SOURCE,
         tool_place=station.id,

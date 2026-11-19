@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from neareast_api.core.config import Settings
 from neareast_api.main import create_app
-from neareast_api.modules.chat import llm
+from neareast_api.modules.chat import llm, service
 
 URL = "/api/v1/chat/messages"
 
@@ -83,6 +83,52 @@ class LLMResponderTests(unittest.TestCase):
         body = response.json()
         self.assertNotIn("10:20", body["reply"])
         self.assertIn("확인된 시간표", body["reply"])
+
+    def test_time_not_in_the_tool_result_is_replaced_even_after_a_tool(self):
+        nearby = {"name": "nearby_spots", "station_id": None, "place_id": "station_donghae",
+                  "after": None}
+        rhythm = {"name": "station_rhythm", "station_id": "station_donghae", "place_id": None,
+                  "after": None}
+        for tool, reply in (
+            (nearby, "북평민속시장이 가까워요. 참고로 KTX는 09:13에 출발해요."),  # tool has no times
+            (rhythm, "(예시 데이터) 동해역은 09:13에 KTX가 와요."),  # not in the timetable
+            (rhythm, "(예시 데이터) 동해역에는 하루 30편이 다녀요."),  # more than the result has
+        ):
+            with self.subTest(reply):
+                response, _ = self.ask(
+                    [draft(intent="train_lookup", tool=tool), draft(reply, intent="train_lookup")],
+                    focused="station_donghae",
+                )
+                self.assertIn("확인된 시간표", response.json()["reply"])
+                self.assertNotIn("09:13", response.json()["reply"])
+
+    def test_durations_and_verified_times_are_kept(self):
+        nearby = {"name": "nearby_spots", "station_id": None, "place_id": "station_donghae",
+                  "after": None}
+        rhythm = {"name": "station_rhythm", "station_id": "station_donghae", "place_id": None,
+                  "after": None}
+        for tool, reply in (
+            (nearby, "(예시 데이터) 북평민속시장은 도보 10분 거리예요."),
+            (rhythm, "(예시 데이터) 동해역은 10시대에 3편이 몰리고 오후 4시에도 열차가 있어요."),
+            (rhythm, "(예시 데이터) 10시 20분에 ITX-마음이 와요. 한 바퀴 도는 데 1시간쯤 걸려요."),
+        ):
+            with self.subTest(reply):
+                response, _ = self.ask(
+                    [draft(intent="train_lookup", tool=tool), draft(reply, intent="train_lookup")],
+                    focused="station_donghae",
+                )
+                self.assertEqual(response.json()["reply"], reply)
+
+    def test_time_check_helper(self):
+        check = service.unverified_time_claims
+        doc = "입장 마감은 17:30이에요. 하루 2편의 공연이 있어요."
+        self.assertEqual(check("입장 마감은 오후 5시 반이에요.", doc, None), [])  # cited document
+        self.assertEqual(check("2편의 공연이 있어요.", doc, None), [])
+        self.assertEqual(check("추암역에서 도보 7분, 강릉에서 1시간 거리예요. 3분의 1 정도예요.", "", None), [])
+        self.assertEqual(check("1940년 2월에 문을 열었어요.", "", None), [])
+        self.assertTrue(check("입장 마감은 18:00이에요.", doc, None))
+        self.assertTrue(check("2편의 영화 촬영지예요.", "", None))
+        self.assertTrue(check("새벽에도 5시에 와요.", "07:40 10:20", 2))
 
     def test_model_cannot_break_plan_rules(self):
         bad = [

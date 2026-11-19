@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 
 from neareast_api.core.config import Settings
 from neareast_api.main import create_app
+from neareast_api.modules.chat import service
 
 URL = "/api/v1/chat/messages"
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,8 +27,6 @@ SCENARIOS = json.loads(
     (Path(__file__).parent / "chat_scenarios" / "scenarios.json").read_text("utf-8")
 )["scenarios"]
 PLACE_IDS = {p["id"] for p in json.loads((ROOT / "data" / "places.json").read_text("utf-8"))["places"]}
-# Same idea as service.TIME_CLAIM: clock times, "N시", train counts, durations.
-TIME_CLAIM = re.compile(r"\d{1,2}:\d{2}|\d{1,2}\s*시(?!즌)|\d+\s*편|\d+\s*분")
 POLITE_ENDINGS = ("요", "죠")
 
 
@@ -54,8 +53,9 @@ def invariant_failures(request, body):
             failures.append(f"Q3: proposal for unknown place {proposal['target']}")
         if proposal["type"] == "add" and proposal["target"] in pins:
             failures.append(f"Q3: proposes adding pinned {proposal['target']}")
-    if TIME_CLAIM.search(body["reply"]) and body["tool_used"] is None:
-        failures.append(f"Q4: time claim without tool: {body['reply']}")
+    # Same parser as the server: a clock time needs a tool result or a cited document.
+    if service._clock_claims(body["reply"]) and body["tool_used"] is None and not body["sources"]:
+        failures.append(f"Q4: time claim without tool or source: {body['reply']}")
     if body["intent"] == "knowledge" and not body["sources"] and "확인된 정보가 없어요" not in body["reply"]:
         failures.append("Q4: knowledge answer without sources")
     return failures
