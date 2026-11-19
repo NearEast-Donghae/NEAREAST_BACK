@@ -1,6 +1,7 @@
 """Verify migration scaffolding in temporary folders, without PostgreSQL."""
 
 import argparse
+import importlib.util
 import io
 import os
 import shutil
@@ -10,8 +11,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from alembic.util import CommandError
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import make_url
 
 from alembic import command
@@ -45,7 +49,7 @@ class MigrationTests(unittest.TestCase):
 
     def test_shared_metadata_registers_service_tables(self):
         self.assertIs(metadata, Base.metadata)
-        self.assertEqual(len(metadata.tables), 13)
+        self.assertEqual(len(metadata.tables), 15)
         self.assertIn("knowledge_chunks", metadata.tables)
         self.assertEqual(ScriptDirectory.from_config(self.config).get_heads(), [])
 
@@ -96,6 +100,66 @@ class MigrationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "test connection failure"):
                 command.current(self.config)
         engine.dispose.assert_called_once()
+
+
+class SavedItemsMigrationTests(unittest.TestCase):
+    """The saved_items revision creates exactly the tables the entities describe."""
+
+    TABLES = ("saved_places", "saved_trains")
+
+    def setUp(self):
+        path = PROJECT_ROOT / "alembic" / "versions" / "saved_items.py"
+        spec = importlib.util.spec_from_file_location("saved_items", path)
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        self.engine = create_engine("sqlite://")
+        self.addCleanup(self.engine.dispose)
+        # The tables the new ones point at, as the earlier revisions leave them.
+        for name in ("users", "places"):
+            metadata.tables[name].create(self.engine)
+
+    def run_step(self, step):
+        with self.engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)):
+                step()
+
+    def test_it_is_the_only_head_and_follows_the_reference_seed(self):
+        config = Config(str(PROJECT_ROOT / "alembic.ini"))
+        config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["saved_items"])
+        self.assertEqual(self.migration.down_revision, "0002_reference_content")
+
+    def test_upgrade_matches_the_entities_and_downgrade_removes_the_tables(self):
+        self.run_step(self.migration.upgrade)
+        inspector = inspect(self.engine)
+        for name in self.TABLES:
+            with self.subTest(name):
+                model = metadata.tables[name]
+                self.assertEqual({c["name"]: c["nullable"] for c in inspector.get_columns(name)},
+                                 {c.name: c.nullable for c in model.columns})
+                self.assertEqual(
+                    sorted(tuple(u["column_names"]) for u in inspector.get_unique_constraints(name)),
+                    sorted(tuple(c.name for c in u.columns) for u in model.constraints
+                           if u.__class__.__name__ == "UniqueConstraint"))
+                self.assertEqual({(tuple(f["constrained_columns"]), f["referred_table"])
+                                  for f in inspector.get_foreign_keys(name)},
+                                 {((f.parent.name,), f.column.table.name) for f in model.foreign_keys})
+        self.run_step(self.migration.downgrade)
+        self.assertFalse(set(self.TABLES) & set(inspect(self.engine).get_table_names()))
+
+    def test_postgresql_sql_only_adds_the_two_tables(self):
+        output = io.StringIO()
+        config = Config(str(PROJECT_ROOT / "alembic.ini"), output_buffer=output)
+        config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+        with patch.dict(os.environ, {}, clear=True), patch("sqlalchemy.create_engine") as engine:
+            command.upgrade(config, "0002_reference_content:saved_items", sql=True)
+        engine.assert_not_called()
+        sql = output.getvalue()
+        self.assertEqual(sql.count("CREATE TABLE"), 2)
+        self.assertIn("CREATE TABLE saved_places", sql)
+        self.assertIn("CREATE TABLE saved_trains", sql)
+        self.assertNotIn("ALTER TABLE", sql)
+
 
 
 if __name__ == "__main__":
