@@ -139,6 +139,10 @@ class LLMResponderTests(unittest.TestCase):
         self.assertTrue(check("입장 마감은 18:00이에요.", doc, None))
         self.assertTrue(check("2편의 영화 촬영지예요.", "", None))
         self.assertTrue(check("새벽에도 5시에 와요.", "07:40 10:20", 2))
+        # an hour band is checked by its hour; an exact :00 time still needs a match
+        self.assertEqual(check("10시대(10:00대)에 가장 잦아요.", "10:08 10:42", None), [])
+        self.assertTrue(check("10:00에 지나가요.", "10:08 10:42", None))
+        self.assertTrue(check("09:00대에 가장 잦아요.", "10:08 10:42", None))
 
     def test_named_document_survives_the_document_limit(self):
         # Three pins already fill the six-document budget with related documents.

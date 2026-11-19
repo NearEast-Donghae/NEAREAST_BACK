@@ -261,7 +261,9 @@ def _clock_claims(text: str) -> list[tuple[frozenset[int], int | None]]:
     claims = []
     for m in CLOCK.finditer(text):
         if m.group(1) is not None:
-            claims.append((frozenset({int(m.group(1))}), int(m.group(2))))
+            # "10:00대" names the hour band, like "10시대": check the hour, not the minute.
+            band = m.group(2) == "00" and text[m.end():m.end() + 1] == "대"
+            claims.append((frozenset({int(m.group(1))}), None if band else int(m.group(2))))
             continue
         meridiem, hour = m.group(3), int(m.group(4))
         minute = int(m.group(5)) if m.group(5) else 30 if m.group(6) else None
