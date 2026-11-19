@@ -35,6 +35,7 @@ PRICES = {
     "gpt-4.1-mini": (0.40, 0.10, 1.60),  # OpenAI pricing page, checked 2026-11-19
     "gpt-4.1": (2.00, 0.50, 8.00),
     "text-embedding-3-small": (0.02, 0.02, 0.0),
+    "text-embedding-3-large": (0.13, 0.13, 0.0),
 }
 
 

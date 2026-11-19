@@ -30,7 +30,13 @@ class Settings(BaseModel):
     # LLM (used only when chat_mock is false). The key lives in .env only.
     openai_api_key: SecretStr = SecretStr("")
     chat_model: str = Field(default="gpt-5.4-nano", min_length=1)
-    embedding_model: str = Field(default="text-embedding-3-small", min_length=1)
+    embedding_model: str = Field(default="text-embedding-3-large", min_length=1)
+    # Vector search (retrieval step 3) on or off; steps 1 and 2 always run.
+    chat_vector_search: bool = True
+    # A document less similar to the question than this is not used as evidence.
+    vector_min_similarity: float = Field(default=0.27, ge=0, le=1)
+    # The question embedding may take this long; past it the answer uses steps 1 and 2 only.
+    embedding_timeout_seconds: float = Field(default=2, gt=0, le=30)
     chat_max_tokens: int = Field(default=1000, ge=50, le=4000)
     # Only for reasoning models (gpt-5 family); unset sends no reasoning parameter.
     chat_reasoning_effort: Literal["none", "minimal", "low", "medium", "high"] | None = None

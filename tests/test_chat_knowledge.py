@@ -101,7 +101,8 @@ class SearchTests(unittest.TestCase):
             self.content.places, self.content.docs, "m1", {doc.id: (1.0, 0.0)}
         )
         embed = lambda text: ("m1", (1.0, 0.0))  # noqa: E731
-        self.assertEqual([h.doc.id for h in content.search("기찻길", embed=embed)], ["rail_lines"])
+        hit, = content.search("기찻길", embed=embed)
+        self.assertEqual((hit.doc.id, hit.reason, hit.score), ("rail_lines", "vector", 1.0))
         with self.assertLogs("neareast_api.modules.chat.retrieval", "WARNING"):
             other = content.search("기찻길", embed=lambda text: ("m2", (1.0, 0.0)))
         self.assertEqual(other, [])

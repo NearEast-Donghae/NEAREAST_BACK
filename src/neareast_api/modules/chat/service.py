@@ -587,6 +587,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
             _log_replaced(f"no documents ({draft.intent})", reply)
         reply = NO_INFO
         chips = [c for c in chips if content.place_in_text(c) is not None]
+        proposals = []  # nothing to go by: no places are offered on the back of it either
     # Safety (principle 6): a clear "not recommended" plus a public alternative, always.
     # Only when the question itself is about tracks/crossings: a safe question the model
     # happened to label "safety" (e.g. photos on the platform) keeps its real answer.
@@ -687,14 +688,20 @@ def _llm_draft(
 ) -> Draft:
     content = context.content
     stages = stages or _Stages()
-    embed = (
-        (lambda text: llm.embed_query(settings, text, deadline)) if content.vectors else None
-    )
+    # Step 3 (vectors) is optional at every turn: switched off, no vectors stored, vectors
+    # from another model, or the question embedding failing or taking too long. The answer
+    # is then built from steps 1 and 2 alone; it never becomes an error.
+    embed = None
+    if settings.chat_vector_search and content.vector_ready(settings.embedding_model):
+        def embed(text):
+            return llm.embed_query(settings, text, deadline)
     with stages.timed("retrieval"):
         try:
-            hits = content.search(request.message, context.known_ids, embed=embed)
-        except llm.LLMError:
-            hits = content.search(request.message, context.known_ids)  # vectors are optional
+            hits = content.search(request.message, context.known_ids, embed=embed,
+                                  min_similarity=settings.vector_min_similarity)
+        except llm.LLMError as exc:
+            logger.warning("vector search skipped for this question: %s", exc)
+            hits = content.search(request.message, context.known_ids)
     docs = _select_docs(hits, context)
     # A passing station in play: give the model the rule it must follow.
     subject = context.mentioned or context.focused
