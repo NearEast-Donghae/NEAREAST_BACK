@@ -49,6 +49,8 @@ DEFAULT_CHIPS = ["동해역 열차 리듬", "동해역 근처"]
 SAFETY_NO = "선로·건널목 안이나 차단기 안쪽에서의 촬영·진입은 권하지 않아요."
 SAFETY_ALTERNATIVE = "대신 역 맞이방이나 승강장처럼 공개된 장소에서 열차를 보는 방법을 권해요."
 ALTERNATIVE_WORDS = ("공개된", "승강장", "맞이방")
+# The safety rewrite applies only when the user actually asks about these places.
+RISK_WORDS = ("선로", "건널목", "차단기", "철길", "철로")
 # Chips that ask for nearby places; they dead-end when the place has no nearby data.
 NEARBY_WORDS = ("근처", "주변", "같이 볼", "볼 곳", "갈 곳", "가는 길")
 _CERTAINTY_ORDER = ("timetable", "estimated", "planned")
@@ -90,6 +92,7 @@ class ResolvedContext:
     pins: tuple[retrieval.Place, ...]
     unknown_ids: tuple[str, ...]
     mentioned: retrieval.Place | None = None  # first catalog place named in the message
+    message: str = ""
 
     @property
     def known_ids(self) -> list[str]:
@@ -150,7 +153,8 @@ def _resolve(
         elif place not in pins:
             pins.append(place)
     return ResolvedContext(
-        context, content, focused, tuple(pins), tuple(unknown), content.place_in_text(message)
+        context, content, focused, tuple(pins), tuple(unknown),
+        content.place_in_text(message), message,
     )
 
 
@@ -206,7 +210,9 @@ def _finalize(draft: Draft, context: ResolvedContext) -> ChatResponse:
         reply = NO_INFO
         chips = [c for c in chips if content.place_in_text(c) is not None]
     # Safety (principle 6): a clear "not recommended" plus a public alternative, always.
-    if draft.intent == "safety":
+    # Only when the question itself is about tracks/crossings: a safe question the model
+    # happened to label "safety" (e.g. photos on the platform) keeps its real answer.
+    if draft.intent == "safety" and any(w in context.message for w in RISK_WORDS):
         if "권하지 않아요" not in reply:  # hedged answers ("가능할 수도…") are replaced
             logger.warning("replaced a safety answer without a clear refusal")
             reply = SAFETY_NO
@@ -427,7 +433,7 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
 
 # --- mock responder: deterministic keyword routing, no keys or network -----------
 
-_SAFETY = ("건널목", "선로", "차단기", "철길", "철로")
+_SAFETY = RISK_WORDS
 _TRAIN = ("열차", "기차", "시각", "시간표", "몇 시", "몇시", "몇 편", "편수", "운행", "언제", "몰려", "리듬")
 _KEEP_EMPTY = ("그대로", "쉬기", "쉴래")
 _PROPOSAL = ("추천", "근처", "볼 곳", "볼 수 있는", "갈 곳", "뭐 하", "뭘 하", "일정")

@@ -151,7 +151,7 @@ class LLMResponderTests(unittest.TestCase):
     def test_hedged_safety_answer_is_replaced_and_gets_an_alternative(self):
         # gpt-5.4-nano once answered "기다리면서 찍는 건 가능할 수도 있지만…".
         response, _ = self.ask([draft("하평 건널목에서 찍는 건 가능할 수도 있지만 조심해요.",
-                                      intent="safety")])
+                                      intent="safety")], message="하평 건널목에서 찍어도 돼?")
         body = response.json()
         self.assertTrue(body["reply"].startswith("선로·건널목 안이나 차단기 안쪽"))
         self.assertIn("권하지 않아요", body["reply"])
@@ -160,12 +160,25 @@ class LLMResponderTests(unittest.TestCase):
         self.assertIn("safety_track_crossing", body["sources"])
 
     def test_clear_refusal_without_alternative_gets_one_appended(self):
-        response, _ = self.ask([draft("차단기 안쪽에서 기다리는 건 권하지 않아요.", intent="safety")])
+        response, _ = self.ask([draft("차단기 안쪽에서 기다리는 건 권하지 않아요.", intent="safety")],
+                               message="차단기 안쪽에서 기다려도 돼?")
         self.assertEqual(
             response.json()["reply"],
             "차단기 안쪽에서 기다리는 건 권하지 않아요. "
             "대신 역 맞이방이나 승강장처럼 공개된 장소에서 열차를 보는 방법을 권해요.",
         )
+
+    def test_safe_question_labelled_safety_keeps_its_answer(self):
+        # No track/crossing word in the question: the rewrite must not fire.
+        for message, reply in (
+            ("동해역 승강장에서 사진 찍어도 돼?", "네, 승강장에서는 안전선 뒤에서 찍으셔도 괜찮아요."),
+            ("안전하게 볼 수 있는 곳", "역 맞이방에서 보는 방법이 있어요."),
+        ):
+            with self.subTest(message):
+                response, _ = self.ask([draft(reply, intent="safety")], message=message)
+                body = response.json()
+                self.assertEqual(body["reply"], reply)
+                self.assertNotIn("safety_track_crossing", body["sources"])
 
     def test_tool_cannot_pick_a_station_nobody_put_in_play(self):
         # gpt-5.4-nano guessed Donghae for "여기 열차 언제 와?" with nothing open.
