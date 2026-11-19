@@ -288,5 +288,68 @@ class KnowledgeEnrichmentMigrationTests(unittest.TestCase):
 
 
 
+class TimetableTimesMigrationTests(unittest.TestCase):
+    """timetable_times brings a seeded database to the seed file's times and wording."""
+
+    def setUp(self):
+        path = PROJECT_ROOT / "alembic" / "versions" / "timetable_times.py"
+        spec = importlib.util.spec_from_file_location("timetable_times", path)
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        self.engine = create_engine("sqlite://")
+        self.addCleanup(self.engine.dispose)
+        metadata.create_all(self.engine)
+        with self.engine.connect() as connection:
+            connection.connection.driver_connection.executescript(
+                (PROJECT_ROOT / "alembic" / "seed" / "0002_reference.sql").read_text("utf-8"))
+            connection.commit()
+
+    def run_step(self, step):
+        with self.engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)):
+                step()
+
+    def state(self):
+        with self.engine.connect() as connection:
+            stops = {row.id: json.loads(row.details) for row in connection.execute(text(
+                "SELECT id, details FROM train_stops"))}
+            meta = json.loads(connection.execute(text(
+                "SELECT metadata FROM timetable_snapshots")).scalar())
+            document = connection.execute(text(
+                "SELECT keywords, body FROM knowledge_documents WHERE id = 'rail_train_types'"
+            )).one()
+        return stops, meta, (json.loads(document.keywords), document.body)
+
+    def test_seed_and_revision_agree_and_downgrade_restores_the_old_values(self):
+        seeded = self.state()
+        self.run_step(self.migration.upgrade)  # on a seeded database: changes nothing
+        self.assertEqual(self.state(), seeded)
+        self.run_step(self.migration.downgrade)
+        stops, meta, document = self.state()
+        self.assertEqual(stops["2026-11-21:1641:" + str(max(
+            int(k.rsplit(":", 1)[1]) for k in stops if k.startswith("2026-11-21:1641:")))]["arr"],
+            "21:22")  # the middle of three delayed weeks, as before
+        self.assertEqual(meta["basis"]["summary"],
+                         "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준")
+        self.assertEqual(document, (self.migration.KEYWORDS_BEFORE, self.migration.BODY_BEFORE))
+        self.assertEqual(sum(1 for k in stops if stops[k] != seeded[0][k]), 115)
+        self.run_step(self.migration.upgrade)  # a database seeded earlier: brought up to date
+        self.assertEqual(self.state(), seeded)
+
+    def test_the_document_says_mugunghwaho_and_is_still_found_by_the_short_name(self):
+        _, _, (keywords, body) = self.state()
+        self.assertIn("무궁화호 같은 여객열차", body)
+        self.assertNotIn("무궁화 같은", body)
+        self.assertIn("무궁화", keywords)
+        self.assertIn("무궁화호", keywords)
+
+    def test_it_follows_train_types(self):
+        self.assertEqual(self.migration.down_revision, "train_types")
+        config = Config(str(PROJECT_ROOT / "alembic.ini"))
+        config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["timetable_times"])
+
+
+
 if __name__ == "__main__":
     unittest.main()

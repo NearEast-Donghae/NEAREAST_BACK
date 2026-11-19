@@ -45,7 +45,8 @@ class StationTrain(TrainSummary):
     dep: str | None
     passing: bool = Field(description="true면 서지 않고 지나감(관찰만 가능), 시각은 어림")
     stop_type: str
-    time_basis: str | None = Field(description="통과 시각을 어림한 근거")
+    time_basis: str | None = Field(
+        description="이 역 시각의 근거가 따로 있을 때: 통과 시각을 어림한 방법, 또는 운행계획의 계획 시각")
 
 
 class Gap(_Model):

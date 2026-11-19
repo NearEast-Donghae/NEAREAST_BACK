@@ -45,6 +45,7 @@ PLAN_DATE = "2026-12-19"  # nearest Saturday the plan API serves
 STATIONS = {"동해": "station_donghae", "묵호": "station_mukho", "추암": "station_chuam"}
 BRACKET_STATIONS = ["정동진"]
 PASSING = {"망상": "station_mangsang"}  # no records: estimated from neighbours
+PLAN_TIME_BASIS = "12/19(토) 운행계획의 계획 시각"
 
 
 def ymd(date: str) -> str:
@@ -128,15 +129,26 @@ def from_minutes(value: float) -> str:
     return f"{value // 60 % 24:02d}:{value % 60:02d}"
 
 
-def typical(values: list[str | None], pick: str) -> tuple[str | None, int]:
-    """Records are actual times, delays included. Across the Saturdays a train does not
-    leave early, so the earliest departure is the timetable; arrivals use the middle value.
-    Returns (time, spread in minutes)."""
+def typical(values: list[str | None]) -> tuple[str | None, int]:
+    """Records are actual times, delays included. A train does not run ahead of its
+    timetable, so across the Saturdays the earliest record is the closest to the planned
+    time, for arrivals as for departures. Returns (time, spread in minutes)."""
     times = sorted((v for v in values if v), key=minutes)
     if not times:
         return None, 0
-    chosen = times[0] if pick == "earliest" else times[(len(times) - 1) // 2]
-    return chosen, minutes(times[-1]) - minutes(times[0])
+    return times[0], minutes(times[-1]) - minutes(times[0])
+
+
+def planned_time(plan_row: dict | None, stop: dict, position: int, last: int) -> tuple[str, str] | None:
+    """("dep" or "arr", planned time) when this stop is where the train starts or ends
+    and the run plan lists the train: the plan gives exactly those two times."""
+    if plan_row is None:
+        return None
+    if position == 0 and plan_row["dptre_stn_nm"] == stop["name"]:
+        return "dep", hhmm(plan_row["trn_plan_dptre_dt"])
+    if position == last and plan_row["arvl_stn_nm"] == stop["name"]:
+        return "arr", hhmm(plan_row["trn_plan_arvl_dt"])
+    return None
 
 
 def interpolate_passes(stops: list[dict], kilo: dict[str, int]) -> list[dict]:
@@ -192,15 +204,20 @@ def build(api: Api) -> tuple[dict, dict]:
         ran = [d for d in RECORD_DATES
                if any(number in by_date[d][name] for name in STATIONS)]
         spread = 0
-        for stop in stops:  # stations we have three weeks of: use the typical time
+        for position, stop in enumerate(stops):  # stations we have three weeks of
             weeks = [by_date[d][stop["name"]][number] for d in RECORD_DATES
                      if stop["name"] in by_date[d] and number in by_date[d][stop["name"]]]
             if not weeks:
                 continue  # other stations keep the base day's actual record
-            stop["arr"], arr_spread = typical([hhmm(w["trn_arvl_dt"]) for w in weeks], "middle")
-            stop["dep"], dep_spread = typical([hhmm(w["trn_dptre_dt"]) for w in weeks], "earliest")
+            stop["arr"], arr_spread = typical([hhmm(w["trn_arvl_dt"]) for w in weeks])
+            stop["dep"], dep_spread = typical([hhmm(w["trn_dptre_dt"]) for w in weeks])
             if stop["arr"] and stop["dep"] and minutes(stop["dep"]) < minutes(stop["arr"]):
                 stop["arr"] = stop["dep"]  # values from different weeks must not cross
+            # Where the train starts or ends, the run plan has the planned time itself.
+            planned = planned_time(plan.get(number), stop, position, len(stops) - 1)
+            if planned is not None:
+                stop[planned[0]] = planned[1]
+                stop["basis"] = PLAN_TIME_BASIS
             stop["weeks"] = len(weeks)
             stop["spread_min"] = max(arr_spread, dep_spread)
             if stop["name"] in STATIONS:
@@ -227,17 +244,18 @@ def build(api: Api) -> tuple[dict, dict]:
             "basis": {
                 "record_dates": RECORD_DATES,
                 "plan_date": PLAN_DATE,
-                "summary": "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준",
+                "summary": "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록과 12/19 운행계획 기준",
                 "weekly_saturday": "세 토요일 모두 운행한 열차",
                 "times": "운행 기록은 지연이 섞인 실제 시각이라, 동해·묵호·추암·정동진은 3주 가운데 "
-                         "출발은 가장 이른 시각, 도착은 가운데 값을 쓴다. 다른 역은 11/14 실제 기록",
+                         "가장 이른 시각을 쓴다(도착·출발 모두). 그 역이 열차의 시발역·종착역이면 "
+                         f"{PLAN_DATE}(토) 운행계획의 계획 시각을 쓴다. 다른 역은 11/14 실제 기록",
                 "in_plan": f"{PLAN_DATE}(토) 운행계획에도 있는 열차",
                 "passing": "통과 시각은 앞뒤 정차역 시각을 선로 거리 비율로 어림",
             },
             "limits": [
                 f"{TARGET} 당일 운행 여부는 공공데이터로 확인할 수 없음(운행계획은 약 한 달 뒤 날짜만 제공)",
                 "여객열차의 정차 기록만 있음: 화물열차와 통과 기록은 공식 데이터 없음",
-                "열차 종류는 데이터에 없음: DB에 별도 확인하여 등록한 종류만 표시",
+                "열차 종류는 수집 데이터에 없음: 사람이 확인해 등록한 종류만 표시",
             ],
             "source": "공공데이터포털 한국철도공사_열차운행정보(운행정보·운행계획), 철도운영정보_역키로정내역",
             "generated_at": dt.datetime.now().isoformat(timespec="seconds"),

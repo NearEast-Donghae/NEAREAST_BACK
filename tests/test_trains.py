@@ -159,12 +159,24 @@ class SnapshotBuildTests(unittest.TestCase):
         cls.fetch = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.fetch)
 
-    def test_typical_time_ignores_a_one_off_delay(self):
+    def test_typical_time_is_the_earliest_record_for_arrivals_and_departures(self):
         typical = self.fetch.typical
-        self.assertEqual(typical(["10:23", "10:23", "10:31"], "earliest"), ("10:23", 8))
-        self.assertEqual(typical(["09:29", "09:33", "09:32"], "middle"), ("09:32", 4))
-        self.assertEqual(typical([None, None], "middle"), (None, 0))
-        self.assertEqual(typical(["07:05"], "earliest"), ("07:05", 0))
+        self.assertEqual(typical(["10:23", "10:23", "10:31"]), ("10:23", 8))
+        self.assertEqual(typical(["09:29", "09:33", "09:32"]), ("09:29", 4))  # was the middle
+        self.assertEqual(typical([None, None]), (None, 0))
+        self.assertEqual(typical(["07:05"]), ("07:05", 0))
+
+    def test_planned_time_only_where_the_train_starts_or_ends(self):
+        planned = self.fetch.planned_time
+        row = {"dptre_stn_nm": "청량리", "arvl_stn_nm": "동해",
+               "trn_plan_dptre_dt": "2026-12-19 17:08:00.0",
+               "trn_plan_arvl_dt": "2026-12-19 21:08:00.0"}
+        last = 9
+        self.assertEqual(planned(row, {"name": "동해"}, last, last), ("arr", "21:08"))
+        self.assertEqual(planned(row, {"name": "청량리"}, 0, last), ("dep", "17:08"))
+        self.assertIsNone(planned(row, {"name": "동해"}, 4, last))   # a stop on the way
+        self.assertIsNone(planned(row, {"name": "묵호"}, last, last))  # the plan ends elsewhere
+        self.assertIsNone(planned(None, {"name": "동해"}, last, last))  # not in the plan
 
     def stop(self, name, arr, dep):
         return {"name": name, "arr": arr, "dep": dep, "stop_type": "여객승하차"}
@@ -189,6 +201,25 @@ class SnapshotBuildTests(unittest.TestCase):
         ):
             with self.subTest(stops[0]["name"]):
                 self.assertEqual(len(self.fetch.interpolate_passes(stops, kilo)), 2)
+
+    def test_committed_times_follow_the_plan_at_donghae_ends_and_say_so(self):
+        timetable = service.load(str(ROOT))
+        self.assertIn("12/19 운행계획", timetable.meta["basis"]["summary"])
+        self.assertIn("토요일 3주", timetable.meta["basis"]["summary"])
+        self.assertIn("가장 이른 시각", timetable.meta["basis"]["times"])
+        at = {t["no"]: next(s for s in t["stops"] if s.get("place_id") == "station_donghae")
+              for t in timetable.trains}
+        planned = {no for no, stop in at.items() if stop.get("basis")}
+        self.assertEqual(len(planned), 46)  # trains that start or end at 동해
+        for no in planned:
+            self.assertEqual(at[no]["basis"], "12/19(토) 운행계획의 계획 시각")
+            self.assertIn(at[no]["stop_type"], ("시발", "종착"))
+        # Checked against the RailBlue screen for 2026-11-21: the planned times.
+        self.assertEqual((at["1641"]["arr"], at["1681"]["arr"], at["841"]["arr"]),
+                         ("21:08", "17:58", "09:28"))
+        self.assertEqual(at["1861"]["arr"], "10:23")  # on the way: earliest of three weeks
+        detail = service.detail(timetable, "1641")
+        self.assertEqual(detail.stops[-1].time_basis, "12/19(토) 운행계획의 계획 시각")
 
     def test_committed_snapshot_matches_what_the_api_promises(self):
         timetable = service.load(str(ROOT))

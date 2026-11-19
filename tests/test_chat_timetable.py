@@ -16,7 +16,7 @@ from neareast_api.modules.chat import llm
 
 ROOT = Path(__file__).resolve().parents[1]
 URL = "/api/v1/chat/messages"
-BASIS = "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준의 어림 시각이에요."
+BASIS = "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록과 12/19 운행계획 기준의 어림 시각이에요."
 
 
 def ask(client, message, **context):

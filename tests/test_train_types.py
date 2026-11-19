@@ -240,11 +240,11 @@ class MigrationTests(unittest.TestCase):
             return {row.train_number: (row.train_type, row.train_type_source) for row in
                     connection.execute(text("SELECT * FROM train_services"))}
 
-    def test_it_is_the_head_after_knowledge_enrichment(self):
+    def test_it_follows_knowledge_enrichment_in_one_chain(self):
         self.assertEqual(self.migration.down_revision, "knowledge_enrichment")
         config = Config(str(ROOT / "alembic.ini"))
         config.set_main_option("script_location", str(ROOT / "alembic"))
-        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["train_types"])
+        self.assertEqual(len(ScriptDirectory.from_config(config).get_heads()), 1)
 
     def test_upgrade_adds_the_rule_and_the_source_and_matches_the_entity(self):
         self.run_step(self.migration.upgrade)
