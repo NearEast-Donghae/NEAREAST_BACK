@@ -67,6 +67,7 @@ NearEast_Backend/
 │   └── modules/             # 합의된 기능을 Python 패키지로 추가할 위치
 │       ├── places/          # 장소 목록·상세 (지도 마커 id의 기준)
 │       ├── trains/          # 서비스 공용 시간표: 역별 열차·구간 검색·열차 상세
+│       ├── plans/           # 하루 계획 계산(엮기): 계획·세 가지 안·바꾸면 비교. 저장 없음
 │       └── chat/            # 니어리 챗봇. 열차 도구는 trains 모듈을 호출
 ├── knowledge/              # 챗봇 지식 문서 (파일명 = 문서 id = 지도 마커 id)
 ├── data/places.json        # 지도 마커·챗봇·시간표가 공유하는 장소 id 목록
@@ -224,6 +225,151 @@ NearEast_Backend/
 # .env에 NEAREAST_DATA_GO_KR_KEY(디코딩 키). 원본은 data/raw/에 저장되어 다시 실행해도 API를 부르지 않음
 python scripts/fetch_timetable.py
 python scripts/fetch_timetable.py --refresh   # 원본을 버리고 다시 받기
+```
+
+## 하루 계획 API (엮기)
+
+사용자가 담은 열차·장소(핀)를 하루 타임라인으로 엮습니다. **저장하지 않습니다**: 요청에 담긴 것만으로 계산하고,
+"나의 일정" 저장은 프론트(브라우저)가 합니다. LLM을 부르지 않습니다.
+
+서버가 지키는 규칙:
+
+- **핀 불가침**: `must=true` 항목은 빼거나 바꾸지 않습니다. 다 지킬 수 없으면 계획 대신 `feasible=false`와
+  `conflicts`(이유 + 서버가 다시 계산해 되는 대안 최대 2개)만 돌려줍니다.
+- **제안은 제안**: 빈 시간에 갈 만한 곳은 `suggestions`로만 줍니다(`needs_confirm`은 항상 `true`). 타임라인에 넣지 않습니다.
+  수락하면 프론트가 `items`에 `{"kind":"visit","place":target,"stay_min":stay_min}`를 넣어 다시 요청합니다.
+- **통과역은 관찰만**: 망상역처럼 서지 않는 역은 `observe`만 되고 `ride`의 출발·도착이 될 수 없습니다.
+- **보수적 판정**: 화면에 보이는 시각은 대표 시각이고, 되는지는 최악의 주로 판정합니다. 타려면 출발 5분 전까지 승강장,
+  내린 뒤에는 가장 늦게 도착한 경우부터, 관찰은 가장 일찍 온 경우의 2분 전까지. 그렇게 남는 여유가 `margin_min`입니다.
+- 이동은 열차(시간표 스냅샷)와 도보뿐입니다. 도보는 좌표 직선거리 × 1.3 ÷ 4.5km/h(올림, 90분 초과는 쓰지 않음).
+  **`data/places.json`에 좌표가 없는 장소는 걸어갈 수 없는 곳으로 취급**되어 `missed`/`conflicts`에 이유가 적힙니다.
+  택시·버스는 계산하지 않고 `gap`의 `note`에 필요하다고만 적습니다.
+
+### `POST /api/v1/plans` — 하루 계획
+
+```jsonc
+// 요청
+{
+  "date": "2026-11-21",
+  "start": {"place": "station_donghae", "time": "09:00"},
+  "end":   {"place": "station_donghae", "time": "19:00"},   // 같은 날, start보다 뒤
+  "items": [                                                 // 최대 12개. must 기본 false("가능하면")
+    {"kind": "ride",    "train": "1864", "from": "station_donghae", "to": "station_chuam", "must": true},
+    {"kind": "ride",    "train": "1861", "from": "station_chuam", "to": "station_donghae", "must": true},
+    {"kind": "station", "place": "station_mukho", "stay_min": 30},      // 역에 머물며 구경
+    {"kind": "observe", "train": "753", "place": "station_donghae"},    // place를 빼면 서버가 편한 역을 고름
+    {"kind": "visit",   "place": "poi_chotdaebawi", "stay_min": 40}     // 장소 방문 (stay_min 5~480, 기본 30)
+  ],
+  "mode": "balanced",            // train_first | visit_first | balanced(기본)
+  "dismissed": ["poi_nongoldam"],// 거절한 제안. 다시 제안하지 않음
+  "depth": "full"                // full(기본) | light: 되는지와 요약만(timeline=[]) | reference: 제안 없음
+}
+```
+
+```jsonc
+// 응답 (줄임. walk·missed·outside·suggestions 줄은 형태를 보이려고 다른 요청의 결과에서 가져온 예)
+{
+  "feasible": true,
+  "summary": {"seen": 32, "ridden": 4, "visits": 1, "walk_min": 0, "longest_gap_min": 46, "end_arrival": "17:05"},
+  "timeline": [
+    {"type": "start", "at": "09:00", "place": "station_donghae"},
+    {"type": "gap",  "from": "09:00", "to": "09:32", "place": "station_donghae",
+     "note": "이 시간에는 동해역에 서는 열차가 없어요. 다른 곳으로 가려면 택시·버스가 필요해요",
+     "passing": [{"train": "841", "at": "09:32"}]},                 // 이 공백을 끝내는 열차
+    {"type": "wait", "from": "09:32", "to": "09:39", "place": "station_donghae",
+     "passing": [{"train": "1801", "at": "09:34"}]},                // 기다리는 동안 덤으로 보이는 열차
+    {"type": "ride", "item": 0, "train": "1864", "from": "station_donghae", "depart": "09:39",
+     "to": "station_chuam", "arrive": "09:48", "certainty": "estimated", "margin_min": 39},
+    {"type": "wait", "from": "09:48", "to": "10:15", "place": "station_chuam", "passing": []},
+    {"type": "ride", "item": 1, "train": "1861", "from": "station_chuam", "depart": "10:15",
+     "to": "station_donghae", "arrive": "10:23", "certainty": "estimated", "margin_min": 21},
+    {"type": "ride", "item": null, "train": "751", "from": "station_donghae", "depart": "10:59",
+     "to": "station_mukho", "arrive": "11:08", "certainty": "estimated", "margin_min": 28},  // item=null: 이동용으로 서버가 고른 열차
+    {"type": "visit", "item": 2, "place": "station_mukho", "from": "11:08", "to": "11:38", "passing": []},
+    {"type": "observe", "item": 3, "train": "753", "place": "station_donghae", "at": "17:05",
+     "passing_through": false, "certainty": "estimated",
+     "basis": "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준의 어림 시각", "margin_min": 305},
+    {"type": "walk", "from": "station_chuam", "to": "poi_chotdaebawi", "depart": "09:48", "arrive": "09:56",
+     "min": 8, "certainty": "estimated"},                           // 좌표가 있는 장소 사이에서만 나옴
+    {"type": "end", "at": "19:00", "place": "station_donghae"}
+  ],
+  "conflicts": [],
+  "missed":  [{"item": 4, "reason": "촛대바위까지 갈 열차가 없고, 좌표가 아직 없어 걸어가는 시간도 계산할 수 없어요"}],
+  "outside": [{"item": 5, "train": "755", "at": "22:50", "hint": "하룻밤 묵으면 볼 수 있어요"}],
+  "suggestions": [
+    {"type": "add", "target": "poi_bukpyeong_market", "gap": ["12:30", "13:16"],
+     "reason": "동해역 공백(12:30–13:16) 안에 다녀올 수 있어요(걸어서 편도 3분, 머무는 시간 30분)",
+     "needs_confirm": true, "certainty": "estimated", "walk_min": 3, "stay_min": 30,
+     "notes": ["11/21은 장날이 아니에요(다음 장날 11/23)"]}
+  ],
+  "basis": "최근 토요일 3주(11/14, 11/7, 10/31) 운행 기록 기준의 어림 시각"
+}
+```
+
+타임라인 스텝: `start` `end`(`at`) · `wait` `gap` `visit`(`from`~`to`는 시각) · `ride` `walk`(`from`·`to`는 장소 id,
+시각은 `depart`·`arrive`) · `observe`(`at`). `item`은 `items`의 몇 번째인지입니다.
+
+- `gap`: 그 자리에 30분 이상 열차가 오지 않는 구간. 빈 채로 둡니다. `wait`: 그보다 짧은 대기.
+- `summary.seen`: 관찰한 열차 + 기다리거나 머무는 동안 지나간 열차(중복 제외).
+- `suggestions`: 공백마다 최대 2곳. "왕복 도보 + 30분 머묾 + 복귀 여유 10분"이 공백에 들어가는 `poi`·`heritage`만,
+  `dismissed`·이미 담은 곳·시작/종료 장소는 제외. 니어리의 공백 제안도 같은 함수(`plans.service.suggest`)를 씁니다.
+
+must를 지킬 수 없을 때(`망상역`은 열차가 서지 않고 좌표도 아직 없어 갈 방법이 없음):
+
+```jsonc
+// items: [{"kind": "observe", "train": "1861", "place": "station_mangsang", "must": true}]
+{
+  "feasible": false, "summary": null, "timeline": [],
+  "conflicts": [{
+    "item": 0,
+    "reason": "1861 열차는 망상역에 10:42에 오는데, 그 전에 망상역까지 갈 열차가 없고, 좌표가 아직 없어 걸어가는 시간도 계산할 수 없어요",
+    "options": [
+      {"label": "묵호역에서 보기",
+       "change": {"item": 0, "replace": {"kind": "observe", "train": "1861", "place": "station_mukho", "must": true}}},
+      {"label": "동해역에서 보기",
+       "change": {"item": 0, "replace": {"kind": "observe", "train": "1861", "place": "station_donghae", "must": true}}}
+    ]
+  }],
+  "missed": [], "outside": [], "suggestions": [], "basis": "…"
+}
+```
+
+`options[].change`는 `items[item]`을 `replace`로 바꿔 다시 요청하라는 뜻입니다. 서버가 고쳐 놓지 않습니다.
+
+상태 코드: 200 / 422(형식 오류, 모르는 필드, 13개 이상, 종료가 시작보다 이름, 모르는 시작·종료 장소) / 503(시간표·장소 파일 없음).
+`items` 안의 모르는 장소·열차는 오류가 아니라 그 항목의 `missed`(must면 `conflicts`) 이유로 돌아옵니다.
+
+### `POST /api/v1/plans/variants` — 일정 비교 (열차 우선 / 방문지 우선 / 균형)
+
+요청은 `/plans`와 같습니다(`mode`는 무시). **세 안 모두 must 항목은 똑같이 지킵니다.** 다른 것은 must=false 항목 중
+무엇을 먼저 넣는지와 제안 순서뿐입니다(`station`·`observe`·`ride`는 열차 쪽, `visit`는 방문 쪽).
+
+```jsonc
+{"variants": [
+  {"mode": "train_first", "label": "열차 우선", "feature": "열차를 먼저 담았어요: 32편을 보고 4번 타요",
+   "summary": {…}, "plan": {… /plans 응답과 같음 …}},
+  {"mode": "visit_first", "label": "방문지 우선", "feature": "방문지를 먼저 담았어요: 1곳에 머물고 0분 걸어요", …},
+  {"mode": "balanced",    "label": "균형",       "feature": "담은 4개 중 4개를 넣었어요: 가장 긴 빈 시간은 46분이에요", …}
+]}
+```
+
+### `POST /api/v1/plans/compare` — 바꾸면 비교
+
+"한 편 늦추기", "이 항목 빼기", "꼭 보기로 바꾸기" 모두 바꾼 요청을 `changed`에 넣어 보냅니다.
+
+```jsonc
+// 요청
+{"base": { … /plans 요청 … }, "changed": { … 바꾼 요청 … }}
+// 응답
+{
+  "base": { … 계획 … }, "changed": { … 계획 … },
+  "diff": {
+    "gained": [{"kind": "train", "id": "1863", "how": "ride"}],       // 값은 예. how: observe | ride | passing | visit
+    "lost":   [{"kind": "train", "id": "754", "how": "passing"}, {"kind": "place", "id": "station_mukho", "how": "visit"}],
+    "end_arrival": ["17:05", "16:15"],     // [base, changed]. 불가능한 쪽은 null
+    "gap_change_min": -30                  // 가장 긴 공백의 변화. 한쪽이 불가능하면 null
+  }
+}
 ```
 
 ## 챗봇 API — 니어리
