@@ -15,7 +15,7 @@ INSERT INTO places ("id", "name", "aliases", "kind", "passenger_stop", "lat", "l
 INSERT INTO knowledge_documents ("id", "title", "kind", "places", "keywords", "body", "source_url", "updated_at") VALUES ('heritage_pyeongneung', '평능역 (폐역)', 'heritage', '["heritage_pyeongneung"]', '["평능역","평능","폐역"]', '평능역은 1962년에 생겼다가 1969년에 폐지된 역이에요. 지금은 흔적이 남아 있지 않아요.
 
 지도에 표시한 위치는 어림한 것이에요.', NULL, '2026-11-19T00:00:00+00:00');
-INSERT INTO knowledge_documents ("id", "title", "kind", "places", "keywords", "body", "source_url", "updated_at") VALUES ('poi_bukpyeong_market', '북평민속시장', 'poi', '["poi_bukpyeong_market"]', '["북평민속시장","북평장","북평시장","오일장","장날"]', '북평민속시장은 날짜 끝자리가 3과 8인 날에 열리는 오일장이에요. 1796년에 시작된 장으로, 강원도에서 가장 크고 전국 3대 오일장으로 꼽혀요.', NULL, '2026-11-19T00:00:00+00:00');
+INSERT INTO knowledge_documents ("id", "title", "kind", "places", "keywords", "body", "source_url", "updated_at") VALUES ('poi_bukpyeong_market', '북평민속시장', 'poi', '["poi_bukpyeong_market"]', '["북평민속시장","북평장","북평시장","오일장","장날","재래시장","장터","전통시장"]', '북평민속시장은 날짜 끝자리가 3과 8인 날에 열리는 오일장이에요. 1796년에 시작된 장으로, 강원도에서 가장 크고 전국 3대 오일장으로 꼽혀요.', NULL, '2026-11-19T00:00:00+00:00');
 INSERT INTO knowledge_documents ("id", "title", "kind", "places", "keywords", "body", "source_url", "updated_at") VALUES ('poi_cheongok_cave', '천곡황금박쥐동굴', 'poi', '["poi_cheongok_cave"]', '["천곡동굴","천곡황금박쥐동굴","황금박쥐동굴","석회석 동굴"]', '천곡황금박쥐동굴은 도심에 있는 유일한 천연 석회석 동굴이에요. 4~5억 년 전에 만들어졌고, 총 길이 1510m 가운데 810m를 관람할 수 있어요.
 
 운영 시간은 09:00~18:00이고, 7~8월에는 08:30~19:30이에요. 폐장 30분 전에 입장이 마감되고 연중무휴예요.', NULL, '2026-11-19T00:00:00+00:00');

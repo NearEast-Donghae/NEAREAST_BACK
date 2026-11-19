@@ -23,7 +23,7 @@ from neareast_api.modules.chat.retrieval import EMBEDDING_DIMENSIONS, Content, D
 from neareast_api.modules.places.service import Place
 
 URL = "/api/v1/chat/messages"
-MODEL = "text-embedding-3-small"
+MODEL = Settings().embedding_model  # text-embedding-3-large, cut to 1536 dimensions
 MARKET, CAVE, CHANGES = "poi_bukpyeong_market", "poi_cheongok_cave", "rail_2031_changes"
 QUESTION = "곧 없어질 경치가 있다던데"  # names no document: only the vector step can find one
 
@@ -136,6 +136,14 @@ class EmbeddingTextTests(_Stored):
 
     def test_another_model_embeds_everything_again(self):
         self.assertEqual(len(IngestionService.embedDocuments(self.session, "other")["pending"]), 20)
+
+
+class DefaultsTests(unittest.TestCase):
+    def test_large_model_at_1536_dimensions_with_the_measured_floor(self):
+        settings = Settings()
+        self.assertEqual(settings.embedding_model, "text-embedding-3-large")
+        self.assertEqual(settings.vector_min_similarity, 0.27)
+        self.assertEqual(EMBEDDING_DIMENSIONS, 1536)  # the column is vector(1536)
 
 
 class SimilarityFloorTests(unittest.TestCase):

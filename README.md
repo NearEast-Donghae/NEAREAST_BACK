@@ -93,6 +93,7 @@ history를 사용하는 호환 API이며 자동 저장하지 않습니다. 다�
 지식 원문은 `knowledge_documents.body`, 임베딩은 `knowledge_chunks.embedding vector(1536)`에 저장합니다.
 
 `0001_service_storage`는 테이블과 vector 확장, `0002_reference_content`는 기존 PR의 최초 자료를 적재합니다.
+`market_aliases`는 북평민속시장 문서의 별칭(재래시장, 장터, 전통시장)을 더합니다. 적용 뒤 `scripts/ingest.py`를 실행하면 그 문서만 다시 임베딩됩니다.
 초기 seed SQL은 새 DB 재현용 이력입니다. 서버 요청 중에 읽지 않으며 새 데이터를 넣을 때마다 Git에 갱신하지 않습니다.
 모델 변경 후 `alembic revision --autogenerate -m "..."`로 새 이력을 만들고 검토 후 적용합니다.
 이미 적용한 마이그레이션은 수정하지 않습니다.
@@ -120,7 +121,7 @@ docker compose -p neareast-dev exec backend python scripts/ingest.py
 `NEAREAST_DATA_GO_KR_KEY`는 한국철도공사 개발계정 디코딩 키입니다.
 OpenAI는 `NEAREAST_OPENAI_API_KEY` 또는 `OPENAI_API_KEY`를 사용하며, 앞의 값이 비어 있지 않으면 우선합니다.
 실제 LLM 응답은 `NEAREAST_CHAT_MOCK=false`, 기본 테스트 모드는 `true`입니다.
-`text-embedding-3-small` 1536차원을 사용합니다. 원문/모델/벡터 유무를 비교해 필요한 문서만 재임베딩합니다.
+`text-embedding-3-large`를 1536차원으로 줄여 사용합니다(문서와 질문 모두). 원문/모델/벡터 유무를 비교해 필요한 문서만 재임베딩합니다.
 임베딩을 바꾼 문서는 재적재 전까지 오래된 벡터 검색에서 제외됩니다.
 현재 작은 문서 20개를 문서 단위로 임베딩합니다. 임베딩하는 글은 제목, 별칭(문서 키워드와 관련 장소의 별칭), 관련 장소 이름, 본문입니다.
 
@@ -129,7 +130,7 @@ OpenAI는 `NEAREAST_OPENAI_API_KEY` 또는 `OPENAI_API_KEY`를 사용하며, 앞
 | 환경변수 | 기본값 | 설명 |
 | --- | --- | --- |
 | `NEAREAST_CHAT_VECTOR_SEARCH` | `true` | 벡터 검색 사용 여부. `false`면 ①②만 씁니다 |
-| `NEAREAST_VECTOR_MIN_SIMILARITY` | `0.32` | 질문과의 유사도가 이보다 낮은 문서는 근거로 쓰지 않습니다(0~1). 임베딩 모델을 바꾸면 다시 정해야 합니다 |
+| `NEAREAST_VECTOR_MIN_SIMILARITY` | `0.27` | 질문과의 유사도가 이보다 낮은 문서는 근거로 쓰지 않습니다(0~1). 임베딩 모델을 바꾸면 다시 정해야 합니다 |
 | `NEAREAST_EMBEDDING_TIMEOUT_SECONDS` | `2` | 질문 임베딩을 기다리는 시간. 넘기면 벡터 검색만 건너뜁니다 |
 
 벡터 검색은 언제든 빠질 수 있고, 그래도 답은 나갑니다(오류가 되지 않습니다): 질문 임베딩이 실패하거나 늦을 때,
