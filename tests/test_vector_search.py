@@ -239,6 +239,67 @@ class GuardTests(_Stored):
         self.assertEqual(calls, [])
 
 
+class NoInformationAnswerTests(_Stored):
+    """An answer that says it knows nothing lists no sources and offers no places, when
+    the only documents behind it were merely similar to the question."""
+
+    OFFER = {"type": "add", "target": CAVE, "reason": "카페 대신 가 볼 만해요", "time_bound": False}
+
+    def answer(self, reply, message=QUESTION, sources=(CAVE,), proposals=(OFFER,),
+               intent="proposal", **context):
+        said = {"intent": intent, "reply": reply, "chips": ["동해역 근처", "다음"],
+                "proposals": [dict(p) for p in proposals], "sources": list(sources),
+                "tool_request": None}
+        with patch.object(llm, "chat_json", return_value=said):
+            response = self.client.post(URL, json={"message": message, "context": context})
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()
+
+    def setUp(self):
+        super().setUp()
+        self.fake_openai(one_hot(self.axis[CAVE]))  # the cave is what similarity finds
+
+    def test_no_information_with_similar_documents_and_offers_is_emptied(self):
+        for reply in ("강릉 쪽 카페는 아직 확인된 정보가 없어서 추천을 못 드려요. 천곡황금박쥐동굴은 어때요?",
+                      "부산 맛집은 아직 확인된 정보로 추천해 드리기 어려워요. 대신 동굴을 넣어 드릴게요.",
+                      "아직 확인된 정보가 없어요. 대신 천곡황금박쥐동굴을 추천해요."):
+            with self.subTest(reply):
+                body = self.answer(reply, message="강릉에 분위기 좋은 카페 있어?")
+                self.assertEqual((body["sources"], body["proposals"]), ([], []))
+                self.assertIn("확인된 정보가 없어요", body["reply"])
+                self.assertNotIn("동굴", body["reply"])
+                self.assertEqual(body["chips"][0], "동해역 근처")  # chips that lead somewhere stay
+
+    def test_offers_alone_are_emptied_too(self):
+        body = self.answer("영화 추천은 아직 확인된 정보가 없어요. 대신 동굴은 어때요?",
+                           message="볼 만한 영화 추천해줘", sources=())
+        self.assertEqual((body["sources"], body["proposals"]), ([], []))
+
+    def test_a_real_answer_from_a_similar_document_keeps_it(self):
+        body = self.answer("비 오는 날에는 천곡황금박쥐동굴이 좋아요. 실내 관람지예요.",
+                           message="비 오는 날 실내에서 볼 만한 곳 있어?", proposals=())
+        self.assertEqual(body["sources"], [CAVE])
+        self.assertIn("천곡황금박쥐동굴", body["reply"])
+
+    def test_no_information_later_in_a_real_answer_keeps_it(self):
+        body = self.answer("비 오는 날에는 천곡황금박쥐동굴이 좋아요. 입장료는 아직 확인된 정보가 없어요.",
+                           message="비 오는 날 실내에서 볼 만한 곳 있어?")
+        self.assertEqual(body["sources"], [CAVE])
+        self.assertEqual([p["target"] for p in body["proposals"]], [CAVE])
+
+    def test_a_partial_answer_about_a_named_place_keeps_its_source(self):
+        body = self.answer("아직 확인된 정보가 없어요. 천곡황금박쥐동굴 입장료는 문서에 없어서요.",
+                           message="천곡황금박쥐동굴 입장료 얼마야?", proposals=(),
+                           intent="knowledge")
+        self.assertEqual(body["sources"], [CAVE])  # found by its name, not by similarity
+
+    def test_a_no_information_answer_with_nothing_attached_is_left_as_written(self):
+        reply = "부산역은 지도에 없어서 아직 확인된 정보가 없어요. 지도에서 역을 열어 주세요."
+        body = self.answer(reply, message="부산역 시간표 알려줘", sources=(), proposals=(),
+                           intent="train_lookup")
+        self.assertEqual(body["reply"], reply)
+
+
 class ModelMismatchTests(_Stored):
     stored_model = "older-embedding-model"
 

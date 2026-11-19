@@ -103,6 +103,10 @@ class Draft:
     tool_place: str | None = None  # place the tool was run for (subject of the answer)
     evidence: str = ""  # tool result as text; times in the reply are checked against it
     train_count: int | None = None  # trains in the tool result, bounds "N편" claims
+    # Documents found only by similarity (not by the screen or a name in the question).
+    vector_docs: tuple[str, ...] = ()
+    # Documents found by the screen context or by a name in the question.
+    named_docs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -308,6 +312,8 @@ def _passing_is_relevant(
     )
 
 
+# An answer that opens by saying there is nothing confirmed about what was asked.
+NO_INFO_OPENING = re.compile(r"확인된 정보(?:가|는|도)?\s*(?:아직\s*)?없|확인된 정보로[^.!?]*어려")
 MARKET_TALK = ("장날", "장이 서", "장이 열", "장 서", "장이 안")
 HAPYEONG_DOC = "safety_hapyeong_crossing"
 
@@ -428,12 +434,50 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     content = context.content
     pinned = {p.id for p in context.pins}
     blocked = set(raw.dismissed) | set(context.unknown_ids)
+    reply = _clip(draft.reply)
+    chips = list(draft.chips)
+    sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
+    if draft.intent != "smalltalk" and draft.tool_used != "walk_time":
+        sources += [doc_id for doc_id in _asked_docs(context) if doc_id not in sources]
+
+    # "Nothing confirmed about that" while citing documents that were only similar to the
+    # question (not on screen, not named in it): the answer did not come from those
+    # documents, so they are not its sources. A partial answer that cites a document the
+    # question did name ("입장료는 확인된 정보가 없어요" about a named place) is left alone.
+    opening = re.split(r"(?<=[.!?])\s+", reply, maxsplit=1)[0]
+    disowned = (draft.tool_used is None and NO_INFO_OPENING.search(opening) is not None
+                and all(s in draft.vector_docs for s in sources))
+    if disowned and sources:
+        _log_replaced("no information, yet sources", reply)
+        sources = []
+
+    # A place may be proposed only when something ties it to this conversation: the user
+    # put it in play (screen, pins, named in the message), a tool returned it, or a
+    # document about what is in play (or one the answer cites) is also about that place.
+    # A model's own idea of what is nearby is not a proposal. The built-in responder only
+    # proposes from tools, so this guards the model path.
+    grounded = None
+    if mode == "llm":
+        grounded = set(context.known_ids) | {p.id for p in content.places_in_text(context.message)}
+        if context.recalled is not None:
+            grounded.add(context.recalled.id)
+        for doc_id in (*sources, *draft.named_docs):
+            grounded.add(doc_id)
+            grounded.update(content.docs[doc_id].places)
+        grounded.update(pid for pid in content.places if f'"{pid}"' in draft.evidence)
+    offered = [p for p in draft.proposals
+               if content.place(p.target) is not None
+               and (grounded is None or p.target in grounded)
+               and not disowned]
+    if len(offered) < len([p for p in draft.proposals if content.place(p.target) is not None]):
+        logger.warning("ungrounded proposals dropped: %s", ", ".join(
+            p.target for p in draft.proposals if p not in offered))
     proposals = []
     # "Leave it empty" is the user's choice (principle 2): nothing is proposed on top of it.
     declined = any(w in context.message for w in KEEP_EMPTY_WORDS)
     if raw.depth != "reference" and not declined:  # reference: information only
-        for p in draft.proposals:
-            if p.target in blocked or content.place(p.target) is None:
+        for p in offered:
+            if p.target in blocked:
                 continue
             if p.target == draft.tool_place:
                 continue  # the place the gap/nearby lookup was about is not a suggestion
@@ -449,16 +493,20 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
                 )
             )
 
-    reply = _clip(draft.reply)
-    sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
-    if draft.intent != "smalltalk" and draft.tool_used != "walk_time":
-        sources += [doc_id for doc_id in _asked_docs(context) if doc_id not in sources]
-    chips = list(draft.chips)
-
     # Times only from tools or cited documents: every clock time and train count in the
     # reply must appear there, even when some other tool was used.
     cited = "\n".join(content.docs[s].body for s in sources)
-    unverified = unverified_time_claims(reply, f"{draft.evidence}\n{cited}", draft.train_count)
+    evidence = f"{draft.evidence}\n{cited}"
+    unverified = unverified_time_claims(reply, evidence, draft.train_count)
+    if unverified and draft.tool_used is None and sources:
+        # An answer from documents (opening hours, a date): a time the document does not
+        # give, such as one worked out from it, costs that sentence, not the whole answer.
+        # Train answers stay all-or-nothing below: half a timetable would mislead.
+        kept = [sentence for sentence in re.split(r"(?<=[.!?])\s+", reply)
+                if not unverified_time_claims(sentence, evidence, draft.train_count)]
+        if kept:
+            _log_replaced(f"sentences with unverified time ({', '.join(unverified)})", reply)
+            reply, unverified = " ".join(kept), []
     if unverified:
         _log_replaced(f"unverified time ({', '.join(unverified)})", reply)
         reply = NO_TIME_WITHOUT_TOOL
@@ -468,7 +516,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     declining = declined
     ungrounded = draft.tool_used is None and not sources and (
         draft.intent == "knowledge"
-        or (draft.intent == "proposal" and not draft.proposals and not declining)
+        or (draft.intent == "proposal" and not offered and not declining)
     )
     if ungrounded and reply != NO_TIME_WITHOUT_TOOL:
         if reply != NO_INFO:
@@ -592,6 +640,7 @@ def _llm_draft(
             logger.warning("vector search skipped for this question: %s", exc)
             hits = content.search(request.message, context.known_ids)
     docs = _select_docs(hits, context)
+    vector_docs = tuple(h.doc.id for h in hits if h.reason == "vector")
     # A passing station in play: give the model the rule it must follow.
     subject = context.mentioned or context.focused
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
@@ -660,6 +709,8 @@ def _llm_draft(
         draft.train_count = run.train_count
     # Documents the model was given are evidence too, cited or not ("하루 6편" from a doc).
     draft.evidence = "\n".join([draft.evidence, *(d.body for d in docs)])
+    draft.vector_docs = vector_docs
+    draft.named_docs = tuple(h.doc.id for h in hits if h.reason != "vector")
     return draft
 
 

@@ -61,13 +61,61 @@ class LLMResponderTests(unittest.TestCase):
         body = response.json()
         self.assertIn("확인된 정보가 없어요", body["reply"])
         self.assertEqual(body["proposals"], [])
-        # A grounded answer keeps its proposals.
+        # A grounded answer keeps a proposal its documents back: the 묵호역 document is
+        # also about 논골담길.
+        nongoldam = {**made_up, "target": "poi_nongoldam"}
         response, _ = self.ask(
-            [draft("동해역은 분기역이에요.", sources=["station_donghae"],
-                   proposals=[{**made_up, "target": "poi_bukpyeong_market"}])],
-            focused="station_donghae")
-        self.assertEqual([p["target"] for p in response.json()["proposals"]],
-                         ["poi_bukpyeong_market"])
+            [draft("묵호역은 1961년에 문을 열었어요.", sources=["station_mukho"],
+                   proposals=[nongoldam])],
+            focused="station_mukho")
+        self.assertEqual([p["target"] for p in response.json()["proposals"]], ["poi_nongoldam"])
+
+    def test_a_time_the_document_does_not_give_costs_only_that_sentence(self):
+        # Seen in evaluation: the model worked out "17:30" from "폐장 30분 전" and the whole
+        # answer about the cave was replaced by the train-timetable notice.
+        said = "천곡황금박쥐동굴은 18:00까지 운영해요. 입장은 17:30에 마감돼요. 연중무휴예요."
+        response, _ = self.ask([draft(said, sources=["poi_cheongok_cave"])],
+                               message="천곡황금박쥐동굴 몇 시까지 해?")
+        reply = response.json()["reply"]
+        self.assertIn("18:00까지 운영해요", reply)
+        self.assertIn("연중무휴", reply)
+        self.assertNotIn("17:30", reply)
+        self.assertNotIn("열차 시각", reply)
+        # Every time is in the document: nothing is cut.
+        fine = "천곡황금박쥐동굴은 09:00~18:00에 운영해요. 7~8월에는 08:30~19:30이에요."
+        response, _ = self.ask([draft(fine, sources=["poi_cheongok_cave"])],
+                               message="천곡황금박쥐동굴 몇 시까지 해?")
+        self.assertEqual(response.json()["reply"], fine)
+        # Nothing verifiable is left: the fixed notice, as before.
+        response, _ = self.ask([draft("입장은 17:30에 마감돼요.", sources=["poi_cheongok_cave"])],
+                               message="천곡황금박쥐동굴 몇 시까지 해?")
+        self.assertIn("확인된 시간표 결과로만", response.json()["reply"])
+
+    def test_a_place_nothing_ties_to_the_conversation_is_not_proposed(self):
+        offer = {"type": "add", "target": "poi_cheongok_cave", "reason": "가 볼 만해요",
+                 "time_bound": False}
+        # Open marker 동해역: no tool result, document or word in the question is about the cave.
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING") as logs:
+            response, _ = self.ask(
+                [draft("동해역은 분기역이에요.", sources=["station_donghae"], proposals=[offer])],
+                focused="station_donghae")
+        self.assertEqual(response.json()["proposals"], [])
+        self.assertIn("동해역은 분기역이에요.", response.json()["reply"])  # the answer itself stays
+        self.assertTrue(any("ungrounded proposals dropped" in line for line in logs.output))
+        # Named in the question, it is in play.
+        response, _ = self.ask(
+            [draft("동해역은 분기역이에요.", sources=["station_donghae"], proposals=[offer])],
+            message="천곡동굴도 넣을까?", focused="station_donghae")
+        self.assertEqual([p["target"] for p in response.json()["proposals"]], ["poi_cheongok_cave"])
+        # Returned by a tool, it is in play.
+        tool = {"name": "nearby_spots", "station_id": None, "place_id": "station_mukho",
+                "after": None}
+        nongoldam = {**offer, "target": "poi_nongoldam"}
+        response, _ = self.ask(
+            [draft("찾아볼게요.", intent="proposal", tool=tool),
+             draft("(예시 데이터) 논골담길이 가까워요.", intent="proposal", proposals=[nongoldam])],
+            message="근처 추천", focused="station_mukho")
+        self.assertEqual([p["target"] for p in response.json()["proposals"]], ["poi_nongoldam"])
 
     def test_single_call_without_tool_and_sources_limited_to_given_docs(self):
         response, chat = self.ask(
