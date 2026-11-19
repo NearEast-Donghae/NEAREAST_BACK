@@ -17,7 +17,7 @@ HISTORY_CHARS = 6000  # total history text sent to the model (bounds prompt cost
 
 PlaceId = Annotated[str, Field(min_length=1, max_length=64)]
 Intent = Literal["knowledge", "train_lookup", "safety", "proposal", "smalltalk", "plan_request"]
-ToolName = Literal["station_rhythm", "search_trains", "nearby_spots"]
+ToolName = Literal["station_rhythm", "search_trains", "nearby_spots", "walk_time"]
 # timetable: public timetable as-is / estimated: interpolated from neighbouring stations
 # planned: scheduled but same-day operation unconfirmed (e.g. freight) / None: not time-related
 Certainty = Literal["timetable", "estimated", "planned"]
