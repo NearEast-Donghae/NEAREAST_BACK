@@ -35,6 +35,7 @@ from neareast_api.modules.chat.schemas import (
 logger = logging.getLogger(__name__)
 
 MAX_CHIPS = 3
+MAX_REPLY_CHARS = 400  # the prompt asks for 2-4 sentences; this is the hard stop
 KST = ZoneInfo("Asia/Seoul")
 # Clock times ("10:20", "오후 4시 10분", "10시대") and train counts ("3편") must be backed
 # by a tool result or a cited document. Durations ("도보 7분", "1시간 거리") are not clock times.
@@ -240,6 +241,20 @@ def _passing_is_relevant(
     )
 
 
+def _clip(reply: str) -> str:
+    """A chat bubble stays short: whole sentences up to MAX_REPLY_CHARS."""
+    if len(reply) <= MAX_REPLY_CHARS:
+        return reply
+    kept = ""
+    for sentence in re.split(r"(?<=[.!?…])\s+", reply):
+        if len(kept) + len(sentence) + 1 > MAX_REPLY_CHARS:
+            break
+        kept = f"{kept} {sentence}".strip()
+    if kept:
+        return kept
+    return reply[: MAX_REPLY_CHARS - 1].rstrip() + "…"  # one endless sentence
+
+
 def _has_nearby(place: retrieval.Place) -> bool:
     return bool(tools.nearby_spots(place.id, walk_minutes=10**6))
 
@@ -267,7 +282,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
                 )
             )
 
-    reply = draft.reply
+    reply = _clip(draft.reply)
     sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
     chips = list(draft.chips)
 

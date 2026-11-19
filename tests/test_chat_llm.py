@@ -362,6 +362,25 @@ class LLMResponderTests(unittest.TestCase):
         response, _ = self.ask(self.FOLLOW_UP, message="그럼 오후 열차는?")
         self.assertIsNone(response.json()["tool_used"])  # nothing to recall: ask for a station
 
+    def test_long_reply_is_cut_at_a_sentence_boundary(self):
+        sentence = "논골담길은 묵호역 근처에 있어서 걸어서 다녀오기 좋아요."
+        response, _ = self.ask([draft(" ".join([sentence] * 40), intent="smalltalk")])
+        reply = response.json()["reply"]
+        self.assertLessEqual(len(reply), service.MAX_REPLY_CHARS)
+        self.assertTrue(reply.endswith(sentence))  # no half sentence
+        self.assertGreater(reply.count(sentence), 5)
+
+        endless = "가" * 1000  # no sentence break at all
+        response, _ = self.ask([draft(endless, intent="smalltalk")])
+        self.assertEqual(len(response.json()["reply"]), service.MAX_REPLY_CHARS)
+        self.assertTrue(response.json()["reply"].endswith("…"))
+
+    def test_normal_reply_is_not_cut(self):
+        reply = "동해역은 분기역이에요. 1940년 북평역으로 문을 열었어요. 철도기념비도 있어요."
+        response, _ = self.ask([draft(reply, intent="smalltalk")])
+        self.assertEqual(response.json()["reply"], reply)
+        self.assertEqual(service._clip("가" * service.MAX_REPLY_CHARS), "가" * service.MAX_REPLY_CHARS)
+
     def test_list_markers_and_line_breaks_become_prose(self):
         response, _ = self.ask([draft(
             "목록이에요.\n\n- 논골담길이 있어요\n- 도째비골도 있어요\n1. 끝이에요", intent="smalltalk")])
