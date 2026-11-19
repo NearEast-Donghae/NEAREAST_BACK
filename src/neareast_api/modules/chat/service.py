@@ -139,6 +139,9 @@ class ResolvedContext:
     first_turn: bool = True  # no earlier turns: the only time the persona greets
     timetable: timetable_service.Timetable | None = None  # None: train tools use example data
     saved: SavedSelection = SavedSelection()
+    # Everything the user typed in this conversation (earlier turns and this message):
+    # what a responder says the user "said" is checked against it.
+    user_text: str = ""
     screen_pins: tuple[str, ...] = ()  # pins the request itself carried, before saved places
 
     @property
@@ -217,6 +220,8 @@ def answer(
         _resolve(request.context, content, request.message, request.history),
         timetable=timetable_service.load_or_none(settings.content_dir),
         saved=saved, screen_pins=screen_pins,
+        user_text="\n".join([*(t.content for t in request.history if t.role == "user"),
+                             request.message]),
     )
     if settings.chat_mock:
         return _finalize(_mock_draft(request.message, context), context, "mock")
@@ -474,6 +479,7 @@ _HHMM = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
 _KOREAN_DATE = re.compile(r"(\d{1,2})월\s*(\d{1,2})일")
 _RELATIVE_DAYS = {"오늘": 0, "내일": 1, "모레": 2}
+_DAY_TALK = re.compile(r"\d{1,2}\s*[월일]|\d{4}-\d|\d{1,2}/\d{1,2}|오늘|내일|모레|요일|주말")
 
 
 def is_plan_request(message: str) -> bool:
@@ -512,11 +518,21 @@ def _plan_conditions(
     user said. Values the responder reported are used only after checking them here."""
     content = context.content
 
+    # A condition counts as said only if the user's own words carry it: the place is
+    # named there, the hour appears there. Otherwise it is the responder's guess (seen in
+    # evaluation: the first saved station given as the departure) and is left out.
+    spoken = context.user_text or context.message
+    named = {p.id for p in content.places_in_text(spoken)}
+    hours = {int(h) for h in re.findall(r"(?<!\d)(\d{1,2})\s*(?:시|:\d{2})", spoken)}
+
     def place(value: object) -> str | None:
-        return value if isinstance(value, str) and content.place(value) is not None else None
+        return value if isinstance(value, str) and value in named else None
 
     def clock(value: object) -> str | None:
-        return value if isinstance(value, str) and _HHMM.fullmatch(value) else None
+        if not (isinstance(value, str) and _HHMM.fullmatch(value)):
+            return None
+        hour = int(value[:2])
+        return value if hour in hours or hour - 12 in hours else None  # "7시" may be 19:00
 
     start, end = clock(said.get("start_time")), clock(said.get("end_time"))
     if start and end and end <= start:
@@ -551,7 +567,9 @@ def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResp
     today = dt.datetime.now(KST).date()
     said = draft.plan or {}
     date = date_in_message(context.message, today) or raw.date
-    if date is None and isinstance(said.get("date"), str):
+    # A date from the responder is taken only when the user did speak of a day earlier.
+    if (date is None and isinstance(said.get("date"), str)
+            and _DAY_TALK.search(context.user_text or context.message)):
         try:
             date = dt.date.fromisoformat(said["date"])
         except ValueError:
@@ -658,6 +676,8 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
                 continue  # the place the gap/nearby lookup was about is not a suggestion
             if (p.type == "add") == (p.target in pinned):  # no-op add/remove
                 continue
+            if any((q.type, q.target) == (p.type, p.target) for q in proposals):
+                continue  # the same proposal twice is one proposal
             proposals.append(
                 Proposal(
                     type=p.type,

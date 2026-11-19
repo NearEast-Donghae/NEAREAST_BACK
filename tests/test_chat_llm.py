@@ -91,6 +91,25 @@ class LLMResponderTests(unittest.TestCase):
                                message="천곡황금박쥐동굴 몇 시까지 해?")
         self.assertIn("확인된 시간표 결과로만", response.json()["reply"])
 
+    def test_the_same_proposal_twice_is_listed_once(self):
+        # Seen in evaluation: 북평민속시장 offered twice in one answer.
+        offer = {"type": "add", "target": "poi_nongoldam", "reason": "가까워요", "time_bound": False}
+        again = {**offer, "reason": "벽화가 있어요"}
+        remove = {**offer, "type": "remove"}
+        response, _ = self.ask(
+            [draft("묵호역은 1961년에 문을 열었어요.", sources=["station_mukho"],
+                   proposals=[offer, again])],
+            focused="station_mukho")
+        proposals = response.json()["proposals"]
+        self.assertEqual([(p["target"], p["reason"]) for p in proposals],
+                         [("poi_nongoldam", "가까워요")])  # the first one is kept
+        # Adding and removing are different proposals (only one applies to a given pin state).
+        response, _ = self.ask(
+            [draft("묵호역은 1961년에 문을 열었어요.", sources=["station_mukho"],
+                   proposals=[remove, offer])],
+            focused="station_mukho", pins=["poi_nongoldam"])
+        self.assertEqual([p["type"] for p in response.json()["proposals"]], ["remove"])
+
     def test_a_place_nothing_ties_to_the_conversation_is_not_proposed(self):
         offer = {"type": "add", "target": "poi_cheongok_cave", "reason": "가 볼 만해요",
                  "time_bound": False}
