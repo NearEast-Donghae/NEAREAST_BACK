@@ -248,6 +248,7 @@ python3.12 -m venv .venv
 | `NEAREAST_DB_USER` | `.env.example`: `neareast` | 개발용 DB 계정 |
 | `NEAREAST_DB_PASSWORD` | `.env.example`의 개발용 값 | Compose에서는 필수. 앱 설정에 없으면 readiness 실패 |
 | `NEAREAST_CHAT_MOCK` | `true` | 챗봇을 키 없이 내장 예시 데이터로 응답. `false`는 LLM 연결 전까지 503 |
+| `NEAREAST_CHAT_RATE_LIMIT_PER_MINUTE` | `60` | 클라이언트 주소 하나가 1분에 보낼 수 있는 챗봇 요청 수. 넘으면 429와 `Retry-After`. `0`은 제한 없음 |
 | `NEAREAST_CONTENT_DIR` | `.` | `knowledge/`·`data/`가 있는 폴더(실행 위치 기준). 이미지에서는 `/app` |
 | `NEAREAST_OPENAI_API_KEY` | 없음 | LLM 모드에서 필수. **`.env`에만** 두고 커밋·공유하지 않음 |
 | `NEAREAST_CHAT_MODEL` | `gpt-5.4-nano` | 답변 생성 모델 (평가 비교 후 선택) |

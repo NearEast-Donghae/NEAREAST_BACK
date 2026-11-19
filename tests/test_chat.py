@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from neareast_api.core.config import Settings
 from neareast_api.main import create_app
 from neareast_api.modules.chat import retrieval, service
+from neareast_api.modules.chat.limits import RateLimiter
 from neareast_api.modules.chat.schemas import ChatContext
 
 URL = "/api/v1/chat/messages"
@@ -172,6 +173,48 @@ class ChatHttpTests(unittest.TestCase):
         self.assertIn("422", operation["responses"])
         context = schema["components"]["schemas"]["ChatContext"]["properties"]
         self.assertIn("dismissed", context)
+
+
+class RequestLimitTests(unittest.TestCase):
+    def test_requests_over_the_limit_get_429_with_retry_after(self):
+        client = TestClient(create_app(Settings(chat_rate_limit_per_minute=3)))
+        codes = [client.post(URL, json={"message": "안녕"}).status_code for _ in range(4)]
+        self.assertEqual(codes, [200, 200, 200, 429])
+        blocked = client.post(URL, json={"message": "안녕"})
+        self.assertEqual(blocked.json(), {"detail": "too many requests"})
+        self.assertGreaterEqual(int(blocked.headers["retry-after"]), 1)
+        self.assertEqual(client.get("/api/v1/chat/persona").status_code, 200)  # only chat is limited
+
+    def test_limit_is_per_client_and_per_app_and_can_be_disabled(self):
+        app = create_app(Settings(chat_rate_limit_per_minute=1))
+        first = TestClient(app, client=("10.0.0.1", 50000))
+        second = TestClient(app, client=("10.0.0.2", 50000))
+        self.assertEqual(first.post(URL, json={"message": "안녕"}).status_code, 200)
+        self.assertEqual(first.post(URL, json={"message": "안녕"}).status_code, 429)
+        self.assertEqual(second.post(URL, json={"message": "안녕"}).status_code, 200)
+        other_app = TestClient(create_app(Settings(chat_rate_limit_per_minute=1)),
+                               client=("10.0.0.1", 50000))
+        self.assertEqual(other_app.post(URL, json={"message": "안녕"}).status_code, 200)
+        unlimited = TestClient(create_app(Settings(chat_rate_limit_per_minute=0)))
+        self.assertEqual(
+            {unlimited.post(URL, json={"message": "안녕"}).status_code for _ in range(80)}, {200}
+        )
+
+    def test_window_slides(self):
+        limiter = RateLimiter(per_minute=2)
+        self.assertEqual([limiter.check("a", now=t) for t in (0, 1)], [0.0, 0.0])
+        self.assertAlmostEqual(limiter.check("a", now=10), 50)
+        self.assertEqual(limiter.check("b", now=10), 0.0)
+        self.assertEqual(limiter.check("a", now=60.5), 0.0)  # the first hit expired
+
+    def test_history_text_is_bounded_oldest_first(self):
+        from neareast_api.modules.chat.schemas import ChatRequest
+
+        turns = [{"role": "user", "content": f"{i}" + "가" * 1999} for i in range(10)]
+        kept = ChatRequest(message="안녕", history=turns).history
+        self.assertEqual([t.content[0] for t in kept], ["7", "8", "9"])  # newest 6000 chars
+        small = [{"role": "user", "content": "짧은 말"}] * 10
+        self.assertEqual(len(ChatRequest(message="안녕", history=small).history), 10)
 
 
 class FinalizeRuleTests(unittest.TestCase):

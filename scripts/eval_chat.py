@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
 
     load_dotenv(args.env_file, override=False)
     run_log = Path(tempfile.mkstemp(prefix="eval_usage_", suffix=".jsonl")[1])
-    update = {"chat_mock": False, "llm_usage_log": str(run_log)}
+    update = {"chat_mock": False, "llm_usage_log": str(run_log), "chat_rate_limit_per_minute": 0}
     if args.model:
         update["chat_model"] = args.model
     if args.reasoning_effort:

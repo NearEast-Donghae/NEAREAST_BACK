@@ -19,6 +19,8 @@ class Settings(BaseModel):
     db_password: SecretStr = SecretStr("")
     # Fixed chat answers without an LLM, so tests and frontend work without keys.
     chat_mock: bool = True
+    # Chat requests allowed per client address per minute (0 = no limit).
+    chat_rate_limit_per_minute: int = Field(default=60, ge=0, le=100000)
     # Folder holding knowledge/ and data/ (relative to the working directory).
     content_dir: str = Field(default=".", min_length=1)
     # LLM (used only when chat_mock is false). The key lives in .env only.

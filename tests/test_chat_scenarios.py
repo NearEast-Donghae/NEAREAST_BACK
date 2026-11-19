@@ -149,7 +149,7 @@ class ChatScenarioTests(unittest.TestCase):
         self.assertEqual(len({s["id"] for s in SCENARIOS}), len(SCENARIOS), "duplicate ids")
 
     def test_scenarios_in_mock_mode(self):
-        client = TestClient(create_app(Settings(chat_mock=True)))
+        client = TestClient(create_app(Settings(chat_mock=True, chat_rate_limit_per_minute=0)))
         for scenario in SCENARIOS:
             if scenario.get("llm_only"):
                 continue

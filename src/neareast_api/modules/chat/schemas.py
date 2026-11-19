@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 HISTORY_KEEP = 10  # most recent messages actually used
 HISTORY_ACCEPT = 200  # more than this is not a chat client; reject
+HISTORY_CHARS = 6000  # total history text sent to the model (bounds prompt cost)
 
 PlaceId = Annotated[str, Field(min_length=1, max_length=64)]
 Intent = Literal["knowledge", "train_lookup", "safety", "proposal", "smalltalk"]
@@ -45,7 +46,10 @@ class ChatRequest(_Strict):
 
     @model_validator(mode="after")
     def _keep_recent_history(self) -> "ChatRequest":
-        self.history = self.history[-HISTORY_KEEP:]
+        recent = self.history[-HISTORY_KEEP:]
+        while recent and sum(len(t.content) for t in recent) > HISTORY_CHARS:
+            recent = recent[1:]  # drop the oldest first
+        self.history = recent
         return self
 
 
