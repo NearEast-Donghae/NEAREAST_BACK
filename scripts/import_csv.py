@@ -31,7 +31,7 @@ def clean(value):
     return " ".join(unicodedata.normalize("NFC", str(value or "")).split()) or None
 
 
-def read_csv(path):
+def readCsv(path):
     for encoding in ("utf-8-sig", "cp949"):
         try:
             frame = pd.read_csv(path, dtype=str, keep_default_na=False, encoding=encoding)
@@ -41,7 +41,7 @@ def read_csv(path):
     raise ValueError("지원 인코딩으로 읽을 수 없음")
 
 
-def iso_date(value):
+def isoDate(value):
     value = clean(value)
     if not value:
         return None
@@ -54,28 +54,28 @@ def iso_date(value):
         return None
 
 
-def is_donghae(address):
+def isDonghae(address):
     return bool(re.match(r"^(?:(?:강원도|강원특별자치도|강원)\s+)?동해시(?:\s|$)", address or ""))
 
 
-def first(row, *names):
+def firstNonEmpty(row, *names):
     return next((value for name in names if (value := clean(row.get(name)))), None)
 
 
-def source_info(key, catalog, filename, row, line, date_from_filename):
-    stamp = first(row, "기준일자", "데이터기준일자", "입력일", "source_date")
+def sourceInfo(key, catalog, filename, row, line, dateFromFilename):
+    stamp = firstNonEmpty(row, "기준일자", "데이터기준일자", "입력일", "source_date")
     return {
         "dataset": key,
         "file": filename,
         "record_number": line,
-        "url": f"https://www.data.go.kr/data/{catalog}/fileData.do" if catalog else first(row, "source_url"),
-        "record_date": iso_date(stamp),
-        "snapshot_date": date_from_filename,
-        "checked_at": iso_date(first(row, "checked_at")),
+        "url": f"https://www.data.go.kr/data/{catalog}/fileData.do" if catalog else firstNonEmpty(row, "source_url"),
+        "record_date": isoDate(stamp),
+        "snapshot_date": dateFromFilename,
+        "checked_at": isoDate(firstNonEmpty(row, "checked_at")),
     }
 
 
-def collect_csv(raw=RAW):
+def collectCsv(raw=RAW):
     records, inventory = [], []
     for path in sorted(raw.glob("*.csv")):
         name = re.sub(r"\s+", "", unicodedata.normalize("NFC", path.stem))
@@ -83,7 +83,7 @@ def collect_csv(raw=RAW):
         entry = {"file": path.name, "included": 0, "out_of_scope": 0}
         inventory.append(entry)
         try:
-            frame, encoding = read_csv(path)
+            frame, encoding = readCsv(path)
         except (ValueError, OSError, pd.errors.ParserError) as exc:
             entry.update(status="error", error=str(exc))
             continue
@@ -101,25 +101,25 @@ def collect_csv(raw=RAW):
             entry["status"] = "website_directory"
             continue
         stamp = re.search(r"(\d{8})$", name)
-        snapshot_date = iso_date(stamp[1]) if stamp else None
+        snapshotDate = isoDate(stamp[1]) if stamp else None
         for index, row in enumerate(frame.to_dict("records"), start=1):
             addresses = {
-                first(row, column) for column in (
+                firstNonEmpty(row, column) for column in (
                     "도로명주소", "소재지도로명주소", "주소", "역사도로명주소",
                     "지번주소", "소재지지번주소", "address"
                 )
             } - {None}
-            explicit_city = first(row, "시군구명")
-            local_row = explicit_city == "동해시" if explicit_city else (
-                any(map(is_donghae, addresses)) if addresses else local
+            explicitCity = firstNonEmpty(row, "시군구명")
+            localRow = explicitCity == "동해시" if explicitCity else (
+                any(map(isDonghae, addresses)) if addresses else local
             )
-            if not local_row:
+            if not localRow:
                 entry["out_of_scope"] += 1
                 continue
             records.append({
                 "kind": kind,
                 "row": row,
-                "source": source_info(key, catalog, path.name, row, index, snapshot_date),
+                "source": sourceInfo(key, catalog, path.name, row, index, snapshotDate),
             })
             entry["included"] += 1
         entry["status"] = "loaded"
@@ -130,7 +130,7 @@ def main():
     parser = argparse.ArgumentParser(description="원본 CSV 인코딩·컬럼·지역별 건수 확인")
     parser.add_argument("--raw", type=Path, default=RAW)
     args = parser.parse_args()
-    _, inventory = collect_csv(args.raw)
+    _, inventory = collectCsv(args.raw)
     print(json.dumps(inventory, ensure_ascii=False, indent=2))
     return int(any(row["status"] == "error" for row in inventory))
 

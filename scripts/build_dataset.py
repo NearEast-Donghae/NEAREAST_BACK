@@ -2,7 +2,6 @@ import argparse
 import csv
 import json
 from collections import Counter
-from datetime import date
 from itertools import combinations
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -10,10 +9,10 @@ from tempfile import NamedTemporaryFile
 import pandas as pd
 
 from backend.app.config import DATA
-from backend.app.services.public_data import today_kst, write_json
-from scripts.import_csv import SOURCES, collect_csv, read_csv
+from backend.app.services.public_data import todayKst, writeJson
+from scripts.import_csv import SOURCES, collectCsv, readCsv
 from scripts.normalize_data import (
-    close_coordinates, merge_locations, merge_tago_station_codes, railway_lines, tourapi_records, train_records,
+    closeCoordinates, mergeLocations, mergeTagoStationCodes, railwayLines, tourapiRecords, trainRecords,
 )
 from scripts.validate_data import validate
 
@@ -25,7 +24,7 @@ STATION_FIELDS = LOCATION_FIELDS + ("operation_status", "passenger_handling", "f
 HUB_FIELDS = LOCATION_FIELDS + ("operator", "facility_category")
 
 
-def snapshots(path, source, endpoint):
+def loadSnapshots(path, source, endpoint):
     item = json.loads(path.read_text(encoding="utf-8"))
     values = item if isinstance(item, list) else [item]
     for value in values:
@@ -39,36 +38,36 @@ def snapshots(path, source, endpoint):
     return values
 
 
-def load_reference(reference, filename):
+def loadReference(reference, filename):
     path = reference / filename
-    return read_csv(path)[0].to_dict("records") if path.is_file() else []
+    return readCsv(path)[0].to_dict("records") if path.is_file() else []
 
 
-def exclude_reviewed_coordinates(records, reviews):
+def excludeReviewedCoordinates(records, reviews):
     issues = []
-    review_map = {(review["dataset"], review["name"]): review for review in reviews
+    reviewMap = {(review["dataset"], review["name"]): review for review in reviews
                   if review.get("source_url") and review.get("checked_at")}
     for record in records:
         row, source = record["row"], record["source"]
-        for name_field, lat_field, lng_field in (
+        for nameField, latField, lngField in (
             ("관광명소명", "위도", "경도"), ("시설명", "위도", "경도"),
             ("역이름", "위도좌표", "경도좌표"), ("name", "latitude", "longitude"),
             ("title", "mapy", "mapx"),
         ):
-            review = review_map.get((source["dataset"], row.get(name_field)))
-            if (review and str(row.get(lat_field)).strip() == review["latitude"]
-                    and str(row.get(lng_field)).strip() == review["longitude"]):
+            review = reviewMap.get((source["dataset"], row.get(nameField)))
+            if (review and str(row.get(latField)).strip() == review["latitude"]
+                    and str(row.get(lngField)).strip() == review["longitude"]):
                 issues.append({"code": "quarantined_coordinates", **review, "source": source})
-                row[lat_field] = row[lng_field] = ""
+                row[latField] = row[lngField] = ""
     return issues
 
 
-def select(place, fields):
+def selectLocationFields(place, fields):
     return {field: ({key: value for key, value in place[field].items() if key in fields}
                     if field == "field_sources" else place[field]) for field in fields}
 
 
-def write_csv(path, rows):
+def writeCsv(path, rows):
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(dir=path.parent, mode="w", encoding="utf-8-sig", newline="", delete=False) as stream:
         temporary = Path(stream.name)
@@ -89,7 +88,7 @@ def write_csv(path, rows):
         temporary.unlink(missing_ok=True)
 
 
-def quality_markdown(report):
+def qualityMarkdown(report):
     counts = report["counts"]
     lines = [
         "# NEAREAST STEP 1 데이터 품질 검증",
@@ -134,108 +133,111 @@ def quality_markdown(report):
 
 
 def build(raw, processed, reports, reference=DATA / "reference"):
-    records, inventory = collect_csv(raw)
+    records, inventory = collectCsv(raw)
     if reference.is_dir() and reference.resolve() != raw.resolve():
-        supplemental, supplemental_inventory = collect_csv(reference)
+        supplemental, supplementalInventory = collectCsv(reference)
         records.extend(supplemental)
-        inventory.extend(row for row in supplemental_inventory if row.get("dataset") == "verified_places")
-    input_errors = [row for row in inventory if row["status"] == "error"]
-    if input_errors:
-        write_json(reports / "input_errors.json", input_errors)
-        raise ValueError(f"{len(input_errors)}개 CSV 읽기 오류. data/reports/input_errors.json 확인")
+        inventory.extend(row for row in supplementalInventory if row.get("dataset") == "verified_places")
+    inputErrors = [row for row in inventory if row["status"] == "error"]
+    if inputErrors:
+        writeJson(reports / "input_errors.json", inputErrors)
+        raise ValueError(f"{len(inputErrors)}개 CSV 읽기 오류. data/reports/input_errors.json 확인")
     tourism = raw / "tourapi.json"
-    tourism_snapshots = snapshots(tourism, "tourapi", "areaBasedList2") if tourism.is_file() else []
-    for entry in tourism_snapshots:
+    tourismSnapshots = loadSnapshots(tourism, "tourapi", "areaBasedList2") if tourism.is_file() else []
+    for entry in tourismSnapshots:
         params = entry["parameters"]
         if str(params.get("lDongRegnCd")) != "51" or str(params.get("lDongSignguCd")) != "170":
             raise ValueError("TourAPI 스냅샷의 동해시 지역 코드 확인 필요")
-    records.extend(tourapi_records(tourism_snapshots))
-    issues = exclude_reviewed_coordinates(records, load_reference(reference, "coordinate_exclusions.csv"))
-    places, merge_issues = merge_locations(records)
-    issues.extend(merge_issues)
+    records.extend(tourapiRecords(tourismSnapshots))
+    issues = excludeReviewedCoordinates(records, loadReference(reference, "coordinate_exclusions.csv"))
+    places, mergeIssues = mergeLocations(records)
+    issues.extend(mergeIssues)
     for left, right in combinations(places, 2):
-        if close_coordinates(left, right, meters=15):
+        if closeCoordinates(left, right, meters=15):
             issues.append({"code": "nearby_distinct_locations", "names": [left["name"], right["name"]]})
 
-    train_snapshots = [
+    trainSnapshots = [
         entry for path in sorted(raw.glob("tago_schedule_*.json"))
-        for entry in snapshots(path, "tago", "GetStrtpntAlocFndTrainInfo")
+        for entry in loadSnapshots(path, "tago", "GetStrtpntAlocFndTrainInfo")
     ]
-    tago_index = {}
-    local_tago_index = {}
-    attachment_stations = {}
+    tagoIndex = {}
+    localTagoIndex = {}
+    attachmentStations = {}
     for path in sorted(raw.glob("tago_stations_*.json")):
-        for entry in snapshots(path, "tago", "GetCtyAcctoTrainSttnList"):
-            for record_number, row in enumerate(entry["items"], start=1):
+        for entry in loadSnapshots(path, "tago", "GetCtyAcctoTrainSttnList"):
+            for recordNumber, row in enumerate(entry["items"], start=1):
                 fields = {key.lower(): value for key, value in row.items()}
                 if fields.get("nodeid") and fields.get("nodename"):
                     code, name = str(fields["nodeid"]), str(fields["nodename"]).strip()
-                    tago_index[code] = name
+                    tagoIndex[code] = name
                     if fields.get("is_donghae") is not False:
-                        local_tago_index[code] = name
+                        localTagoIndex[code] = name
                     if fields.get("is_donghae") is True:
-                        attachment_stations[code] = (name, {
-                            "dataset": "tago", "file": path.name, "record_number": record_number,
+                        attachmentStations[code] = (name, {
+                            "dataset": "tago", "file": path.name, "record_number": recordNumber,
                             "url": entry["source_url"], "archive_member": entry.get("archive_member"),
                             "record_date": None, "snapshot_date": entry["fetched_at"][:10],
                             "fetched_at": entry["fetched_at"], "checked_at": None,
                         })
 
-    additions, station_issues = merge_tago_station_codes(places, attachment_stations)
-    merged_records = len(records) - len(places) - sum(i["code"] == "rejected_record" for i in issues)
+    additions, stationIssues = mergeTagoStationCodes(places, attachmentStations)
+    mergedRecords = len(records) - len(places) - sum(issue["code"] == "rejected_record" for issue in issues)
     places.extend(additions)
-    issues.extend(station_issues)
+    issues.extend(stationIssues)
     for place in places:
         if place["kind"] == "station":
             place.setdefault("tago_station_id", None)
-    stations = [select(place, STATION_FIELDS) for place in places if place["kind"] == "station"]
-    if attachment_stations:
-        local_tago_index = {code: name for code, (name, _) in attachment_stations.items()}
-    trains, train_issues = train_records(train_snapshots, stations, local_tago_index)
-    issues.extend(train_issues)
+    stations = [selectLocationFields(place, STATION_FIELDS) for place in places if place["kind"] == "station"]
+    if attachmentStations:
+        localTagoIndex = {code: name for code, (name, _) in attachmentStations.items()}
+    trains, trainIssues = trainRecords(trainSnapshots, stations, localTagoIndex)
+    issues.extend(trainIssues)
     tables = {
-        "locations": [select(place, LOCATION_FIELDS) for place in places],
+        "locations": [selectLocationFields(place, LOCATION_FIELDS) for place in places],
         "stations": stations,
-        "railway_lines": railway_lines(stations),
+        "railway_lines": railwayLines(stations),
         "trains": trains,
-        "transport_hubs": [select(place, HUB_FIELDS) for place in places if place["kind"] == "transport_hub"],
+        "transport_hubs": [
+            selectLocationFields(place, HUB_FIELDS)
+            for place in places if place["kind"] == "transport_hub"
+        ],
     }
     errors = validate(tables)
     if errors:
-        write_json(reports / "validation_errors.json", errors)
+        writeJson(reports / "validation_errors.json", errors)
         raise ValueError("통합 데이터 검증에 실패했습니다.")
     for collection, rows in tables.items():
-        write_json(processed / f"{collection}.json", rows)
-    write_csv(processed / "locations.csv", tables["locations"])
+        writeJson(processed / f"{collection}.json", rows)
+    writeCsv(processed / "locations.csv", tables["locations"])
 
-    coordinate_missing = [place["name"] for place in places if not place["coordinate_ready"]]
-    missing_details = {}
+    coordinateMissing = [place["name"] for place in places if not place["coordinate_ready"]]
+    missingDetails = {}
     for field in ("address", "description", "visit_allowed", "observed_stay_minutes"):
-        missing_details[field] = sum(place[field] is None for place in places)
+        missingDetails[field] = sum(place[field] is None for place in places)
     for field in ("operation_status", "passenger_handling", "freight_handling"):
-        missing_details[f"station_{field}"] = sum(station[field] is None for station in stations)
+        missingDetails[f"station_{field}"] = sum(station[field] is None for station in stations)
     datasets = {row.get("dataset") for row in inventory}
-    scheduled_days = sorted({entry["parameters"]["depPlandTime"] for entry in train_snapshots})
+    scheduledDays = sorted({entry["parameters"]["depPlandTime"] for entry in trainSnapshots})
     report = {
-        "generated_on_kst": today_kst(),
+        "generated_on_kst": todayKst(),
         "counts": {name: len(rows) for name, rows in tables.items()},
         "location_kinds": dict(Counter(place["kind"] for place in places)),
-        "merged_records": merged_records,
+        "merged_records": mergedRecords,
         "coordinate_ready_count": sum(place["coordinate_ready"] for place in places),
         "routing_ready_count": sum(place["routing_ready"] for place in places),
-        "locations_missing_coordinates": coordinate_missing,
-        "missing_fields": missing_details,
+        "locations_missing_coordinates": coordinateMissing,
+        "missing_fields": missingDetails,
         "csv_inventory": inventory,
         "expected_csv_missing": [key for key, *_ in SOURCES if key != "verified_places" and key not in datasets],
         "api": {
-            "tourapi": "collected" if tourism_snapshots else "no_snapshot",
-            "tago_passenger": "collected" if train_snapshots else "no_snapshot",
-            "tago_dates_queried": scheduled_days,
+            "tourapi": "collected" if tourismSnapshots else "no_snapshot",
+            "tago_passenger": "collected" if trainSnapshots else "no_snapshot",
+            "tago_dates_queried": scheduledDays,
             "tago_route_queries": len({tuple(entry["parameters"][field] for field in
                                              ("depPlandTime", "depPlaceId", "arrPlaceId"))
-                                       for entry in train_snapshots}),
-            "tago_station_codes": len(tago_index),
-            "tourapi_source_records": sum(len(snapshot["items"]) for snapshot in tourism_snapshots),
+                                       for entry in trainSnapshots}),
+            "tago_station_codes": len(tagoIndex),
+            "tourapi_source_records": sum(len(snapshot["items"]) for snapshot in tourismSnapshots),
             "donghae_traffic_grid": "available_separately" if (raw / "donghae_traffic_grid.json").is_file()
                                     else "no_snapshot",
             "freight_schedules": "not_acquired",
@@ -244,12 +246,12 @@ def build(raw, processed, reports, reference=DATA / "reference"):
         "issues": issues,
         "validation_errors": errors,
     }
-    write_json(reports / "data_quality.json", report)
-    (reports / "data_quality_report.md").write_text(quality_markdown(report), encoding="utf-8")
-    write_json(reports / "missing_data.json", {
-        "source_review_queue": load_reference(reference, "review_queue.csv"),
-        "locations_missing_coordinates": coordinate_missing,
-        "missing_fields": missing_details,
+    writeJson(reports / "data_quality.json", report)
+    (reports / "data_quality_report.md").write_text(qualityMarkdown(report), encoding="utf-8")
+    writeJson(reports / "missing_data.json", {
+        "source_review_queue": loadReference(reference, "review_queue.csv"),
+        "locations_missing_coordinates": coordinateMissing,
+        "missing_fields": missingDetails,
         "api": report["api"],
     })
     for stale in ("input_errors.json", "validation_errors.json"):

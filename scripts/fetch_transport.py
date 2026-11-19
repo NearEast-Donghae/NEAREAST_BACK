@@ -3,7 +3,7 @@ import argparse
 import httpx
 
 from backend.app.config import DATA
-from backend.app.services.public_data import DataApiError, PublicData, write_json
+from backend.app.services.public_data import DataApiError, PublicData, writeJson
 
 ENDPOINT = "getDonghaeTrafficFacilityInfoList"
 
@@ -18,15 +18,16 @@ def fetch(client, params):
 def main():
     parser = argparse.ArgumentParser(description="동해시 100m 교통시설 격자 지표 수집")
     query = parser.add_mutually_exclusive_group(required=True)
-    query.add_argument("--grid-id")
-    query.add_argument("--dong-name")
-    parser.add_argument("--max-calls", type=int, default=10, choices=range(1, 101), metavar="1..100")
+    query.add_argument("--grid-id", dest="gridId")
+    query.add_argument("--dong-name", dest="dongName")
+    parser.add_argument("--max-calls", dest="maxCalls", type=int, default=10,
+                        choices=range(1, 101), metavar="1..100")
     args = parser.parse_args()
-    params = {"GRID_ID": args.grid_id} if args.grid_id else {"DONG_NM": args.dong_name}
+    params = {"GRID_ID": args.gridId} if args.gridId else {"DONG_NM": args.dongName}
     try:
         with httpx.Client(timeout=20) as session:
-            snapshot = fetch(PublicData("donghae", session, args.max_calls), params)
-        write_json(DATA / "raw" / "donghae_traffic_grid.json", snapshot)
+            snapshot = fetch(PublicData("donghae", session, args.maxCalls), params)
+        writeJson(DATA / "raw" / "donghae_traffic_grid.json", snapshot)
         print(len(snapshot["items"]))
     except DataApiError as exc:
         parser.exit(2, f"{exc}\n")

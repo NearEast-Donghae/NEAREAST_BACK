@@ -9,7 +9,7 @@ from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 
 from backend.app.config import DATA
-from backend.app.services.public_data import write_json
+from backend.app.services.public_data import writeJson
 from scripts.fetch_tourism import ENDPOINT as TOURISM, FIELDS as TOUR_FIELDS
 from scripts.fetch_train_data import CITIES, ROUTES, STATIONS
 
@@ -22,7 +22,7 @@ QUERY_FIELDS = ("depPlaceId", "arrPlaceId", "depPlandTime")
 TRAIN_FIELDS = ("trainno", "traingradename", "depplacename", "arrplacename", "depplandtime", "arrplandtime")
 
 
-def read_export(archive, manifest, name):
+def readExport(archive, manifest, name):
     members = [item for item in archive.infolist() if item.filename == name]
     if len(members) != 1 or members[0].file_size > 20_000_000:
         raise ValueError(f"{name}: 예상한 ZIP 항목 한 개를 읽을 수 없습니다.")
@@ -49,7 +49,7 @@ def snapshot(service, endpoint, export, member, parameters, items):
     }
 
 
-def tago_snapshots(train, codes):
+def tagoSnapshots(train, codes):
     day = datetime.strptime(train["departure_date"], "%Y%m%d").strftime("%Y%m%d")
     for key in ("departure_date", "cities", "stations", "donghae_stations"):
         if train[key] != codes[key]:
@@ -58,8 +58,8 @@ def tago_snapshots(train, codes):
         raise ValueError("TAGO 조회를 완료한 수집본이 필요합니다.")
 
     stations = {row["nodeid"]: row for row in codes["stations"]}
-    local_ids = {row["nodeid"] for row in codes["donghae_stations"]}
-    if len(stations) != len(codes["stations"]) or not local_ids or not local_ids <= stations.keys():
+    localIds = {row["nodeid"] for row in codes["donghae_stations"]}
+    if len(stations) != len(codes["stations"]) or not localIds or not localIds <= stations.keys():
         raise ValueError("TAGO 역 코드 목록을 확인하세요.")
     grouped = defaultdict(list)
     for row in train["items"]:
@@ -72,31 +72,31 @@ def tago_snapshots(train, codes):
         pair = {departure, arrival}
         rows = grouped.pop(key, [])
         if (key in seen or date != day or len(pair) != 2 or not pair <= stations.keys()
-                or not pair & local_ids or query["status"] != "complete" or query["count"] != len(rows)):
+                or not pair & localIds or query["status"] != "complete" or query["count"] != len(rows)):
             raise ValueError("TAGO 구간별 조회 메타데이터와 운행 행이 일치하지 않습니다.")
         seen.add(key)
         schedules.append(snapshot("tago", ROUTES, train, TRAIN_FILE, dict(zip(QUERY_FIELDS, key)), rows))
-    expected_queries = len(local_ids) * (2 * len(stations) - len(local_ids) - 1)
-    if grouped or len(seen) != expected_queries or train["count"] != sum(len(s["items"]) for s in schedules):
+    expectedQueries = len(localIds) * (2 * len(stations) - len(localIds) - 1)
+    if grouped or len(seen) != expectedQueries or train["count"] != sum(len(s["items"]) for s in schedules):
         raise ValueError("TAGO 전체 조회 범위 또는 운행 행 수가 일치하지 않습니다.")
 
     cities = [{key: row[key] for key in ("citycode", "cityname")} for row in codes["cities"]]
-    by_city = defaultdict(list)
+    byCity = defaultdict(list)
     for code, row in stations.items():
-        by_city[str(row["citycode"])].append({
-            "nodeid": code, "nodename": row["nodename"], "is_donghae": code in local_ids,
+        byCity[str(row["citycode"])].append({
+            "nodeid": code, "nodename": row["nodename"], "is_donghae": code in localIds,
         })
     return {
         "tago_cities.json": snapshot("tago", CITIES, codes, CODES_FILE, {}, cities),
         f"tago_stations_{day}_export.json": [
             snapshot("tago", STATIONS, codes, CODES_FILE, {"cityCode": city}, rows)
-            for city, rows in sorted(by_city.items())
+            for city, rows in sorted(byCity.items())
         ],
         f"tago_schedule_{day}_export.json": schedules,
     }
 
 
-def tour_snapshot(tour):
+def tourSnapshot(tour):
     items = tour["items"]
     if (tour["status"] != "complete" or tour["errors"] or tour["region_codes"] != REGION
             or tour["count"] != len(items) or tour["api_total_count"] != len(items)):
@@ -105,36 +105,36 @@ def tour_snapshot(tour):
     places = []
     for item in items:
         row = {key.lower(): value for key, value in item.items()}
-        content_id = row["contentid"]
-        if (not content_id or content_id in seen or
+        contentId = row["contentid"]
+        if (not contentId or contentId in seen or
                 any(str(row.get(key.lower())) != value for key, value in REGION.items())):
             raise ValueError("TourAPI 장소 ID 또는 동해시 지역 코드가 일치하지 않습니다.")
-        seen.add(content_id)
+        seen.add(contentId)
         place = {key: row[key] for key in TOUR_FIELDS if key in row}
-        common = [record for record in item.get("common", []) if record.get("contentid") == content_id]
+        common = [record for record in item.get("common", []) if record.get("contentid") == contentId]
         if len(common) == 1 and common[0].get("overview"):
             place["overview"] = re.sub(r"<[^>]+>", " ", unescape(common[0]["overview"]))
         places.append(place)
     return [snapshot("tourapi", TOURISM, tour, TOUR_FILE, REGION, places)]
 
 
-def import_archive(path, raw):
+def importArchive(path, raw):
     with ZipFile(path) as archive:
         metadata = archive.getinfo("manifest.json")
         if metadata.file_size > 100_000:
             raise ValueError("ZIP 매니페스트 크기를 확인하세요.")
         manifest = json.loads(archive.read(metadata))
-        train = read_export(archive, manifest, TRAIN_FILE)
-        codes = read_export(archive, manifest, CODES_FILE)
-        tour = read_export(archive, manifest, TOUR_FILE)
-    outputs = {**tago_snapshots(train, codes), "tourapi.json": tour_snapshot(tour)}
+        train = readExport(archive, manifest, TRAIN_FILE)
+        codes = readExport(archive, manifest, CODES_FILE)
+        tour = readExport(archive, manifest, TOUR_FILE)
+    outputs = {**tagoSnapshots(train, codes), "tourapi.json": tourSnapshot(tour)}
     for name, value in outputs.items():
         target = raw / name
         if target.exists() and json.loads(target.read_bytes()) != value:
             raise ValueError(f"{name}: 내용이 다른 기존 스냅샷이 있습니다.")
     for name, value in outputs.items():
         if not (raw / name).exists():
-            write_json(raw / name, value)
+            writeJson(raw / name, value)
     return {
         "train_query_count": train["query_count"], "train_segments": train["count"],
         "train_date": train["departure_date"], "station_codes": len(codes["stations"]),
@@ -149,7 +149,7 @@ def main():
     parser.add_argument("--raw", type=Path, default=DATA / "raw")
     args = parser.parse_args()
     try:
-        summary = import_archive(args.archive, args.raw)
+        summary = importArchive(args.archive, args.raw)
     except (BadZipFile, OSError, KeyError, TypeError, ValueError) as error:
         parser.exit(1, f"{error}\n")
     print(json.dumps(summary, ensure_ascii=False, indent=2))

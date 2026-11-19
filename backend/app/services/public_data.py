@@ -37,16 +37,16 @@ API_ERRORS = {
 
 
 class DataApiError(RuntimeError):
-    def __init__(self, reason, *, http_status=None, api_code=None, response_format=None):
+    def __init__(self, reason, *, httpStatus=None, apiCode=None, responseFormat=None):
         self.reason = reason
-        self.http_status = http_status
-        self.api_code = api_code
-        self.response_format = response_format
+        self.httpStatus = httpStatus
+        self.apiCode = apiCode
+        self.responseFormat = responseFormat
         parts = [reason]
-        if http_status is not None:
-            parts.append(f"HTTP {http_status}")
-        if api_code is not None:
-            parts.append(f"API 오류 {api_code}")
+        if httpStatus is not None:
+            parts.append(f"HTTP {httpStatus}")
+        if apiCode is not None:
+            parts.append(f"API 오류 {apiCode}")
         super().__init__(" / ".join(parts))
 
 
@@ -54,21 +54,21 @@ class DataApiError(RuntimeError):
 class ApiPage:
     rows: list
     total: int | None
-    page_size: int | None
-    response_format: str
-    api_code: str
-    http_status: int
+    pageSize: int | None
+    responseFormat: str
+    apiCode: str
+    httpStatus: int
 
 
 # HTTPX's request summary includes the full URL and query string.
 logging.getLogger("httpx").addFilter(lambda record: "servicekey=" not in record.getMessage().lower())
 
 
-def today_kst():
+def todayKst():
     return datetime.now(KST).date().isoformat()
 
 
-def read_settings():
+def readSettings():
     values = {}
     try:
         lines = (ROOT / ".env").read_text(encoding="utf-8-sig").splitlines()
@@ -91,8 +91,8 @@ def read_settings():
     return {name: os.environ.get(name, values.get(name, "")).strip() for name in SETTINGS}
 
 
-def response_envelope(response, response_format):
-    if response_format == "xml":
+def readResponseEnvelope(response, responseFormat):
+    if responseFormat == "xml":
         root = ElementTree.fromstring(response.content)
         for element in root.iter():
             element.tag = element.tag.rsplit("}", 1)[-1]
@@ -110,14 +110,14 @@ def response_envelope(response, response_format):
     return header.get("resultCode", header.get("returnReasonCode")), envelope.get("body")
 
 
-def read_page(response):
+def readPage(response):
     content = response.content.removeprefix(b"\xef\xbb\xbf").lstrip()
-    response_format = "xml" if content.startswith(b"<") else "json" if content.startswith(b"{") else None
+    responseFormat = "xml" if content.startswith(b"<") else "json" if content.startswith(b"{") else None
     if content[:20].lower().startswith((b"<!doctype html", b"<html")):
-        response_format = "html"
-    context = {"http_status": response.status_code, "response_format": response_format}
+        responseFormat = "html"
+    context = {"httpStatus": response.status_code, "responseFormat": responseFormat}
     try:
-        code, body = response_envelope(response, response_format)
+        code, body = readResponseEnvelope(response, responseFormat)
     except (ValueError, TypeError, AttributeError, ElementTree.ParseError):
         if not response.is_success:
             raise DataApiError("HTTP response error", **context) from None
@@ -127,11 +127,11 @@ def read_page(response):
         code = code if re.fullmatch(r"[0-9]{1,4}", code) else "unknown"
     reason = API_ERRORS.get(code.zfill(2) if code else None)
     if not response.is_success:
-        raise DataApiError(reason or "HTTP response error", api_code=code, **context)
+        raise DataApiError(reason or "HTTP response error", apiCode=code, **context)
     if code in {"3", "03", "0003"}:
-        return ApiPage([], 0, None, response_format, code, response.status_code)
+        return ApiPage([], 0, None, responseFormat, code, response.status_code)
     if code not in {"0", "00", "0000"}:
-        raise DataApiError(reason or "Unknown or missing API result code", api_code=code, **context)
+        raise DataApiError(reason or "Unknown or missing API result code", apiCode=code, **context)
     try:
         container = body.get("items")
         items = container.get("item", []) if isinstance(container, dict) else container
@@ -142,17 +142,17 @@ def read_page(response):
             raise ValueError
         total, size = body.get("totalCount"), body.get("numOfRows")
         return ApiPage(items, int(total) if total not in (None, "") else None,
-                       int(size) if size else None, response_format, code, response.status_code)
+                       int(size) if size else None, responseFormat, code, response.status_code)
     except (ValueError, TypeError, AttributeError):
-        raise DataApiError("Invalid API response body", api_code=code, **context) from None
+        raise DataApiError("Invalid API response body", apiCode=code, **context) from None
 
 
-def parse_page(response):
-    page = read_page(response)
-    return page.rows, page.total, page.page_size
+def parsePage(response):
+    page = readPage(response)
+    return page.rows, page.total, page.pageSize
 
 
-def network_reason(error):
+def networkReason(error):
     underlying = error
     while underlying is not None:
         if (isinstance(underlying, socket.gaierror)
@@ -169,7 +169,7 @@ def network_reason(error):
     return f"Network request failed ({type(error).__name__})"
 
 
-def write_json(path, value):
+def writeJson(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(dir=path.parent, mode="w", encoding="utf-8", delete=False) as stream:
         from pathlib import Path
@@ -189,26 +189,26 @@ def write_json(path, value):
 
 
 class PublicData:
-    def __init__(self, service, client, max_calls=10, ledger=DATA / "raw" / "api_usage.sqlite3"):
-        variable, url_variable, provider_limit, official_url, catalog, self.format_key = SERVICES[service]
-        settings = read_settings()
+    def __init__(self, service, client, maxCalls=10, ledger=DATA / "raw" / "api_usage.sqlite3"):
+        variable, urlVariable, providerLimit, officialUrl, catalog, self.formatKey = SERVICES[service]
+        settings = readSettings()
         value = settings[variable] or settings[COMMON_KEY]
         if not value:
             raise DataApiError(f"{variable} 또는 {COMMON_KEY} 미설정. 요청을 보내지 않았습니다.")
         self.key = unquote(value)
-        self.base = (settings[url_variable] or official_url).rstrip("/")
-        if self.base != official_url:
-            raise DataApiError(f"{url_variable} 공식 HTTPS 서비스 주소 불일치")
+        self.base = (settings[urlVariable] or officialUrl).rstrip("/")
+        if self.base != officialUrl:
+            raise DataApiError(f"{urlVariable} 공식 HTTPS 서비스 주소 불일치")
         self.service = service
         self.catalog = f"https://www.data.go.kr/data/{catalog}/openapi.do"
         self.client = client
-        self.max_calls = max_calls
+        self.maxCalls = maxCalls
         self.calls = 0
-        self.daily_limit = provider_limit
+        self.dailyLimit = providerLimit
         self.ledger = ledger
 
-    def _reserve_call(self):
-        if self.calls >= self.max_calls:
+    def reserveCall(self):
+        if self.calls >= self.maxCalls:
             raise DataApiError("실행당 호출 한도에 도달했습니다. 이번 스냅샷은 저장되지 않습니다.")
         self.ledger.parent.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(self.ledger)) as db, db:
@@ -217,37 +217,37 @@ class PublicData:
             cursor = db.execute(
                 "INSERT INTO usage VALUES (?, ?, 1) ON CONFLICT(service, day) "
                 "DO UPDATE SET calls = calls + 1 WHERE calls < ?",
-                (self.service, today_kst(), self.daily_limit),
+                (self.service, todayKst(), self.dailyLimit),
             )
             if not cursor.rowcount:
                 raise DataApiError("이 작업 폴더의 일일 호출 한도에 도달했습니다.")
         self.calls += 1
 
-    def request_page(self, endpoint, parameters, *, page=1, page_size=50, response_format="json"):
-        self._reserve_call()
+    def requestPage(self, endpoint, parameters, *, page=1, pageSize=50, responseFormat="json"):
+        self.reserveCall()
         try:
             response = self.client.get(
                 f"{self.base}/{endpoint}",
-                params={**parameters, "serviceKey": self.key, self.format_key: response_format,
-                        "pageNo": page, "numOfRows": page_size},
+                params={**parameters, "serviceKey": self.key, self.formatKey: responseFormat,
+                        "pageNo": page, "numOfRows": pageSize},
                 follow_redirects=False,
             )
         except httpx.RequestError as error:
-            raise DataApiError(network_reason(error)) from None
-        return read_page(response)
+            raise DataApiError(networkReason(error)) from None
+        return readPage(response)
 
-    def rows(self, endpoint, parameters, page_size=50):
+    def rows(self, endpoint, parameters, pageSize=50):
         results = []
-        for page in range(1, self.max_calls + 1):
-            reply = self.request_page(endpoint, parameters, page=page, page_size=page_size)
-            records, total, reported_size = reply.rows, reply.total, reply.page_size
+        for page in range(1, self.maxCalls + 1):
+            reply = self.requestPage(endpoint, parameters, page=page, pageSize=pageSize)
+            records, total, reportedSize = reply.rows, reply.total, reply.pageSize
             results.extend(records)
             if total is not None:
                 if len(results) == total:
                     return results
                 if not records or len(results) > total:
                     raise DataApiError(f"{self.service} 페이지 응답 건수가 일치하지 않습니다.")
-            elif len(records) < (reported_size or page_size):
+            elif len(records) < (reportedSize or pageSize):
                 return results
         raise DataApiError("페이지 조회가 완료되지 않아 이번 스냅샷을 저장하지 않습니다.")
 

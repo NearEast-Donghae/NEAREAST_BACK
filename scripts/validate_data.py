@@ -2,7 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
-from scripts.normalize_data import LOCATION_KINDS, coordinate_pair
+from scripts.normalize_data import LOCATION_KINDS, coordinatePair
 
 TABLES = ("locations", "stations", "railway_lines", "trains", "transport_hubs")
 
@@ -12,15 +12,15 @@ def validate(tables):
     for table in TABLES:
         seen = set()
         for row in tables[table]:
-            identifier = row.get("id")
-            if not isinstance(identifier, str) or not identifier or identifier in seen:
-                errors.append(f"{table}: 유효하지 않거나 중복된 ID {identifier}")
-            seen.add(identifier)
-    by_id = {row["id"]: row for row in tables["locations"] if "id" in row}
-    for row in by_id.values():
+            stableId = row.get("id")
+            if not isinstance(stableId, str) or not stableId or stableId in seen:
+                errors.append(f"{table}: 유효하지 않거나 중복된 ID {stableId}")
+            seen.add(stableId)
+    byId = {row["id"]: row for row in tables["locations"] if "id" in row}
+    for row in byId.values():
         key = row["id"]
         latitude, longitude = row.get("latitude"), row.get("longitude")
-        issue = coordinate_pair(latitude, longitude)[2]
+        issue = coordinatePair(latitude, longitude)[2]
         if issue and (latitude is not None or longitude is not None):
             errors.append(f"{key}: 유효하지 않은 위경도")
         if row.get("kind") not in LOCATION_KINDS or not row.get("name") or not row.get("sources"):
@@ -37,27 +37,27 @@ def validate(tables):
             errors.append(f"{key}: 경로 사용 조건 불일치")
     for table, kind in (("stations", "station"), ("transport_hubs", "transport_hub")):
         actual = {row.get("id") for row in tables[table]}
-        expected = {key for key, row in by_id.items() if row.get("kind") == kind}
+        expected = {key for key, row in byId.items() if row.get("kind") == kind}
         if actual != expected:
             errors.append(f"{table}: locations 참조 누락 또는 불일치")
         for row in tables[table]:
-            location = by_id.get(row.get("id"), {})
+            location = byId.get(row.get("id"), {})
             if any(row.get(field) != location.get(field)
                    for field in ("name", "address", "latitude", "longitude", "crs", "visit_allowed")):
                 errors.append(f"{row.get('id')}: 장소 상세 내용이 locations와 일치하지 않음")
             sources = {source.get("source_ref") for source in row.get("sources", [])}
-            for reference_map in ("field_sources", "railway_line_sources"):
+            for referenceMap in ("field_sources", "railway_line_sources"):
                 if any(not refs or not set(refs) <= sources
-                       for refs in row.get(reference_map, {}).values()):
-                    errors.append(f"{row.get('id')}: {reference_map} 출처 식별자 불일치")
-    station_ids = {row.get("id") for row in tables["stations"]}
+                       for refs in row.get(referenceMap, {}).values()):
+                    errors.append(f"{row.get('id')}: {referenceMap} 출처 식별자 불일치")
+    stationIds = {row.get("id") for row in tables["stations"]}
     for line in tables["railway_lines"]:
-        if not set(line.get("station_ids", [])) <= station_ids:
+        if not set(line.get("station_ids", [])) <= stationIds:
             errors.append(f"{line.get('id')}: 노선에 유효하지 않은 역 ID 포함")
     for train in tables["trains"]:
         for field in ("departure", "arrival"):
             location = train.get(field, {}).get("location_id")
-            if location is not None and location not in station_ids:
+            if location is not None and location not in stationIds:
                 errors.append(f"{train.get('id')}: 열차 구간에 유효하지 않은 역 ID 포함")
     return errors
 

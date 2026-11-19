@@ -4,7 +4,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime
 
-from scripts.import_csv import clean, first, iso_date
+from scripts.import_csv import clean, firstNonEmpty, isoDate
 
 LOCATION_KINDS = {"station", "tourism", "transport_hub"}
 TOURAPI_PLACE_TYPES = {
@@ -21,25 +21,25 @@ PRIORITY = {"verified_places": 0, "kr_stations": 1, "tourism": 1, "terminals": 1
             "korail_donghae": 2, "tourapi": 3}
 
 
-def identifier(namespace, *parts):
+def stableId(namespace, *parts):
     return f"{namespace}-{uuid.uuid5(uuid.NAMESPACE_URL, 'neareast/' + '/'.join(parts))}"
 
 
-def name_key(value):
+def normalizedNameKey(value):
     return re.sub(r"\s+", "", value.casefold())
 
 
-def canonical_address(value):
+def canonicalAddress(value):
     if not value or re.match(r"https?://", value, flags=re.I):
         return None
     return re.sub(r"^(?:강원도|강원)\s+", "강원특별자치도 ", value)
 
 
-def coordinate_pair(lat_raw, lng_raw):
+def coordinatePair(latRaw, lngRaw):
     try:
-        if lat_raw is None and lng_raw is None:
+        if latRaw is None and lngRaw is None:
             return None, None, "missing_coordinates"
-        lat, lng = float(lat_raw), float(lng_raw)
+        lat, lng = float(latRaw), float(lngRaw)
         south, north, west, east = BOUNDS
         if not (math.isfinite(lat) and math.isfinite(lng) and south <= lat <= north
                 and west <= lng <= east):
@@ -49,11 +49,11 @@ def coordinate_pair(lat_raw, lng_raw):
         return None, None, "invalid_coordinates"
 
 
-def truth(value):
+def parseOptionalBoolean(value):
     return {"true": True, "false": False}.get((value or "").lower())
 
 
-def positive_minutes(value):
+def positiveMinutes(value):
     try:
         number = int(value)
         return number if number > 0 else None
@@ -61,11 +61,11 @@ def positive_minutes(value):
         return None
 
 
-def operation(value):
+def parseOperationStatus(value):
     return value if value in {"operating", "closed", "suspended"} else None
 
 
-def service_flag(work, token):
+def serviceFlag(work, token):
     # Explicit positive/negative only. Absence of a keyword is unknown.
     for value in work:
         if value in {f"{token}취급중단", f"{token}취급안함", f"{token}미취급"}:
@@ -75,62 +75,62 @@ def service_flag(work, token):
     return None
 
 
-def normalize_location(record):
+def normalizeLocation(record):
     source, row = record["source"], record["row"]
     kind = record["kind"]
     if kind == "curated":
-        kind = first(row, "kind")
+        kind = firstNonEmpty(row, "kind")
         if not source["url"] or not source["checked_at"]:
             raise ValueError("수동 검증 자료에 source_url과 checked_at을 입력하세요.")
     if kind not in LOCATION_KINDS:
         raise ValueError("지원하지 않는 장소 kind")
-    name = first(row, "name", "역이름", "역사명", "관광명소명", "시설명", "title")
+    name = firstNonEmpty(row, "name", "역이름", "역사명", "관광명소명", "시설명", "title")
     if not name:
         raise ValueError("장소명 누락")
     if kind == "station":
         name = re.sub(r"\s+역$", "역", name)
-    address = canonical_address(first(row, "address", "도로명주소", "소재지도로명주소",
+    address = canonicalAddress(firstNonEmpty(row, "address", "도로명주소", "소재지도로명주소",
                                       "주소", "역사도로명주소", "addr1",
                                       "지번주소", "소재지지번주소"))
-    alternate = canonical_address(first(row, "지번주소", "소재지지번주소"))
-    lat, lng, coordinate_issue = coordinate_pair(
-        first(row, "latitude", "위도", "위도좌표", "역위도", "mapy"),
-        first(row, "longitude", "경도", "경도좌표", "역경도", "mapx"),
+    alternate = canonicalAddress(firstNonEmpty(row, "지번주소", "소재지지번주소"))
+    lat, lng, coordinateIssue = coordinatePair(
+        firstNonEmpty(row, "latitude", "위도", "위도좌표", "역위도", "mapy"),
+        firstNonEmpty(row, "longitude", "경도", "경도좌표", "역경도", "mapx"),
     )
-    work = [name_key(value) for value in (first(row, "취급업무") or "").split(",")]
-    status = operation(first(row, "operation_status"))
-    passenger = truth(first(row, "passenger_handling"))
-    freight = truth(first(row, "freight_handling"))
-    line_names = sorted({value for token in re.split(r"[,;]", first(
+    work = [normalizedNameKey(value) for value in (firstNonEmpty(row, "취급업무") or "").split(",")]
+    status = parseOperationStatus(firstNonEmpty(row, "operation_status"))
+    passenger = parseOptionalBoolean(firstNonEmpty(row, "passenger_handling"))
+    freight = parseOptionalBoolean(firstNonEmpty(row, "freight_handling"))
+    lineNames = sorted({value for token in re.split(r"[,;]", firstNonEmpty(
         row, "railway_lines", "관련노선", "노선명") or "") if (value := clean(token))})
-    subtype = first(row, "place_type") or {
+    subtype = firstNonEmpty(row, "place_type") or {
         "station": "railway_station",
-        "tourism": TOURAPI_PLACE_TYPES.get(first(row, "contenttypeid"), "attraction"),
+        "tourism": TOURAPI_PLACE_TYPES.get(firstNonEmpty(row, "contenttypeid"), "attraction"),
         "transport_hub": "passenger_terminal",
     }[kind]
-    explicit_id = first(row, "source_id", "역번호", "contentid")
-    source_ref = identifier("source", source["dataset"], source.get("url") or "",
-                            source["file"], explicit_id or str(source["record_number"]))
+    explicitId = firstNonEmpty(row, "source_id", "역번호", "contentid")
+    sourceRef = stableId("source", source["dataset"], source.get("url") or "",
+                            source["file"], explicitId or str(source["record_number"]))
     return {
         "name": name, "kind": kind, "place_type": subtype,
         "address": address, "alternate_address": alternate if alternate != address else None,
-        "latitude": lat, "longitude": lng, "coordinate_issue": coordinate_issue,
-        "description": first(row, "description", "장소설명", "설명", "overview"),
-        "visit_allowed": truth(first(row, "visit_allowed")),
-        "observed_stay_minutes": positive_minutes(first(row, "observed_stay_minutes", "체류시간(분)")),
+        "latitude": lat, "longitude": lng, "coordinate_issue": coordinateIssue,
+        "description": firstNonEmpty(row, "description", "장소설명", "설명", "overview"),
+        "visit_allowed": parseOptionalBoolean(firstNonEmpty(row, "visit_allowed")),
+        "observed_stay_minutes": positiveMinutes(firstNonEmpty(row, "observed_stay_minutes", "체류시간(분)")),
         "operation_status": status,
-        "passenger_handling": passenger if passenger is not None else service_flag(work, "여객"),
-        "freight_handling": freight if freight is not None else service_flag(work, "화물"),
-        "railway_lines": line_names if kind == "station" else [],
-        "amenities": [value for token in (first(row, "amenities") or "").split(";")
+        "passenger_handling": passenger if passenger is not None else serviceFlag(work, "여객"),
+        "freight_handling": freight if freight is not None else serviceFlag(work, "화물"),
+        "railway_lines": lineNames if kind == "station" else [],
+        "amenities": [value for token in (firstNonEmpty(row, "amenities") or "").split(";")
                       if (value := clean(token))],
-        "operator": first(row, "운영주체"),
-        "facility_category": first(row, "구분"),
-        "source": {**source, "source_id": explicit_id, "source_ref": source_ref},
+        "operator": firstNonEmpty(row, "운영주체"),
+        "facility_category": firstNonEmpty(row, "구분"),
+        "source": {**source, "source_id": explicitId, "source_ref": sourceRef},
     }
 
 
-def close_coordinates(left, right, meters=100):
+def closeCoordinates(left, right, meters=100):
     if left["latitude"] is None or right["latitude"] is None:
         return False
     lat = (left["latitude"] + right["latitude"]) / 2
@@ -140,29 +140,29 @@ def close_coordinates(left, right, meters=100):
     ) <= meters
 
 
-def same_place(left, right):
-    a, b = left["source"], right["source"]
-    if a["dataset"] == b["dataset"] and a["source_id"] and b["source_id"]:
-        return a["source_id"] == b["source_id"]
+def samePlace(left, right):
+    leftSource, rightSource = left["source"], right["source"]
+    if leftSource["dataset"] == rightSource["dataset"] and leftSource["source_id"] and rightSource["source_id"]:
+        return leftSource["source_id"] == rightSource["source_id"]
     addresses = {left["address"], left["alternate_address"]} - {None}
-    return bool(addresses & {right["address"], right["alternate_address"]}) or close_coordinates(left, right)
+    return bool(addresses & {right["address"], right["alternate_address"]}) or closeCoordinates(left, right)
 
 
-def merge_locations(records):
+def mergeLocations(records):
     groups = defaultdict(list)
     issues = []
     for record in records:
         try:
-            place = normalize_location(record)
+            place = normalizeLocation(record)
         except ValueError as exc:
             issues.append({"code": "rejected_record", "reason": str(exc), "source": record["source"]})
             continue
         if place["coordinate_issue"] == "invalid_coordinates":
             issues.append({"code": "invalid_input_coordinates", "name": place["name"],
                            "source": place["source"]})
-        groups[place["kind"], name_key(place["name"])].append(place)
+        groups[place["kind"], normalizedNameKey(place["name"])].append(place)
     result = []
-    for (kind, normalized_name), candidates in sorted(groups.items()):
+    for (kind, normalizedName), candidates in sorted(groups.items()):
         candidates.sort(key=lambda item: (
             PRIORITY.get(item["source"]["dataset"], 9),
             item["source"].get("file") or "",
@@ -170,7 +170,10 @@ def merge_locations(records):
         ))
         clusters = []
         for candidate in candidates:
-            matches = [group for group in clusters if any(same_place(candidate, p) for p in group)]
+            matches = [
+                group for group in clusters
+                if any(samePlace(candidate, existingPlace) for existingPlace in group)
+            ]
             if len(matches) == 1:
                 matches[0].append(candidate)
             else:
@@ -182,16 +185,16 @@ def merge_locations(records):
             primary = cluster[0]
             anchor = primary["address"] or primary["source"]["source_id"]
             if sum(row["address"] == anchor for row in candidates) > len(cluster):
-                provider_key = primary["source"]["source_id"] or primary["source"]["source_ref"]
-                anchor = f"{anchor}/{provider_key}"
+                providerKey = primary["source"]["source_id"] or primary["source"]["source_ref"]
+                anchor = f"{anchor}/{providerKey}"
             if not anchor:
                 anchor = repr((primary["latitude"], primary["longitude"]))
                 if primary["latitude"] is None:
                     anchor = f"{primary['source']['file']}:{primary['source']['record_number']}"
-            key = identifier("place", kind, normalized_name, anchor)
+            key = stableId("place", kind, normalizedName, anchor)
             merged = {"id": key, "name": primary["name"], "kind": kind,
                       "place_type": primary["place_type"], "crs": "EPSG:4326"}
-            field_sources = {field: [primary["source"]["source_ref"]]
+            fieldSources = {field: [primary["source"]["source_ref"]]
                              for field in ("name", "kind", "place_type")}
             uncertain = {"visit_allowed", "operation_status", "passenger_handling", "freight_handling"}
             for field in ("address", "alternate_address", "description", "visit_allowed",
@@ -204,17 +207,17 @@ def merge_locations(records):
                 else:
                     merged[field] = values[0] if values else None
                 if merged[field] is not None:
-                    field_sources[field] = [item["source"]["source_ref"] for item in cluster
+                    fieldSources[field] = [item["source"]["source_ref"] for item in cluster
                                             if item[field] == merged[field]]
             coordinates = [item for item in cluster if item["latitude"] is not None]
             coordinate = coordinates[0] if coordinates else None
-            if coordinate and any(not close_coordinates(coordinate, item) for item in coordinates[1:]):
+            if coordinate and any(not closeCoordinates(coordinate, item) for item in coordinates[1:]):
                 issues.append({"code": "coordinate_conflict", "id": key, "name": primary["name"]})
                 coordinate = None
             merged["latitude"] = coordinate["latitude"] if coordinate else None
             merged["longitude"] = coordinate["longitude"] if coordinate else None
             if coordinate:
-                field_sources["latitude"] = field_sources["longitude"] = [coordinate["source"]["source_ref"]]
+                fieldSources["latitude"] = fieldSources["longitude"] = [coordinate["source"]["source_ref"]]
             merged["coordinate_ready"] = coordinate is not None
             merged["routing_ready"] = coordinate is not None and merged["visit_allowed"] is True
             merged["default_stay_minutes"] = DEFAULT_STAY.get(primary["place_type"], DEFAULT_STAY[kind])
@@ -225,15 +228,15 @@ def merge_locations(records):
             }
             merged["amenities"] = sorted({amenity for item in cluster for amenity in item["amenities"]})
             if merged["amenities"]:
-                field_sources["amenities"] = [item["source"]["source_ref"] for item in cluster
+                fieldSources["amenities"] = [item["source"]["source_ref"] for item in cluster
                                                if item["amenities"]]
-            merged["field_sources"] = field_sources
+            merged["field_sources"] = fieldSources
             merged["sources"] = [row["source"] for row in cluster]
             result.append(merged)
     return result, issues
 
 
-def tourapi_records(snapshots):
+def tourapiRecords(snapshots):
     records = []
     for snapshot in snapshots:
         for index, row in enumerate(snapshot["items"], start=1):
@@ -241,8 +244,8 @@ def tourapi_records(snapshots):
                 "kind": "tourism",
                 "row": row,
                 "source": {"dataset": "tourapi", "file": "tourapi.json", "record_number": index,
-                           "url": snapshot["source_url"], "record_date": iso_date(row.get("modifiedtime")),
-                           "snapshot_date": iso_date(snapshot["fetched_at"]),
+                           "url": snapshot["source_url"], "record_date": isoDate(row.get("modifiedtime")),
+                           "snapshot_date": isoDate(snapshot["fetched_at"]),
                            "checked_at": None,
                            "archive_member": snapshot.get("archive_member"),
                            "fetched_at": snapshot["fetched_at"]},
@@ -250,30 +253,30 @@ def tourapi_records(snapshots):
     return records
 
 
-def merge_tago_station_codes(places, catalog):
-    by_name = defaultdict(list)
+def mergeTagoStationCodes(places, catalog):
+    byName = defaultdict(list)
     for place in places:
         if place["kind"] == "station":
-            by_name[name_key(place["name"].removesuffix("역"))].append(place)
+            byName[normalizedNameKey(place["name"].removesuffix("역"))].append(place)
     additions, issues = [], []
     for code, (name, source) in catalog.items():
         name = name.removesuffix("역")
         record = {"kind": "station", "row": {"name": name + "역", "source_id": code},
                   "source": source}
-        matches = by_name[name_key(name)]
+        matches = byName[normalizedNameKey(name)]
         if len(matches) > 1:
             issues.append({"code": "ambiguous_tago_station", "name": name, "source": source})
             continue
         if matches:
             place = matches[0]
-            origin = normalize_location(record)["source"]
+            origin = normalizeLocation(record)["source"]
             place["sources"].append(origin)
         else:
-            new_places, rejected = merge_locations([record])
+            newPlaces, rejected = mergeLocations([record])
             issues.extend(rejected)
-            if not new_places:
+            if not newPlaces:
                 continue
-            place = new_places[0]
+            place = newPlaces[0]
             origin = place["sources"][0]
             additions.append(place)
         place["tago_station_id"] = code
@@ -281,7 +284,7 @@ def merge_tago_station_codes(places, catalog):
     return additions, issues
 
 
-def time_stamp(value):
+def parseTrainTimestamp(value):
     if value is None:
         return None
     try:
@@ -293,48 +296,49 @@ def time_stamp(value):
         return None
 
 
-def train_records(snapshots, stations, tago_index):
+def trainRecords(snapshots, stations, tagoIndex):
     trains, issues = {}, []
-    by_name = defaultdict(list)
+    byName = defaultdict(list)
     for station in stations:
-        by_name[name_key(station["name"].removesuffix("역"))].append(station["id"])
+        byName[normalizedNameKey(station["name"].removesuffix("역"))].append(station["id"])
 
-    def match_local(tago_id, name):
-        official_name = tago_index.get(tago_id)
-        if not official_name or name_key(official_name.removesuffix("역")) != name_key(name.removesuffix("역")):
+    def matchLocal(tagoId, name):
+        officialName = tagoIndex.get(tagoId)
+        stationNameKey = normalizedNameKey(name.removesuffix("역"))
+        if not officialName or normalizedNameKey(officialName.removesuffix("역")) != stationNameKey:
             return None
-        matches = by_name[name_key(name.removesuffix("역"))]
+        matches = byName[stationNameKey]
         return matches[0] if len(matches) == 1 else None
 
     for snapshot in snapshots:
         params = snapshot["parameters"]
-        expected_day = iso_date(params["depPlandTime"])
-        dep_id, arr_id = params["depPlaceId"], params["arrPlaceId"]
+        expectedDay = isoDate(params["depPlandTime"])
+        depId, arrId = params["depPlaceId"], params["arrPlaceId"]
         for content in snapshot["items"]:
             row = {key.lower(): value for key, value in content.items()}
-            departure, arrival = first(row, "depplacename"), first(row, "arrplacename")
-            dep_at, arr_at = time_stamp(row.get("depplandtime")), time_stamp(row.get("arrplandtime"))
-            number, grade = first(row, "trainno"), first(row, "traingradename")
-            invalid = (not all((departure, arrival, dep_at, arr_at, expected_day)) or
-                       (dep_at is not None and dep_at[:10] != expected_day) or
-                       (dep_at is not None and arr_at is not None and dep_at > arr_at))
+            departure, arrival = firstNonEmpty(row, "depplacename"), firstNonEmpty(row, "arrplacename")
+            depAt, arrAt = parseTrainTimestamp(row.get("depplandtime")), parseTrainTimestamp(row.get("arrplandtime"))
+            number, grade = firstNonEmpty(row, "trainno"), firstNonEmpty(row, "traingradename")
+            invalid = (not all((departure, arrival, depAt, arrAt, expectedDay)) or
+                       (depAt is not None and depAt[:10] != expectedDay) or
+                       (depAt is not None and arrAt is not None and depAt > arrAt))
             if invalid:
                 issues.append({"code": "invalid_train_segment", "train_number": number,
-                               "departure_station_id": dep_id, "arrival_station_id": arr_id,
-                               "date": expected_day})
+                               "departure_station_id": depId, "arrival_station_id": arrId,
+                               "date": expectedDay})
                 continue
-            key = identifier("train", dep_at, arr_at, dep_id, arr_id, grade or "", number or "")
+            key = stableId("train", depAt, arrAt, depId, arrId, grade or "", number or "")
             trains[key] = {
-                "id": key, "train_number": number, "train_type": grade, "service_date": expected_day,
+                "id": key, "train_number": number, "train_type": grade, "service_date": expectedDay,
                 "service_kind": "passenger", "route_scope": "queried_segment", "full_route": None,
-                "departure": {"station_name": departure, "tago_station_id": dep_id,
-                              "location_id": match_local(dep_id, departure), "departure_at": dep_at},
-                "arrival": {"station_name": arrival, "tago_station_id": arr_id,
-                            "location_id": match_local(arr_id, arrival), "arrival_at": arr_at},
-                "stops": [{"tago_station_id": dep_id, "station_name": departure, "departure_at": dep_at},
-                          {"tago_station_id": arr_id, "station_name": arrival, "arrival_at": arr_at}],
+                "departure": {"station_name": departure, "tago_station_id": depId,
+                              "location_id": matchLocal(depId, departure), "departure_at": depAt},
+                "arrival": {"station_name": arrival, "tago_station_id": arrId,
+                            "location_id": matchLocal(arrId, arrival), "arrival_at": arrAt},
+                "stops": [{"tago_station_id": depId, "station_name": departure, "departure_at": depAt},
+                          {"tago_station_id": arrId, "station_name": arrival, "arrival_at": arrAt}],
                 "intermediate_stops_available": False,
-                "source": {"dataset": "tago", "source_ref": identifier("source", "tago", key),
+                "source": {"dataset": "tago", "source_ref": stableId("source", "tago", key),
                            "url": snapshot["source_url"], "fetched_at": snapshot["fetched_at"],
                            "archive_member": snapshot.get("archive_member"),
                            "endpoint": snapshot["endpoint"]},
@@ -342,12 +346,12 @@ def train_records(snapshots, stations, tago_index):
     return list(trains.values()), issues
 
 
-def railway_lines(stations):
+def railwayLines(stations):
     lines = {}
     for station in stations:
         for line in station["railway_lines"]:
             entry = lines.setdefault(line, {
-                "id": identifier("rail", line),
+                "id": stableId("rail", line),
                 "name": line,
                 "kind": "train_service" if "셔틀" in line or "(고속)" in line else "railway_line",
                 "station_ids": [],
@@ -356,7 +360,7 @@ def railway_lines(stations):
                 "sources": [],
             })
             entry["station_ids"].append(station["id"])
-            source_refs = station["railway_line_sources"][line]
+            sourceRefs = station["railway_line_sources"][line]
             entry["sources"].extend(s for s in station["sources"]
-                                    if s["source_ref"] in source_refs and s not in entry["sources"])
+                                    if s["source_ref"] in sourceRefs and s not in entry["sources"])
     return list(lines.values())
