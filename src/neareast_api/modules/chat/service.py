@@ -334,7 +334,7 @@ def _llm_draft(request: ChatRequest, context: ResolvedContext, settings: Setting
         hits = content.search(request.message, context.known_ids, embed=embed)
     except llm.LLMError:
         hits = content.search(request.message, context.known_ids)  # vectors are optional
-    docs = [h.doc for h in hits][: prompts.MAX_DOCS]
+    docs = _select_docs(hits, context)
     # A passing station in play: give the model the rule it must follow.
     subject = context.mentioned or context.focused
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
@@ -382,6 +382,17 @@ def _llm_draft(request: ChatRequest, context: ResolvedContext, settings: Setting
         draft.evidence = json.dumps(run.result, ensure_ascii=False, default=str)
         draft.train_count = len(run.result["trains"]) if "trains" in run.result else None
     return draft
+
+
+def _select_docs(hits: list[retrieval.Hit], context: ResolvedContext) -> list[retrieval.Doc]:
+    """Fit the prompt budget without losing what was asked about: the open marker's own
+    document and explicitly named documents come before documents that only relate to pins."""
+    focused_id = context.focused.id if context.focused else None
+    ranked = sorted(
+        hits,
+        key=lambda h: 0 if h.doc.id == focused_id else 1 if h.reason == "keyword" else 2,
+    )  # stable: search order is kept within each rank
+    return [h.doc for h in ranked][: prompts.MAX_DOCS]
 
 
 def _tidy(reply: str, first_turn: bool) -> str:

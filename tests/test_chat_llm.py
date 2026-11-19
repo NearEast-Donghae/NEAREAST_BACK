@@ -1,6 +1,7 @@
 """LLM responder with a fake client: no key, no network, no tokens spent."""
 
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -129,6 +130,24 @@ class LLMResponderTests(unittest.TestCase):
         self.assertTrue(check("입장 마감은 18:00이에요.", doc, None))
         self.assertTrue(check("2편의 영화 촬영지예요.", "", None))
         self.assertTrue(check("새벽에도 5시에 와요.", "07:40 10:20", 2))
+
+    def test_named_document_survives_the_document_limit(self):
+        # Three pins already fill the six-document budget with related documents.
+        _, chat = self.ask([draft(intent="smalltalk")], message="평능역 알려줘",
+                           focused="station_donghae", pins=["station_mukho", "station_chuam"])
+        given = sent(chat)[-2]["content"]
+        self.assertIn("<heritage_pyeongneung>", given)
+        self.assertIn("<station_donghae>", given)  # the open marker stays first
+        self.assertLess(given.index("<station_donghae>"), given.index("<heritage_pyeongneung>"))
+        self.assertEqual(len(re.findall(r"^<\w+>", given, re.MULTILINE)), 6)  # budget kept
+
+    def test_without_a_named_document_pin_documents_are_kept(self):
+        _, chat = self.ask([draft(intent="smalltalk")], message="안녕",
+                           focused="station_donghae", pins=["station_mukho", "station_chuam"])
+        given = sent(chat)[-2]["content"]
+        for doc in ("station_donghae", "station_mukho", "station_chuam"):
+            self.assertIn(f"<{doc}>", given)
+        self.assertNotIn("<heritage_pyeongneung>", given)
 
     def test_model_cannot_break_plan_rules(self):
         bad = [
