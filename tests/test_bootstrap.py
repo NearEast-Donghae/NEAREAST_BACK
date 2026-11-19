@@ -31,6 +31,28 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(client.get("/docs").status_code, 200)
             self.assertEqual(client.get("/").status_code, 404)
 
+    def test_cors_allows_only_configured_origins(self):
+        front = "http://localhost:5173"
+        env = {"NEAREAST_CORS_ALLOW_ORIGINS": f"{front}, https://neareast.example"}
+        with patch.dict(os.environ, env):
+            app = create_app()
+        preflight = {"Access-Control-Request-Method": "POST",
+                     "Access-Control-Request-Headers": "content-type"}
+        with TestClient(app) as client:
+            allowed = client.options("/api/v1/chat/messages", headers={"Origin": front, **preflight})
+            self.assertEqual(allowed.status_code, 200)
+            self.assertEqual(allowed.headers["access-control-allow-origin"], front)
+            got = client.get("/api/v1/chat/persona", headers={"Origin": front})
+            self.assertEqual(got.headers["access-control-allow-origin"], front)
+            other = client.options("/api/v1/chat/messages",
+                                   headers={"Origin": "https://evil.example", **preflight})
+            self.assertNotIn("access-control-allow-origin", other.headers)
+
+    def test_cors_is_off_by_default(self):
+        with TestClient(create_app(Settings())) as client:
+            response = client.get("/health/live", headers={"Origin": "http://localhost:5173"})
+            self.assertNotIn("access-control-allow-origin", response.headers)
+
     def test_docs_can_be_disabled_from_environment(self):
         with patch.dict(os.environ, {"NEAREAST_DOCS_ENABLED": "false"}):
             app = create_app()

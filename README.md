@@ -241,6 +241,7 @@ python3.12 -m venv .venv
 | --- | --- | --- |
 | `NEAREAST_DOCS_ENABLED` | 로컬 `true`, Dockerfile `false` | 자동 문서와 OpenAPI 노출 여부 |
 | `NEAREAST_HTTP_PORT` | `8012` | Compose가 호스트에 공개할 백엔드 포트 |
+| `NEAREAST_CORS_ALLOW_ORIGINS` | 없음 | 브라우저에서 API를 부를 프론트 주소(쉼표로 구분, 예: `http://localhost:5173`). 비우면 다른 주소의 브라우저 호출은 막힘 |
 | `NEAREAST_DB_HOST` | `127.0.0.1` | Python 직접 실행 시 DB 주소. Compose 내부는 항상 `db` |
 | `NEAREAST_DB_PORT` | `5432` | 호스트의 DB 포트 / Python 직접 실행 시 접속 포트. Compose 내부는 항상 `5432` |
 | `NEAREAST_DB_NAME` | `.env.example`: `neareast` | 최초 생성 DB 이름 |

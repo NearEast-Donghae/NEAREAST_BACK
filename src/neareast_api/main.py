@@ -1,6 +1,7 @@
 """Application composition; importing this module does not start any services."""
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from neareast_api.api.health import router as health_router
 from neareast_api.api.router import build_api_router
@@ -20,6 +21,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if settings.docs_enabled else None,
     )
     app.state.settings = settings
+    origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Content-Type"],
+        )
     app.include_router(health_router)
     app.include_router(build_api_router())
     return app
