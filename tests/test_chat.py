@@ -5,9 +5,11 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
+from legacy_support import setUpModule as setUpModule
+from legacy_support import tearDownModule as tearDownModule
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
 from neareast_api.modules.chat import retrieval, service
 from neareast_api.modules.chat.limits import RateLimiter
 from neareast_api.modules.chat.schemas import ChatContext

@@ -6,9 +6,11 @@ import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
+from legacy_support import setUpModule as setUpModule
+from legacy_support import tearDownModule as tearDownModule
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
 from neareast_api.modules.trains import service
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -124,8 +126,8 @@ class TrainsApiTests(unittest.TestCase):
         self.assertEqual(timeline, sorted(timeline))
 
     def test_missing_snapshot_is_503_not_a_crash(self):
-        with tempfile.TemporaryDirectory() as empty:
-            client = TestClient(create_app(Settings(content_dir=empty)))
+        with tempfile.TemporaryDirectory():
+            client = TestClient(create_app(Settings(), seed=False))
             response = client.get(API + "/trains/841")
             self.assertEqual(response.status_code, 503)
             self.assertEqual(response.json(), {"detail": "timetable unavailable"})

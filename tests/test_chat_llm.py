@@ -3,17 +3,19 @@
 import json
 import os
 import re
-import time
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
+from legacy_support import setUpModule as setUpModule
+from legacy_support import tearDownModule as tearDownModule
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
 from neareast_api.modules.chat import llm, service
 
 URL = "/api/v1/chat/messages"

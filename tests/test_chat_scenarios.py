@@ -16,9 +16,14 @@ import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
+from legacy_support import setUpModule as setUpModule
+from legacy_support import tearDownModule as tearDownModule
+from sqlalchemy import select
+from storage_support import createStorageApp
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
+from neareast_api.db.entities import PlaceEntity
 from neareast_api.modules.chat import service
 
 URL = "/api/v1/chat/messages"
@@ -26,7 +31,12 @@ ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS = json.loads(
     (Path(__file__).parent / "chat_scenarios" / "scenarios.json").read_text("utf-8")
 )["scenarios"]
-PLACE_IDS = {p["id"] for p in json.loads((ROOT / "data" / "places.json").read_text("utf-8"))["places"]}
+
+
+_catalogApp = createStorageApp()
+with _catalogApp.state.sessionFactory() as _catalogSession:
+    PLACE_IDS = set(_catalogSession.scalars(select(PlaceEntity.id)))
+_catalogApp.state.databaseEngine.dispose()
 POLITE_ENDINGS = ("요", "죠")
 
 

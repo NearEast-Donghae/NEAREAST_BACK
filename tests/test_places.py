@@ -1,14 +1,15 @@
 """Places API: the ids every screen and the chat share."""
 
-import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from legacy_support import create_app
+from legacy_support import setUpModule as setUpModule
+from legacy_support import tearDownModule as tearDownModule
 
 from neareast_api.core.config import Settings
-from neareast_api.main import create_app
 
 ROOT = Path(__file__).resolve().parents[1]
 API = "/api/v1/places"
@@ -18,7 +19,8 @@ class PlacesApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(create_app(Settings()))
-        cls.catalog = json.loads((ROOT / "data" / "places.json").read_text("utf-8"))["places"]
+        from neareast_api.db.content_repository import ContentRepository
+        cls.catalog = [{"id": place.id} for place in ContentRepository.places().values()]
 
     def test_list_returns_the_whole_catalog_with_marker_fields(self):
         body = self.client.get(API).json()
@@ -53,8 +55,8 @@ class PlacesApiTests(unittest.TestCase):
         self.assertEqual(response.json(), {"detail": "place not found"})
 
     def test_missing_catalog_is_503(self):
-        with tempfile.TemporaryDirectory() as empty:
-            client = TestClient(create_app(Settings(content_dir=empty)))
+        with tempfile.TemporaryDirectory():
+            client = TestClient(create_app(Settings(), seed=False))
             self.assertEqual(client.get(API).status_code, 503)
             self.assertEqual(client.get(API + "/station_donghae").status_code, 503)
 
