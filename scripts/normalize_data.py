@@ -7,6 +7,11 @@ from datetime import datetime
 from scripts.import_csv import clean, first, iso_date
 
 LOCATION_KINDS = {"station", "tourism", "transport_hub"}
+TOURAPI_PLACE_TYPES = {
+    "12": "attraction", "14": "cultural_facility", "15": "event",
+    "25": "travel_course", "28": "leisure", "32": "accommodation",
+    "38": "shopping", "39": "dining",
+}
 DEFAULT_STAY = {"tourism": 40, "station": 20, "transport_hub": 15,
                 "railway_heritage": 30, "observation_point": 25, "former_station_site": 20}
 # Screening envelope for Donghae and its coastline. A valid pair does not prove
@@ -100,7 +105,7 @@ def normalize_location(record):
         row, "railway_lines", "관련노선", "노선명") or "") if (value := clean(token))})
     subtype = first(row, "place_type") or {
         "station": "railway_station",
-        "tourism": "cultural_facility" if first(row, "contenttypeid") == "14" else "attraction",
+        "tourism": TOURAPI_PLACE_TYPES.get(first(row, "contenttypeid"), "attraction"),
         "transport_hub": "passenger_terminal",
     }[kind]
     explicit_id = first(row, "source_id", "역번호", "contentid")
@@ -239,9 +244,41 @@ def tourapi_records(snapshots):
                            "url": snapshot["source_url"], "record_date": iso_date(row.get("modifiedtime")),
                            "snapshot_date": iso_date(snapshot["fetched_at"]),
                            "checked_at": None,
+                           "archive_member": snapshot.get("archive_member"),
                            "fetched_at": snapshot["fetched_at"]},
             })
     return records
+
+
+def merge_tago_station_codes(places, catalog):
+    by_name = defaultdict(list)
+    for place in places:
+        if place["kind"] == "station":
+            by_name[name_key(place["name"].removesuffix("역"))].append(place)
+    additions, issues = [], []
+    for code, (name, source) in catalog.items():
+        name = name.removesuffix("역")
+        record = {"kind": "station", "row": {"name": name + "역", "source_id": code},
+                  "source": source}
+        matches = by_name[name_key(name)]
+        if len(matches) > 1:
+            issues.append({"code": "ambiguous_tago_station", "name": name, "source": source})
+            continue
+        if matches:
+            place = matches[0]
+            origin = normalize_location(record)["source"]
+            place["sources"].append(origin)
+        else:
+            new_places, rejected = merge_locations([record])
+            issues.extend(rejected)
+            if not new_places:
+                continue
+            place = new_places[0]
+            origin = place["sources"][0]
+            additions.append(place)
+        place["tago_station_id"] = code
+        place["field_sources"]["tago_station_id"] = [origin["source_ref"]]
+    return additions, issues
 
 
 def time_stamp(value):
@@ -299,6 +336,7 @@ def train_records(snapshots, stations, tago_index):
                 "intermediate_stops_available": False,
                 "source": {"dataset": "tago", "source_ref": identifier("source", "tago", key),
                            "url": snapshot["source_url"], "fetched_at": snapshot["fetched_at"],
+                           "archive_member": snapshot.get("archive_member"),
                            "endpoint": snapshot["endpoint"]},
             }
     return list(trains.values()), issues

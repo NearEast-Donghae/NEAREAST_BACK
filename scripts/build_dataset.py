@@ -12,14 +12,16 @@ import pandas as pd
 from backend.app.config import DATA
 from backend.app.services.public_data import today_kst, write_json
 from scripts.import_csv import SOURCES, collect_csv, read_csv
-from scripts.normalize_data import close_coordinates, merge_locations, railway_lines, tourapi_records, train_records
+from scripts.normalize_data import (
+    close_coordinates, merge_locations, merge_tago_station_codes, railway_lines, tourapi_records, train_records,
+)
 from scripts.validate_data import validate
 
 LOCATION_FIELDS = ("id", "name", "kind", "place_type", "address", "alternate_address", "latitude",
                    "longitude", "crs", "description", "visit_allowed", "coordinate_ready", "routing_ready",
                    "observed_stay_minutes", "default_stay_minutes", "amenities", "sources", "field_sources")
 STATION_FIELDS = LOCATION_FIELDS + ("operation_status", "passenger_handling", "freight_handling",
-                                    "railway_lines", "railway_line_sources")
+                                    "railway_lines", "railway_line_sources", "tago_station_id")
 HUB_FIELDS = LOCATION_FIELDS + ("operator", "facility_category")
 
 
@@ -160,15 +162,36 @@ def build(raw, processed, reports, reference=DATA / "reference"):
         for entry in snapshots(path, "tago", "GetStrtpntAlocFndTrainInfo")
     ]
     tago_index = {}
+    local_tago_index = {}
+    attachment_stations = {}
     for path in sorted(raw.glob("tago_stations_*.json")):
         for entry in snapshots(path, "tago", "GetCtyAcctoTrainSttnList"):
-            for row in entry["items"]:
+            for record_number, row in enumerate(entry["items"], start=1):
                 fields = {key.lower(): value for key, value in row.items()}
                 if fields.get("nodeid") and fields.get("nodename"):
-                    tago_index[str(fields["nodeid"])] = str(fields["nodename"]).strip()
+                    code, name = str(fields["nodeid"]), str(fields["nodename"]).strip()
+                    tago_index[code] = name
+                    if fields.get("is_donghae") is not False:
+                        local_tago_index[code] = name
+                    if fields.get("is_donghae") is True:
+                        attachment_stations[code] = (name, {
+                            "dataset": "tago", "file": path.name, "record_number": record_number,
+                            "url": entry["source_url"], "archive_member": entry.get("archive_member"),
+                            "record_date": None, "snapshot_date": entry["fetched_at"][:10],
+                            "fetched_at": entry["fetched_at"], "checked_at": None,
+                        })
 
+    additions, station_issues = merge_tago_station_codes(places, attachment_stations)
+    merged_records = len(records) - len(places) - sum(i["code"] == "rejected_record" for i in issues)
+    places.extend(additions)
+    issues.extend(station_issues)
+    for place in places:
+        if place["kind"] == "station":
+            place.setdefault("tago_station_id", None)
     stations = [select(place, STATION_FIELDS) for place in places if place["kind"] == "station"]
-    trains, train_issues = train_records(train_snapshots, stations, tago_index)
+    if attachment_stations:
+        local_tago_index = {code: name for code, (name, _) in attachment_stations.items()}
+    trains, train_issues = train_records(train_snapshots, stations, local_tago_index)
     issues.extend(train_issues)
     tables = {
         "locations": [select(place, LOCATION_FIELDS) for place in places],
@@ -197,7 +220,7 @@ def build(raw, processed, reports, reference=DATA / "reference"):
         "generated_on_kst": today_kst(),
         "counts": {name: len(rows) for name, rows in tables.items()},
         "location_kinds": dict(Counter(place["kind"] for place in places)),
-        "merged_records": len(records) - len(places) - sum(i["code"] == "rejected_record" for i in issues),
+        "merged_records": merged_records,
         "coordinate_ready_count": sum(place["coordinate_ready"] for place in places),
         "routing_ready_count": sum(place["routing_ready"] for place in places),
         "locations_missing_coordinates": coordinate_missing,
@@ -208,7 +231,11 @@ def build(raw, processed, reports, reference=DATA / "reference"):
             "tourapi": "collected" if tourism_snapshots else "no_snapshot",
             "tago_passenger": "collected" if train_snapshots else "no_snapshot",
             "tago_dates_queried": scheduled_days,
+            "tago_route_queries": len({tuple(entry["parameters"][field] for field in
+                                             ("depPlandTime", "depPlaceId", "arrPlaceId"))
+                                       for entry in train_snapshots}),
             "tago_station_codes": len(tago_index),
+            "tourapi_source_records": sum(len(snapshot["items"]) for snapshot in tourism_snapshots),
             "donghae_traffic_grid": "available_separately" if (raw / "donghae_traffic_grid.json").is_file()
                                     else "no_snapshot",
             "freight_schedules": "not_acquired",
