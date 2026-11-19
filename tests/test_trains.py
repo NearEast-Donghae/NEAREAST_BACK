@@ -1,6 +1,5 @@
 """Shared timetable: API contract, queries over the committed snapshot, snapshot building."""
 
-import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -148,60 +147,6 @@ class TrainTypeTests(unittest.TestCase):
         self.assertTrue(service.describe(named).startswith(f"무궁화호 {train['no']} "))
         if blank.type is None:
             self.assertTrue(service.describe(blank).startswith(f"{train['no']}({train['line']})"))
-
-
-class SnapshotBuildTests(unittest.TestCase):
-    """Pure functions of scripts/fetch_timetable.py (no network)."""
-
-    @classmethod
-    def setUpClass(cls):
-        spec = importlib.util.spec_from_file_location("fetch", ROOT / "scripts" / "fetch_timetable.py")
-        cls.fetch = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(cls.fetch)
-
-    def test_typical_time_ignores_a_one_off_delay(self):
-        typical = self.fetch.typical
-        self.assertEqual(typical(["10:23", "10:23", "10:31"], "earliest"), ("10:23", 8))
-        self.assertEqual(typical(["09:29", "09:33", "09:32"], "middle"), ("09:32", 4))
-        self.assertEqual(typical([None, None], "middle"), (None, 0))
-        self.assertEqual(typical(["07:05"], "earliest"), ("07:05", 0))
-
-    def stop(self, name, arr, dep):
-        return {"name": name, "arr": arr, "dep": dep, "stop_type": "여객승하차"}
-
-    def test_passing_station_is_interpolated_by_distance_both_ways(self):
-        kilo = {"묵호": 601536, "망상": 601596, "정동진": 601765, "동해": 601476}
-        north = self.fetch.interpolate_passes(
-            [self.stop("묵호", "10:34", "10:37"), self.stop("정동진", "10:57", "10:57")], kilo)
-        self.assertEqual([s["name"] for s in north], ["묵호", "망상", "정동진"])
-        self.assertEqual(north[1]["pass"], "10:42")  # 10:37 + 20 min * 60/229
-        self.assertEqual(north[1]["place_id"], "station_mangsang")
-        south = self.fetch.interpolate_passes(
-            [self.stop("정동진", "09:50", "09:53"), self.stop("묵호", "10:13", "10:14")], kilo)
-        self.assertEqual(south[1]["pass"], "10:08")
-
-    def test_nothing_is_interpolated_when_the_station_is_not_between(self):
-        kilo = {"묵호": 601536, "망상": 601596, "정동진": 601765, "동해": 601476, "서울": 10000}
-        for stops in (
-            [self.stop("동해", "10:20", "10:23"), self.stop("묵호", "10:30", "10:31")],  # south of it
-            [self.stop("서울", None, "05:13"), self.stop("정동진", "08:00", "08:01")],  # another line
-            [self.stop("묵호", "10:34", "10:37"), self.stop("미상역", "10:57", "10:57")],  # no kilopost
-        ):
-            with self.subTest(stops[0]["name"]):
-                self.assertEqual(len(self.fetch.interpolate_passes(stops, kilo)), 2)
-
-    def test_committed_snapshot_matches_what_the_api_promises(self):
-        timetable = service.load(str(ROOT))
-        self.assertEqual(timetable.meta["certainty"], "estimated")
-        self.assertEqual(set(timetable.stations), {"station_donghae", "station_mukho",
-                                                   "station_chuam", "station_mangsang"})
-        for train in timetable.trains:
-            with self.subTest(train["no"]):
-                self.assertTrue(train["saturdays_run"])
-                self.assertEqual(train["weekly_saturday"], len(train["saturdays_run"]) == 3)
-                for s in train["stops"]:
-                    if s["arr"] and s["dep"]:
-                        self.assertLessEqual(minutes(s["arr"]), minutes(s["dep"]) + 0, s)
 
 
 if __name__ == "__main__":

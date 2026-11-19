@@ -1,8 +1,8 @@
 """Thin OpenAI boundary: lazy client, structured JSON output, token usage records.
 
 Synchronous on purpose: chat handlers are `def`, so FastAPI runs them in its
-thread pool. Every call appends its usage to settings.llm_usage_log (JSON lines)
-and logs it, so spending can be summed per day. Errors become LLMError; the
+thread pool. Usage goes to the standard logger; an explicit llm_usage_log opts into a file
+for offline evaluation. Errors become LLMError; the
 service turns that into 503.
 """
 
@@ -80,11 +80,7 @@ def record_usage(
         "latency_ms": round(latency * 1000) if latency is not None else None,
     }
     logger.info("llm usage %s", entry)
-    try:
-        with _usage_lock, Path(settings.llm_usage_log).open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-    except OSError:
-        logger.warning("cannot write llm usage log %s", settings.llm_usage_log)
+    appendUsageFile(settings, entry)
     return entry
 
 
@@ -151,11 +147,19 @@ def record_request(settings: Settings, entry: dict) -> None:
     """One line per chat request with per-stage timings, next to the token records."""
     entry = {"at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
              "kind": "request", **entry}
+    logger.info("chat request %s", entry)
+    appendUsageFile(settings, entry)
+
+
+def appendUsageFile(settings: Settings, entry: dict) -> None:
+    if not settings.llm_usage_log:
+        return
     try:
-        with _usage_lock, Path(settings.llm_usage_log).open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        with _usage_lock, Path(settings.llm_usage_log).open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError:
-        logger.warning("cannot write llm usage log %s", settings.llm_usage_log)
+        logger.warning("cannot write optional usage log")
+
 
 
 EMBEDDING_CACHE_SIZE = 512

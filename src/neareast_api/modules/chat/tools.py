@@ -142,7 +142,7 @@ def station_rhythm(
             after.time,
             "estimated" if "estimated" in (before.certainty, after.certainty) else "timetable",
         )
-        for before, after in zip(trains, trains[1:])
+        for before, after in zip(trains, trains[1:], strict=False)
         if _minutes(after.time) - _minutes(before.time) >= MOCK_GAP_MINUTES
     )
     return StationRhythm(station_id, date, hourly, trains, gaps)

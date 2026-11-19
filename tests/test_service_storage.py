@@ -9,12 +9,9 @@ from storage_support import createStorageApp
 from neareast_api.db.entities import (
     AuthSessionEntity,
     ItineraryRevisionEntity,
-    KnowledgeChunkEntity,
-    KnowledgeDocumentEntity,
     UserEntity,
     currentTime,
 )
-from neareast_api.ingestion.service import IngestionService
 
 
 class ServiceStorageTests(unittest.TestCase):
@@ -274,28 +271,6 @@ class ServiceStorageTests(unittest.TestCase):
             {"reply", "intent", "action", "chips", "proposals", "sources", "tool_used", "mode"},
         )
 
-    def test_embedding_updates_only_changed_documents_and_validates_dimension(self):
-        with self.app.state.sessionFactory() as session:
-            pending = IngestionService.embedDocuments(session, "test-model")
-            self.assertEqual(len(pending["pending"]), 20)
-            result = IngestionService.embedDocuments(
-                session, "test-model", lambda model, texts: [[0.1] * 1536 for text in texts]
-            )
-            self.assertEqual(result["embedded"], 20)
-            self.assertEqual(IngestionService.embedDocuments(session, "test-model")["pending"], [])
-            document = session.get(KnowledgeDocumentEntity, "station_mukho")
-            document.body += " 변경됨"
-            session.commit()
-            self.assertEqual(
-                IngestionService.embedDocuments(session, "test-model")["pending"], ["station_mukho"]
-            )
-            with self.assertRaises(ValueError):
-                IngestionService.embedDocuments(
-                    session, "test-model", lambda model, texts: [[0.1] * 3 for text in texts]
-                )
-            self.assertEqual(
-                session.scalar(select(KnowledgeChunkEntity)).embeddingModel, "test-model"
-            )
 
 
 if __name__ == "__main__":

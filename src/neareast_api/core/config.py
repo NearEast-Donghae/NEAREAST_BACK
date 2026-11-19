@@ -44,8 +44,8 @@ class Settings(BaseModel):
     llm_timeout_seconds: float = Field(default=8, gt=0, le=120)
     # Whole-request budget for the model path; past it the built-in responder answers.
     chat_deadline_seconds: float = Field(default=12, gt=0, le=120)
-    # Every LLM/embedding call appends its token usage here (JSON lines).
-    llm_usage_log: str = Field(default="llm_usage.jsonl", min_length=1)
+    # Offline evaluation can opt into a file; the service uses standard logging.
+    llm_usage_log: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
