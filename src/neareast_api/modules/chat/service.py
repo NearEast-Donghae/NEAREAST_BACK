@@ -439,6 +439,19 @@ def _nearby_candidates(place_id: str, context: ResolvedContext) -> list[dict]:
     ]
 
 
+def _normalize_after(value: object) -> str | None:
+    """The model's `after` as HH:MM. "오후 4시" is understood; anything else is ignored
+    (the whole list is better than an error)."""
+    claims = _clock_claims(value) if isinstance(value, str) else []
+    if not claims:
+        return None
+    hours, minute = claims[0]
+    hour = min(hours)  # a bare "4시" keeps the wider list
+    if hour > 23 or (minute or 0) > 59:
+        return None
+    return f"{hour:02d}:{minute or 0:02d}"
+
+
 def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
     """Run one requested tool. Certainty comes from the result, never from the model."""
     name = request.get("name")
@@ -471,7 +484,8 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
             # Candidates for filling a gap, so proposals can name a real place.
             result["nearby"] = _nearby_candidates(station.id, context)
         else:
-            trains = tools.search_trains(date, station=station.id, after=request.get("after"))
+            after = _normalize_after(request.get("after"))
+            trains = tools.search_trains(date, station=station.id, after=after)
             certainty = _weakest(t.certainty for t in trains)
             result = {"station_id": station.id, "trains": [dataclasses.asdict(t) for t in trains],
                       "source": tools.SOURCE}

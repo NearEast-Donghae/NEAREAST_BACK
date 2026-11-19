@@ -149,6 +149,30 @@ class LLMResponderTests(unittest.TestCase):
             self.assertIn(f"<{doc}>", given)
         self.assertNotIn("<heritage_pyeongneung>", given)
 
+    def trains_after(self, after):
+        tool = {"name": "search_trains", "station_id": "station_donghae", "place_id": None,
+                "after": after}
+        response, chat = self.ask(
+            [draft(intent="train_lookup", tool=tool), draft("(예시 데이터) 확인했어요.",
+                                                             intent="train_lookup")],
+            focused="station_donghae",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["mode"], "llm")  # answered, not a crash + fallback
+        result = json.loads(sent(chat, 1)[-1]["content"].split("\n")[1])
+        return [t["time"] for t in result["trains"]]
+
+    def test_after_filter_understands_clock_formats(self):
+        for after in ("16:00", "오후 4시", "16시"):
+            with self.subTest(after):
+                self.assertEqual(self.trains_after(after), ["16:00", "18:10"])
+        self.assertEqual(self.trains_after("11시 10분"), ["11:15", "16:00", "18:10"])
+
+    def test_unusable_after_is_ignored_instead_of_failing(self):
+        for after in ("오후쯤", "soon", "25:99", "", None):
+            with self.subTest(after):
+                self.assertEqual(len(self.trains_after(after)), 8)  # the full list
+
     def test_model_cannot_break_plan_rules(self):
         bad = [
             {"type": "add", "target": "poi_nongoldam", "reason": "거절했던 곳", "time_bound": False},
