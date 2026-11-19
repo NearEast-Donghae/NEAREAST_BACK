@@ -19,9 +19,21 @@
 | `강원도 동해시_패밀리사이트_20230327.csv` · 동해시 · [공공데이터포털](https://www.data.go.kr/data/15099922/fileData.do) | 명칭, 주소, 분류, 데이터기준일자 | 원본 검사만 수행했습니다. `주소`는 웹 URL이고 위치 좌표가 없어서 장소 출력에서 제외했습니다. | 25행, 2023-03-27. |
 | `한국철도공사_동해선_역 위치정보_20240901.csv` · 한국철도공사 · [부산·울산 구간의 별도 공식 자료](https://www.data.go.kr/data/15041329/fileData.do) | 역번호, 역사명, 노선명, 환승역구분, 환승노선번호, 환승노선명, 역위도, 역경도, 역사도로명주소 | 역사도로명주소로 지역을 조사했습니다. 정확한 해당 첨부의 배포 URL과 이용 조건은 미확인입니다. 링크는 구간 확인용입니다. | 23행, 파일 날짜 2024-09-01. 부산·울산 23행이며 동해시 0행입니다. |
 | `국가철도공단_철도역 정보_20250711(1).csv` · 국가철도공단 · [공공데이터포털](https://www.data.go.kr/data/15067652/fileData.do) | 원본과 동일한 14개 컬럼과 215행 | 전체 파싱 행을 원본 첨부와 대조했습니다. 같은 데이터는 한 번만 반영했습니다. | 모든 행과 필드가 일치합니다. |
-| TAGO 열차정보 · 국토교통부 · [공공데이터포털](https://www.data.go.kr/data/15098552/openapi.do) | `GetCtyCodeList`, `GetCtyAcctoTrainSttnList`의 `nodeid,nodename`, `GetStrtpntAlocFndTrainInfo`의 `trainno,traingradename,depplacename,arrplacename,depplandtime,arrplandtime` | 날짜·출발역·도착역을 지정해 구간을 수집합니다. 날짜를 KST ISO 8601로 변환하고 조회 시각과 출처를 `trains.json`에 기록합니다. 역 목록을 함께 받으면 일치하는 로컬 역 ID를 연결합니다. | 공식 명세 확인, 모의 응답 테스트 수행. 설정된 공통 키로 연결을 시도했으나 DNS 조회 실패로 HTTP 응답 및 신규 수집 0건. 구간 사이 역, 통과 시각, 화물 운행은 미확보입니다. |
-| 국문 관광정보 서비스 GW · 한국관광공사 · [공공데이터포털](https://www.data.go.kr/data/15101578/openapi.do) | `areaBasedList2`의 `contentid,title,addr1,addr2,mapx,mapy,modifiedtime,contenttypeid` 및 지역 필드 | 법정동 코드 51/170 지역에서 관광지·문화시설을 수집합니다. 동일 이름과 주소 또는 근접 좌표가 확인되면 CSV와 병합해 `locations.json/.csv`로 보냅니다. | 공식 명세 확인, 모의 응답 테스트 수행. 설정된 공통 키로 연결을 시도했으나 DNS 조회 실패로 HTTP 응답 및 신규 수집 0건. 이미지 필드는 저장 대상에서 제외했습니다. |
-| 교통시설정보 조회 · 동해시 · [공공데이터포털](https://www.data.go.kr/data/15095898/openapi.do) | `getDonghaeTrafficFacilityInfoList`의 `GRID_ID,GRID_X_AXIS,GRID_Y_AXIS,CRT_YMD,DONG_NM,DONG_CD` 및 격자별 교통 지수 | KOTI-KATEC 100m 격자는 원래 좌표계로 `data/raw/donghae_traffic_grid.json`에 별도 보관합니다. 개별 정류장과 환승시설은 별도 원본에서 수집합니다. | 공식 명세 확인, 모의 응답 테스트 수행. 설정된 공통 키로 연결을 시도했으나 DNS 조회 실패로 HTTP 응답 및 신규 수집 0건. 장소 출력에 반영한 행은 0건입니다. |
+| TAGO 열차정보 · 국토교통부 · [공공데이터포털](https://www.data.go.kr/data/15098552/openapi.do) | `GetCtyCodeList`, `GetCtyAcctoTrainSttnList`의 `nodeid,nodename`, `GetStrtpntAlocFndTrainInfo`의 `trainno,traingradename,depplacename,arrplacename,depplandtime,arrplandtime` | 날짜·출발역·도착역을 지정해 구간을 수집합니다. 날짜를 KST ISO 8601로 변환하고 조회 시각과 출처를 `trains.json`에 기록합니다. 역 목록을 함께 받으면 일치하는 로컬 역 ID를 연결합니다. | 2026-11-19 Windows 로컬 도시코드 검사에서 JSON·XML 각각 HTTP 200, API 코드 00, 16행 파싱. 검사 응답은 원본 데이터로 저장하지 않았습니다. 구간 사이 역, 통과 시각, 화물 운행은 미확보입니다. |
+| 국문 관광정보 서비스 GW · 한국관광공사 · [공공데이터포털](https://www.data.go.kr/data/15101578/openapi.do) | `areaBasedList2`의 `contentid,title,addr1,addr2,mapx,mapy,modifiedtime,contenttypeid` 및 지역 필드 | 법정동 코드 51/170 지역에서 관광지·문화시설을 수집합니다. 동일 이름과 주소 또는 근접 좌표가 확인되면 CSV와 병합해 `locations.json/.csv`로 보냅니다. | 2026-11-19 Windows 로컬 지역기반 조회 검사에서 JSON·XML 각각 HTTP 200, API 코드 0000, 1행 파싱. 검사 응답은 원본 데이터로 저장하지 않았습니다. 이미지 필드는 저장 대상에서 제외했습니다. |
+| 교통시설정보 조회 · 동해시 · [공공데이터포털](https://www.data.go.kr/data/15095898/openapi.do) | `getDonghaeTrafficFacilityInfoList`의 `GRID_ID,GRID_X_AXIS,GRID_Y_AXIS,CRT_YMD,DONG_NM,DONG_CD` 및 격자별 교통 지수 | KOTI-KATEC 100m 격자는 원래 좌표계로 `data/raw/donghae_traffic_grid.json`에 별도 보관합니다. 개별 정류장과 환승시설은 별도 원본에서 수집합니다. | 2026-11-19 Windows 로컬 검사에서 JSON·XML 모두 응답 대기 시간 초과. HTTP 응답을 받지 못해 인증 및 실제 응답 파싱은 미확인입니다. 장소 출력에 반영한 행은 0건입니다. |
+
+## 첨부 수집본 통합
+
+`donghae_public_data_20261119.zip`의 매니페스트에서 입력 JSON 3개의 파일 크기와 SHA-256을 확인했습니다.
+API 스냅샷의 `archive_member`에서 입력 파일명을 추적할 수 있습니다.
+
+| 첨부 파일 | 반영한 범위 | 검증 결과 |
+|---|---|---|
+| `donghae_train_timetables.json` | 2026-11-19 날짜의 동해시 역과 전국 역 사이 직통 구간 | 2,772개 출발·도착역 쌍, 응답에 운행 구간 1,145행. 한 열차가 여러 출발·도착역 구간에 나타날 수 있습니다. |
+| `tago_train_codes.json` | 도시 16개, 전국 역 코드 349개, 첨부에서 동해시로 선별된 역 4개 | 동해역·묵호역에 기존 장소 ID와 TAGO 코드를 연결했습니다. 망상역·추암역은 코드가 확인된 장소로 추가했으며 좌표와 여객 취급 상태는 미확인입니다. |
+| `donghae_tourism.json` | 동해시 지역 코드 51/170의 관광정보 114행 | 콘텐츠 ID 유일성과 지역 코드를 확인하고 기존 장소와 병합했습니다. 유형 8개를 구분했고 공통정보의 소개를 평문으로 보존했습니다. |
+| `donghae_traffic_facilities.json` · `traffic_diagnostics.json` | 교통시설정보 API | 이번 수집 범위에서 제외했습니다. CSV로 확인한 교통거점 3곳은 유지했습니다. |
 
 ## 출처 식별과 재사용
 

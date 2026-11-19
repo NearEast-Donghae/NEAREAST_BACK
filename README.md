@@ -48,11 +48,45 @@ API별 키가 우선하고, 같은 변수의 값은 프로세스 환경변수가
 세 API의 JSON·XML 응답 검사는 아래 명령으로 실행합니다. 요약은 `data/reports/api_connectivity.json`에 저장합니다.
 검사용 응답의 행은 수집 데이터에 포함되지 않습니다.
 
+### Windows VS Code에서 TAGO만 검사
+
+VS Code에서 `NEAREAST` 폴더를 열고 PowerShell 터미널에서 실행합니다.
+가상환경에 HTTPX가 없다면 `.\.venv\Scripts\python.exe -m pip install "httpx>=0.28,<1"`로 설치합니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.check_public_apis --service tago
+```
+
+`data/reports/tago_connectivity.json`에 형식별 HTTP 상태, API 결과 코드, 실제 응답 형식, 파싱한 행 수를 기록합니다.
+JSON과 XML 각각의 `status`가 `parsed`이면 해당 형식의 실제 데이터 행까지 확인한 것입니다.
+서버 응답 전에 연결이 실패하면 HTTP 상태와 API 코드는 `null`입니다.
+
+동해시 교통시설정보에서 응답 대기 시간이 초과되면 `--read-timeout`으로 읽기 제한을 늘려 검사할 수 있습니다.
+연결 수립 제한은 12초이며, 보고서의 `reason`에서 연결 수립과 응답 대기의 시간 초과를 구분합니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.check_public_apis --service donghae --read-timeout 45
+```
+
+### STEP 1 첨부 수집본 가져오기
+
+`donghae_public_data_20261119.zip`에서 TAGO와 TourAPI 결과를 가져온 뒤 기존 CSV와 함께 빌드합니다.
+ZIP 경로는 실제 다운로드 위치에 맞춥니다. 이 작업에는 인터넷 연결이나 새 API 요청이 필요하지 않습니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.import_public_data (Join-Path $env:USERPROFILE 'Downloads\donghae_public_data_20261119.zip')
+.\.venv\Scripts\python.exe -m scripts.build_dataset
+.\.venv\Scripts\python.exe -m scripts.validate_data
+```
+
+첨부에 포함된 시간표 날짜는 2026-11-19입니다. 시각표는 출발·도착역 쌍별 조회 구간으로 저장합니다.
+동해시 교통시설정보 API는 이번 STEP 1 범위에서 제외했습니다. 기존 CSV의 버스·여객선 터미널은 포함합니다.
+
+### 실시간 수집 명령
+
 ```powershell
 git check-ignore -v .env
-.\.venv\Scripts\python -m scripts.check_public_apis
 .\.venv\Scripts\python -m scripts.fetch_tourism
-.\.venv\Scripts\python -m scripts.fetch_transport --dong-name 삼화동
 .\.venv\Scripts\python -m scripts.fetch_train_data cities
 ```
 
@@ -67,18 +101,5 @@ git check-ignore -v .env
 [개인 NEAREAST 저장소](https://github.com/hazel0138/NEAREAST)는 비공개입니다. 이 작업 폴더의 `origin`에 등록되어 있습니다.
 연결과 인증이 가능한 환경에서 `git push -u origin main`을 실행하면 로컬 커밋 이력이 함께 올라갑니다.
 
-팀 저장소가 생기면 개인 `origin`을 보존하면서 팀 URL을 별도 원격으로 연결합니다.
-팀 저장소가 비어 있으면 개인 `main`의 커밋으로 `neareast/step1` 브랜치를 푸시합니다.
-팀 저장소에 이력이 있다면 팀 기본 브랜치에서 작업 브랜치를 만든 후 개인 커밋을 순서대로 가져옵니다.
-
-```text
-git remote add team TEAM_REPOSITORY_URL
-git fetch team
-git log --reverse --oneline main
-git switch -c neareast/step1 team/TEAM_DEFAULT_BRANCH
-git cherry-pick FIRST_COMMIT^..LAST_COMMIT
-git push -u team neareast/step1
-```
-
-위 예시에서 첫 커밋이 루트 커밋이면 부모가 없으므로 `git cherry-pick` 뒤에 가져올 SHA들을 오래된 순서로 붙여 실행합니다.
-팀 브랜치에서 테스트 후 Pull Request를 열고, 팀 저장소가 비어 있으면 팀의 기본 브랜치가 준비된 후 PR을 엽니다.
+새 커밋과 향후 팀 PR에는 [팀 컨벤션](docs/team_conventions.md)을 적용합니다.
+팀 백엔드 통합은 팀 기본 브랜치의 장소·열차 모듈과 데이터 계약을 비교한 뒤 별도 브랜치에서 진행합니다.
