@@ -505,6 +505,38 @@ class UsageRecordTests(unittest.TestCase):
         entries = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertIsInstance(entries[0]["latency_ms"], int)
 
+    def test_failure_reason_is_diagnosable_without_provider_message(self):
+        from openai import OpenAIError
+
+        class FakeAuthError(OpenAIError):
+            status_code = 401
+            code = "invalid_api_key"
+            request_id = "req_123"
+
+        client = MagicMock()
+        client.chat.completions.create.side_effect = FakeAuthError(
+            "Incorrect API key provided: sk-secret-value"
+        )
+        with patch.object(llm, "_client", return_value=client):
+            with self.assertRaises(llm.LLMError) as raised:
+                llm.chat_json(self.settings, [], {}, "first")
+        message = str(raised.exception)
+        for expected in ("FakeAuthError", "status_code=401", "code=invalid_api_key",
+                         "request_id=req_123", f"model={self.settings.chat_model}"):
+            self.assertIn(expected, message)
+        self.assertNotIn("sk-secret-value", message)
+
+    def test_failure_without_status_details_still_names_the_error(self):
+        from openai import OpenAIError
+
+        client = MagicMock()
+        client.chat.completions.create.side_effect = OpenAIError("connection reset")
+        with patch.object(llm, "_client", return_value=client):
+            with self.assertRaises(llm.LLMError) as raised:
+                llm.chat_json(self.settings, [], {}, "first")
+        self.assertEqual(str(raised.exception),
+                         f"chat call failed: OpenAIError model={self.settings.chat_model}")
+
     def test_cut_off_or_invalid_answers_raise(self):
         for content, finish in (("{}", "length"), ("not json", "stop")):
             with self.subTest(finish=finish), patch.object(

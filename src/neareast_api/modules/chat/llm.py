@@ -26,6 +26,18 @@ class LLMError(Exception):
     """The LLM could not produce a usable answer (no key, network, bad output)."""
 
 
+def _describe(exc: Exception, model: str) -> str:
+    """Enough to tell 401 from 429 from a wrong model name on the day, without the
+    provider's message text (it can echo request details)."""
+    parts = [type(exc).__name__]
+    for name in ("status_code", "code", "request_id"):
+        value = getattr(exc, name, None)
+        if value:
+            parts.append(f"{name}={value}")
+    parts.append(f"model={model}")
+    return " ".join(parts)
+
+
 @lru_cache(maxsize=2)
 def _client(api_key: str, timeout: float):
     from openai import OpenAI  # imported on first use, never at module import
@@ -86,7 +98,7 @@ def chat_json(
             **options,
         )
     except OpenAIError as exc:
-        raise LLMError(f"chat call failed: {type(exc).__name__}") from exc
+        raise LLMError(f"chat call failed: {_describe(exc, settings.chat_model)}") from exc
     record_usage(settings, f"chat:{label}", settings.chat_model, response.usage,
                  time.perf_counter() - started)
     choice = response.choices[0]
@@ -105,6 +117,8 @@ def embed_query(settings: Settings, text: str) -> tuple[str, Sequence[float]]:
     try:
         response = client.embeddings.create(model=settings.embedding_model, input=[text])
     except OpenAIError as exc:
-        raise LLMError(f"embedding call failed: {type(exc).__name__}") from exc
+        raise LLMError(
+            f"embedding call failed: {_describe(exc, settings.embedding_model)}"
+        ) from exc
     record_usage(settings, "embedding:query", settings.embedding_model, response.usage)
     return settings.embedding_model, response.data[0].embedding
