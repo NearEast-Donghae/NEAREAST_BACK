@@ -1,6 +1,7 @@
 """The place catalog (data/places.json): one list of ids for map markers, knowledge
 documents, the timetable and the chat. No HTTP here."""
 
+import datetime as dt
 import json
 from dataclasses import dataclass
 from functools import lru_cache
@@ -8,6 +9,8 @@ from pathlib import Path
 
 PLACES_FILE = Path("data") / "places.json"
 KINDS = ("station", "poi", "heritage", "spot")
+MARKET_ID = "poi_bukpyeong_market"
+MARKET_DAY_ENDINGS = (3, 8)  # 북평민속시장: days of the month ending in 3 or 8
 
 
 class PlacesError(Exception):
@@ -53,3 +56,11 @@ def all_places(content_dir: str) -> dict[str, Place]:
 
 def get(content_dir: str, place_id: str) -> Place | None:
     return all_places(content_dir).get(place_id)
+
+
+def market_day(date: dt.date) -> tuple[bool, dt.date]:
+    """(is `date` a market day, the nearest market day on or after it)."""
+    day = date
+    while day.day % 10 not in MARKET_DAY_ENDINGS:
+        day += dt.timedelta(days=1)
+    return day == date, day
