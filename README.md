@@ -96,6 +96,21 @@ git check-ignore -v .env
 반대 방향은 출발·도착 ID를 바꿔 조회합니다. 최신 스냅샷 반영을 위해 데이터 생성 명령을 다시 실행합니다.
 `--max-calls`는 기본 10회이며 TAGO에서는 하위 명령보다 앞에 씁니다.
 
+## STEP 2 도보 경로와 이동 시간 행렬
+
+프로젝트의 `.env`에 `TMAP_API_KEY`를 설정한 뒤 두 장소 ID로 도보 경로를 한 번 조회할 수 있습니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.check_walking_route place-7006521f-07d7-5efc-89d8-fa60a05436b6 place-36966e99-6e7a-5779-8f60-921d77fdbc9c
+```
+
+`loadRoutePlaces()`는 STEP 1의 `routing_ready`를 사용합니다. 좌표 누락·미검증 장소는 누락 목록에 기록합니다.
+`buildTravelTimeMatrix()`는 입력으로 받은 경로 결과를 방향별 초 단위 행렬로 반환합니다. 대각선은 0이며 미확보 방향은 `null`입니다.
+`RouteResult`는 거리(m), 시간(초), WGS84 경로 선분(경도, 위도)과 대중교통 구간을 표현할 수 있습니다.
+ODsay 서버 인증과 응답 변환은 서버 키 확보 후 구현합니다.
+
+TMAP 응답은 메모리에서 처리하며 조회 명령은 표준 출력으로 반환합니다. [보행자 경로안내 명세](https://tmap-skopenapi.readme.io/reference/보행자-경로안내) · [TMAP API 이용약관](https://tmapapi.tmapmobility.com/terms.html)
+
 ## GitHub
 
 [개인 NEAREAST 저장소](https://github.com/hazel0138/NEAREAST)는 비공개입니다. 이 작업 폴더의 `origin`에 등록되어 있습니다.
