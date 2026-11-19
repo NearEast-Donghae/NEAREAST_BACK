@@ -112,6 +112,7 @@ class ResolvedContext:
     # and the screen name none ("그럼 오후 열차는?").
     recalled: retrieval.Place | None = None
     unknown_already_told: bool = False  # an earlier reply already carried the notice
+    first_turn: bool = True  # no earlier turns: the only time the persona greets
 
     @property
     def known_ids(self) -> list[str]:
@@ -195,6 +196,7 @@ def _resolve(
         context, content, focused, tuple(pins), tuple(unknown),
         content.place_in_text(message), message, recalled,
         any(t.role == "assistant" and UNKNOWN_MARK in t.content for t in history),
+        not history,
     )
 
 
@@ -611,8 +613,9 @@ def _mock_draft(message: str, context: ResolvedContext) -> Draft:
     if _has(message, _PROPOSAL):
         return _mock_nearby(message, context)
     if _has(message, _SMALLTALK):
+        hint = "지도에서 역이나 장소를 열어 두고 물어보면 그 기준으로 답할게요."
         return Draft(
-            reply=f"{prompts.GREETING} 지도에서 역이나 장소를 열어 두고 물어보면 그 기준으로 답할게요.",
+            reply=f"{prompts.GREETING} {hint}" if context.first_turn else f"네, 좋아요. {hint}",
             intent="smalltalk",
             chips=["동해역 열차 리듬", "근처에 같이 볼 곳"],
         )

@@ -81,12 +81,18 @@ def run_scenario(client, scenario, mode=None):
         return body
 
     try:
-        body = ask(scenario["request"])
+        first = scenario["request"]
+        history = list(first.get("history", []))
+        body = ask(first)
         for index in scenario.get("chain", []):
             if len(body["chips"]) <= index:
                 failures.append(f"Q2: no chip #{index} to continue")
                 break
-            body = ask({"message": body["chips"][index], "context": scenario["request"]["context"]})
+            # Like the real client: tapping a chip sends it with the conversation so far.
+            history += [{"role": "user", "content": transcript[-1][0]},
+                        {"role": "assistant", "content": body["reply"]}]
+            body = ask({"message": body["chips"][index], "context": first["context"],
+                        "history": list(history)})
             if expect.get("each_step_has_chips"):
                 if not body["chips"]:
                     failures.append("Q2: chain dead-ends without chips")
@@ -144,7 +150,8 @@ class ChatScenarioTests(unittest.TestCase):
         counts = {}
         for scenario in SCENARIOS:
             counts[scenario["group"]] = counts.get(scenario["group"], 0) + 1
-        for group, minimum in {"Q1": 10, "Q3": 10, "Q4": 20, "Q5": 5, "Q6": 5, "P": 5}.items():
+        targets = {"Q1": 10, "Q3": 10, "Q4": 20, "Q5": 5, "Q6": 5, "P": 5, "M": 5}
+        for group, minimum in targets.items():
             self.assertGreaterEqual(counts.get(group, 0), minimum, group)
         self.assertEqual(len({s["id"] for s in SCENARIOS}), len(SCENARIOS), "duplicate ids")
 
