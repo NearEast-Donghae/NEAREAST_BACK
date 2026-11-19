@@ -78,6 +78,8 @@ def upgrade():
     with op.batch_alter_table("train_services") as table:
         table.create_check_constraint(CONSTRAINT, RULE)
     renumber(RENUMBERED)
+    # The seed file runs in revision 0002, before the source column exists, so it can only
+    # carry the type. The source is written here for new and existing databases alike.
     for trainNumber, name in CONFIRMED.items():
         op.execute(
             sa.text(

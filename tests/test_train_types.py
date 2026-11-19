@@ -128,6 +128,7 @@ class KeptAcrossImportsTests(_Seeded):
 
     def test_collecting_the_timetable_again_keeps_confirmed_types_and_their_source(self):
         self.clear("1864")
+        self.confirm("1861", "누리로")  # as the revision leaves it: type with its source
         before = {run.trainNumber: (run.trainType, run.trainTypeSource)
                   for run in self.session.scalars(select(TrainRunEntity))}
         self.assertEqual(sum(1 for kind, _ in before.values() if kind), 62)
@@ -137,6 +138,7 @@ class KeptAcrossImportsTests(_Seeded):
                  for run in self.session.scalars(select(TrainRunEntity))}
         self.assertEqual(after, before)
         self.assertEqual(after["1861"], ("누리로", SOURCE))
+        self.assertEqual(after["841"][0], "KTX-이음")
         self.assertEqual(after["1864"], (None, None))  # not confirmed: still empty
 
     def test_the_renumbered_train_stays_1804_when_collected_again(self):
@@ -165,7 +167,7 @@ class KeptAcrossImportsTests(_Seeded):
         IngestionService.importTimetable(self.session, snapshot)
         self.session.expire_all()
         newer = self.session.get(TrainRunEntity, "2026-11-28:1861")
-        self.assertEqual((newer.trainType, newer.trainTypeSource), ("누리로", SOURCE))
+        self.assertEqual(newer.trainType, "누리로")
         self.assertEqual(len(ContentRepository.timetable().types), 63)  # the latest snapshot
 
 
@@ -322,9 +324,46 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(len(rows), 63)
         seeded = {row.train_number: row.train_type for row in rows if row.train_type}
         self.assertEqual(seeded, self.migration.CONFIRMED)
-        for row in rows:
-            self.assertEqual(row.train_type_source, SOURCE if row.train_type else None)
-        self.assertEqual(json.dumps(sorted(seeded)), json.dumps(sorted(self.migration.CONFIRMED)))
+
+    def test_the_seed_runs_on_the_schema_of_the_revision_that_loads_it(self):
+        """The seed is executed by revision 0002. It must not use anything a later revision
+        adds (found on a fresh PostgreSQL: a column added here broke `alembic upgrade head`)."""
+        engine = create_engine("sqlite://")
+        self.addCleanup(engine.dispose)
+        path = ROOT / "alembic" / "versions" / "0001_service_storage.py"
+        spec = importlib.util.spec_from_file_location("first", path)
+        first = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(first)
+        with engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)):
+                first.upgrade()
+        with engine.connect() as connection:
+            connection.connection.driver_connection.executescript(
+                (ROOT / "alembic" / "seed" / "0002_reference.sql").read_text("utf-8"))
+            connection.commit()
+            self.assertEqual(connection.execute(text(
+                "SELECT count(*) FROM train_services")).scalar(), 63)
+
+    def test_upgrade_writes_the_source_for_every_seeded_type(self):
+        engine = create_engine("sqlite://")
+        self.addCleanup(engine.dispose)
+        metadata.create_all(engine)
+        with engine.connect() as connection:
+            connection.connection.driver_connection.executescript(
+                (ROOT / "alembic" / "seed" / "0002_reference.sql").read_text("utf-8"))
+            connection.execute(text("UPDATE train_services SET train_type_source = NULL"))
+            connection.commit()
+        with engine.begin() as connection:  # the data part of the revision
+            with Operations.context(MigrationContext.configure(connection)):
+                for number, name in self.migration.CONFIRMED.items():
+                    connection.execute(text(
+                        "UPDATE train_services SET train_type = :name, train_type_source = :source "
+                        "WHERE train_number = :number"),
+                        {"name": name, "source": SOURCE, "number": number})
+        with engine.connect() as connection:
+            self.assertEqual(connection.execute(text(
+                "SELECT count(*) FROM train_services WHERE train_type_source = :s"),
+                {"s": SOURCE}).scalar(), 63)
 
 
 if __name__ == "__main__":
