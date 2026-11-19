@@ -22,19 +22,19 @@ from zoneinfo import ZoneInfo
 
 from neareast_api.core.config import Settings
 from neareast_api.modules.chat import llm, prompts, retrieval, tools
-from neareast_api.modules.recommend import service as recommend_service
-from neareast_api.modules.trains import service as timetable_service
 from neareast_api.modules.chat.schemas import (
     Certainty,
-    PersonaLoading,
-    PersonaResponse,
     ChatContext,
     ChatRequest,
     ChatResponse,
     Intent,
+    PersonaLoading,
+    PersonaResponse,
     Proposal,
     ToolName,
 )
+from neareast_api.modules.recommend import service as recommend_service
+from neareast_api.modules.trains import service as timetable_service
 
 logger = logging.getLogger(__name__)
 
@@ -309,6 +309,62 @@ def _passing_is_relevant(
 
 
 MARKET_TALK = ("장날", "장이 서", "장이 열", "장 서", "장이 안")
+HAPYEONG_DOC = "safety_hapyeong_crossing"
+
+
+def _asked_docs(context: ResolvedContext) -> list[str]:
+    """Documents the question is plainly about, whatever the responder cites: the
+    Hapyeong crossing case, and the market for a market-day question. They are given to
+    the model and always listed as sources."""
+    message, docs = context.message, context.content.docs
+    asked = []
+    if "하평" in message:
+        asked.append(HAPYEONG_DOC)
+    about_market = context.mentioned is not None and context.mentioned.id == tools.MARKET_ID
+    if about_market or any(word in message for word in MARKET_TALK):
+        asked.append(tools.MARKET_ID)
+    return [doc_id for doc_id in asked if doc_id in docs]
+
+
+# --- walking time between two places: computed here, never left to the responder ---
+
+WALK_WORDS = ("걸어", "걸으", "도보", "걷")
+# ...and asking how long or whether: "걸어갈 만한 데 있어?" is a nearby question, not this.
+WALK_ASK_WORDS = ("얼마나", "몇 분", "걸려", "걸리", "갈 수 있", "가까", "멀어", "멀까", "먼가")
+WALK_ESTIMATE = ("{a}에서 {b}까지는 걸어서 약 {minutes}분이에요. 직선거리에 1.3을 곱해 어림한 값이라 "
+                 "실제 길에 따라 달라질 수 있어요.")
+WALK_NO_POSITION = "{a}에서 {b}까지는 아직 위치 정보가 없어 도보 시간을 계산할 수 없어요."
+WALK_TOO_FAR = "{a}에서 {b}까지는 걸어가기에는 멀어요. 열차나 버스·택시를 권해요."
+
+
+def _walk_pair(context: ResolvedContext) -> tuple[retrieval.Place, retrieval.Place] | None:
+    """(from, to) when the message asks how long a walk between two places takes: two
+    places named in that order, or one named and "here" (the open marker or first pin)."""
+    message = context.message
+    if not (any(word in message for word in WALK_WORDS)
+            and any(word in message for word in WALK_ASK_WORDS)):
+        return None
+    named = context.content.places_in_text(message)
+    if len(named) >= 2:
+        return named[0], named[1]
+    here = context.anchor
+    if len(named) == 1 and here is not None and here != named[0]:
+        return here, named[0]
+    return None
+
+
+def _walk_draft(a: retrieval.Place, b: retrieval.Place) -> Draft:
+    """The whole answer is written from the computed result, so no minutes a responder
+    made up can reach the user. Coordinates arriving in the catalog switch the estimate
+    on; nothing here needs to change."""
+    walk = recommend_service.walk_between(a, b)
+    template = {None: WALK_ESTIMATE, "no_coordinates": WALK_NO_POSITION,
+                "too_far": WALK_TOO_FAR}[walk.reason]
+    reply = template.format(a=a.name, b=b.name, minutes=walk.minutes)
+    chips = [f"{p.name} 열차 리듬" for p in (a, b) if p.kind == "station"][:1]
+    chips += [f"{b.name} 근처", f"{a.name} 근처"]  # ones that lead nowhere are dropped later
+    return Draft(reply=reply, intent="proposal", chips=chips, tool_used="walk_time",
+                 tool_place=b.id, evidence=reply)
 
 
 def market_day_sentence(date: dt.date) -> str:
@@ -390,6 +446,8 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
 
     reply = _clip(draft.reply)
     sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
+    if draft.intent != "smalltalk" and draft.tool_used != "walk_time":
+        sources += [doc_id for doc_id in _asked_docs(context) if doc_id not in sources]
     chips = list(draft.chips)
 
     # Times only from tools or cited documents: every clock time and train count in the
@@ -437,6 +495,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     # Passing stations: no boarding, observation only, with the rule as a source.
     subject = _subject(draft, context)
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
+            and draft.tool_used != "walk_time"  # a walk there is not about boarding
             and _passing_is_relevant(draft, context, subject, sources)):
         if "관찰" not in reply:  # any wording of "observe only" is enough
             reply = f"{reply.rstrip()} {PASSING_NOTE}"
@@ -533,6 +592,10 @@ def _llm_draft(
     if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
             and PASSING_DOC in content.docs and all(d.id != PASSING_DOC for d in docs)):
         docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[PASSING_DOC]]
+    # Documents the question is plainly about are always in front of the model.
+    for doc_id in _asked_docs(context):
+        if all(d.id != doc_id for d in docs):
+            docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[doc_id]]
 
     raw = context.raw
     static = prompts.build_static(content)
@@ -559,6 +622,16 @@ def _llm_draft(
             return llm.chat_json(settings, messages, prompts.DRAFT_SCHEMA, label, deadline)
 
     first = call(None, "first")
+    # Walking time: asked in words the server knows, or by the model's own tool request.
+    risky = any(word in request.message for word in RISK_WORDS)
+    pair = None if risky else _walk_pair(context)
+    asked = first.get("tool_request") or {}
+    if pair is None and not risky and asked.get("name") == "walk_time":
+        ends = [content.place(asked.get(key) or "") for key in ("station_id", "place_id")]
+        if None not in ends and ends[0] != ends[1]:
+            pair = (ends[0], ends[1])
+    if pair is not None:
+        return _walk_draft(*pair)
     run = None
     if first.get("tool_request"):
         with stages.timed("tool"):
@@ -777,6 +850,8 @@ def _has(text: str, words: tuple[str, ...]) -> bool:
 def _mock_draft(message: str, context: ResolvedContext) -> Draft:
     if _has(message, _SAFETY):
         return _mock_safety(message, context)
+    if (pair := _walk_pair(context)) is not None:
+        return _walk_draft(*pair)
     if _has(message, _TRAIN):
         return _mock_train(message, context)
     if _has(message, _KEEP_EMPTY):

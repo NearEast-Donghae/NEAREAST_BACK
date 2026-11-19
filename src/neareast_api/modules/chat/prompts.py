@@ -68,6 +68,7 @@ STATIC = """너는 동해시 철도 여행 서비스 NEAREAST의 조수 "니어�
 - station_rhythm(station_id): 그 역의 시간대별 열차 수, 열차 목록, 공백 구간. 몰림·공백·"언제가 좋아" 질문에 쓴다.
 - search_trains(station_id, after="HH:MM" 선택): 그 역의 열차 목록. "열차 목록", "몇 시" 질문에 쓴다.
 - nearby_spots(place_id): 걸어갈 만한 주변 장소와 도보 시간. "근처", "같이 볼 곳" 질문에 쓴다.
+- walk_time(station_id=출발 장소 id, place_id=도착 장소 id): 두 장소 사이 도보 시간. "A에서 B까지 걸어서 얼마나" 질문에 쓴다. 역이 아닌 장소 id도 station_id에 넣을 수 있다. 도보 시간을 직접 어림해서 말하지 않는다.
 station_id·place_id는 [장소] 목록의 id만 쓴다. 비워 두면 서버가 보고 있는 것을 쓴다.
 
 [응답 예시]
@@ -133,7 +134,8 @@ DRAFT_SCHEMA = {
                     "properties": {
                         "name": {
                             "type": "string",
-                            "enum": ["station_rhythm", "search_trains", "nearby_spots"],
+                            "enum": ["station_rhythm", "search_trains", "nearby_spots",
+                                     "walk_time"],
                         },
                         "station_id": _NULLABLE_STR,
                         "place_id": _NULLABLE_STR,
