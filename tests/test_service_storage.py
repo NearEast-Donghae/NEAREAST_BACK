@@ -259,7 +259,7 @@ class ServiceStorageTests(unittest.TestCase):
             ["station_mukho"],
         )
         self.assertEqual(
-            self.client.post(f"/api/v1/planning-requests/{requestId}/generations").status_code, 503
+            self.client.post(f"/api/v1/planning-requests/{requestId}/generations").status_code, 422
         )
 
     def test_catalog_and_legacy_chat_contract_use_database(self):

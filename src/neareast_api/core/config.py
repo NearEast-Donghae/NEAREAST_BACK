@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    tmapApiKey: SecretStr = SecretStr("")
     docs_enabled: bool = True
     sessionCookieName: str = "neareast_session"
     sessionLifetimeHours: int = Field(default=168, ge=1, le=720)
@@ -58,4 +59,6 @@ class Settings(BaseModel):
                 values[name] = value
         if not values.get("openai_api_key") and os.environ.get("OPENAI_API_KEY"):
             values["openai_api_key"] = os.environ["OPENAI_API_KEY"]
+        if not values.get("tmapApiKey") and os.environ.get("TMAP_API_KEY"):
+            values["tmapApiKey"] = os.environ["TMAP_API_KEY"]
         return cls.model_validate(values)

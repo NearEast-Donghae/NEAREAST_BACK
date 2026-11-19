@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from neareast_api.db.entities import PlaceEntity, SavedPlaceEntity, SavedTrainEntity, currentTime
 from neareast_api.modules.chat.service import SavedSelection
 from neareast_api.modules.itineraries.service import validatePlaceIds
+from neareast_api.modules.places.identity import canonicalPlaceId
 from neareast_api.modules.saved.dto import (
     SavedDto,
     SavedPlaceCreateDto,
@@ -82,6 +83,7 @@ class SavedService:
         session: Session, userId: str, body: SavedPlaceCreateDto
     ) -> tuple[SavedPlaceEntity, bool]:
         """Returns the item and whether it was created now (an existing one is returned as is)."""
+        body = body.model_copy(update={"placeId": canonicalPlaceId(session, body.placeId)})
         same = select(SavedPlaceEntity).where(
             SavedPlaceEntity.userId == userId, SavedPlaceEntity.placeId == body.placeId
         )
@@ -103,6 +105,7 @@ class SavedService:
     def saveTrain(
         session: Session, userId: str, body: SavedTrainCreateDto
     ) -> tuple[SavedTrainEntity, bool]:
+        body = body.model_copy(update={"stationId": canonicalPlaceId(session, body.stationId)})
         trainNo = trainNumber(body.trainNo)
         same = select(SavedTrainEntity).where(
             SavedTrainEntity.userId == userId,

@@ -41,12 +41,22 @@ def list_places(
     responses={404: {"description": "Unknown place id"}, **UNAVAILABLE},
 )
 def get_place(place_id: str, request: Request) -> PlaceDetail:
-    place = _catalog(request).get(place_id)
+    catalog = _catalog(request)
+    from neareast_api.db.session import contentSession
+    from neareast_api.modules.places.identity import canonicalPlaceId
+    try:
+        place_id = canonicalPlaceId(contentSession(), place_id)
+    except HTTPException:
+        raise HTTPException(404, "place not found") from None
+    place = catalog.get(place_id)
     if place is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "place not found")
     content_dir = request.app.state.settings.content_dir
     try:
-        doc = retrieval.load_content(content_dir).docs.get(place.id)
+        documents = retrieval.load_content(content_dir).docs
+        doc = documents.get(place.id) or next(
+            (entry for entry in documents.values() if place.id in entry.places), None
+        )
     except retrieval.ContentError:
         doc = None  # the catalog still answers without descriptions
     timetable = trains.load_or_none(content_dir)
