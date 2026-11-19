@@ -61,8 +61,9 @@ def invariant_failures(request, body):
     return failures
 
 
-def run_scenario(client, scenario):
-    """Returns (failures, transcript); transcript items are (message, body, seconds)."""
+def run_scenario(client, scenario, mode=None):
+    """Returns (failures, transcript); transcript items are (message, body, seconds).
+    `mode` (e.g. "llm") fails answers that came from another responder, such as a fallback."""
     expect = scenario["expect"]
     failures, transcript = [], []
 
@@ -74,6 +75,8 @@ def run_scenario(client, scenario):
             raise AssertionError(f"HTTP {response.status_code}: {response.text}")
         body = response.json()
         transcript.append((request["message"], body, elapsed))
+        if mode is not None and body["mode"] != mode:
+            failures.append(f"answered in {body['mode']} mode, expected {mode}")
         failures.extend(invariant_failures(request, body))
         return body
 

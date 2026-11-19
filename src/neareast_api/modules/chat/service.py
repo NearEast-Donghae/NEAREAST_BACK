@@ -134,13 +134,14 @@ def answer(request: ChatRequest, settings: Settings) -> ChatResponse:
         raise ChatUnavailableError from None
     context = _resolve(request.context, content, request.message)
     if settings.chat_mock:
-        return _finalize(_mock_draft(request.message, context), context)
+        return _finalize(_mock_draft(request.message, context), context, "mock")
     try:
-        draft = _llm_draft(request, context, settings)
+        return _finalize(_llm_draft(request, context, settings), context, "llm")
     except llm.LLMError as exc:
-        logger.warning("llm responder failed: %s", exc)
-        raise ChatUnavailableError from None
-    return _finalize(draft, context)
+        logger.warning("llm responder failed, answering with the built-in responder: %s", exc)
+    except Exception:  # a demo must not die on an unexpected model/tool error
+        logger.exception("llm responder crashed, answering with the built-in responder")
+    return _finalize(_mock_draft(request.message, context), context, "fallback")
 
 
 def _resolve(
@@ -212,7 +213,7 @@ def _has_nearby(place: retrieval.Place) -> bool:
     return bool(tools.nearby_spots(place.id, walk_minutes=10**6))
 
 
-def _finalize(draft: Draft, context: ResolvedContext) -> ChatResponse:
+def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> ChatResponse:
     """Every rule here holds no matter what the responder (mock or LLM) produced."""
     raw = context.raw
     content = context.content
@@ -309,6 +310,7 @@ def _finalize(draft: Draft, context: ResolvedContext) -> ChatResponse:
         proposals=proposals,
         sources=sources,
         tool_used=draft.tool_used,
+        mode=mode,
     )
 
 

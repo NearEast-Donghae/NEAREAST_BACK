@@ -113,7 +113,8 @@ NearEast_Backend/
 
 화면 맥락(열어 둔 마커, 내 핀, 날짜)을 함께 보내면 답변·다음 행동 칩·제안을 돌려줍니다.
 기본은 **mock 모드**(`NEAREAST_CHAT_MOCK=true`)라 API 키 없이 내장 예시 데이터로 답합니다.
-열차 시각이 담긴 답에는 `(예시 데이터)`가 붙습니다. `false`면 OpenAI로 답하며, 키가 없거나 호출이 실패하면 503입니다.
+열차 시각이 담긴 답에는 `(예시 데이터)`가 붙습니다. `false`면 OpenAI로 답하며, 키가 없거나 호출이 실패하면
+내장 응답기로 대신 답합니다(`mode: "fallback"`). 503은 장소·문서 파일을 읽을 수 없을 때만 납니다.
 
 ```jsonc
 // 요청
@@ -136,9 +137,13 @@ NearEast_Backend/
   "proposals": [{"type": "add", "target": "poi_bukpyeong_market", "reason": "...",
                  "needs_confirm": true, "certainty": "timetable"}],
   "sources": [],                     // 답의 근거 문서 id
-  "tool_used": "station_rhythm"      // null 가능
+  "tool_used": "station_rhythm",     // null 가능
+  "mode": "llm"                      // llm | fallback | mock
 }
 ```
+
+- `mode`: `llm`은 모델이 답한 것, `fallback`은 모델 호출이 실패해 내장 응답기가 대신 답한 것,
+  `mock`은 `NEAREAST_CHAT_MOCK=true`입니다. 모델이 실패해도 챗봇은 503 대신 `fallback`으로 답합니다.
 
 - `context`, `history`는 생략할 수 있습니다. 정의되지 않은 필드는 오타로 보고 **422**로 거부합니다.
 - 모르는 `focused`/`pins` id는 오류가 아니라 **200**입니다. 그 id는 무시하고 답에 모른다고 밝힙니다.

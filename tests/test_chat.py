@@ -40,8 +40,9 @@ class ChatHttpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(
-            set(body), {"reply", "intent", "chips", "proposals", "sources", "tool_used"}
+            set(body), {"reply", "intent", "chips", "proposals", "sources", "tool_used", "mode"}
         )
+        self.assertEqual(body["mode"], "mock")
         self.assertEqual(body["intent"], "train_lookup")
         self.assertEqual(body["tool_used"], "station_rhythm")
         self.assertLessEqual(len(body["chips"]), 3)
@@ -116,13 +117,14 @@ class ChatHttpTests(unittest.TestCase):
         self.assertIn("권하지 않아요", body["reply"])
         self.assertIn("공개된 장소", body["reply"])
 
-    def test_llm_mode_without_key_is_503(self):
+    def test_llm_mode_without_key_falls_back_to_builtin_answers(self):
         # No key: must fail fast with 503 and never reach the network.
         with patch.dict(os.environ, {"NEAREAST_CHAT_MOCK": "false", "NEAREAST_OPENAI_API_KEY": ""}):
             client = TestClient(create_app())
-        response = client.post(URL, json={"message": "안녕"})
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json(), {"detail": "chat unavailable"})
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING"):
+            response = client.post(URL, json={"message": "안녕"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["mode"], "fallback")
 
     def test_persona_gives_name_greeting_and_loading_texts(self):
         response = self.client.get("/api/v1/chat/persona")

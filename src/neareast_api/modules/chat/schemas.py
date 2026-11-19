@@ -56,6 +56,9 @@ class ChatResponse(_Strict):
     proposals: list[Proposal] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)
     tool_used: ToolName | None = None
+    # llm: answered by the model / fallback: the model failed, built-in responder answered
+    # mock: NEAREAST_CHAT_MOCK=true (no model configured)
+    mode: Literal["llm", "fallback", "mock"]
 
 
 class ChatUnavailable(_Strict):

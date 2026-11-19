@@ -26,7 +26,7 @@ def get_persona() -> PersonaResponse:
     "/messages",
     response_model=ChatResponse,
     summary="Ask the assistant with the current map context",
-    responses={503: {"model": ChatUnavailable, "description": "LLM or tool unavailable"}},
+    responses={503: {"model": ChatUnavailable, "description": "Chat content unavailable"}},
 )
 def post_message(body: ChatRequest, request: Request) -> ChatResponse:
     # Synchronous handler: FastAPI runs it in the thread pool, so the blocking

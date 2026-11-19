@@ -279,10 +279,29 @@ class LLMResponderTests(unittest.TestCase):
         self.assertIsNone(response.json()["tool_used"])
         self.assertIn("기준 역이 없어요", sent(chat, 1)[-1]["content"])
 
-    def test_llm_failure_is_503(self):
-        response, _ = self.ask([llm.LLMError("timeout")])
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json(), {"detail": "chat unavailable"})
+    def test_llm_failure_falls_back_to_builtin_responder(self):
+        for error in (llm.LLMError("timeout"), RuntimeError("unexpected")):
+            with self.subTest(type(error).__name__), self.assertLogs(
+                "neareast_api.modules.chat.service", "WARNING"
+            ):
+                response, _ = self.ask([error], message="열차 언제 몰려?", focused="station_donghae")
+            body = response.json()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(body["mode"], "fallback")
+            self.assertEqual(body["tool_used"], "station_rhythm")  # a real, rule-checked answer
+
+    def test_second_call_failure_also_falls_back(self):
+        tool = {"name": "station_rhythm", "station_id": "station_donghae", "place_id": None,
+                "after": None}
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING"):
+            response, _ = self.ask([draft(intent="train_lookup", tool=tool), llm.LLMError("429")],
+                                   message="열차 언제 몰려?", focused="station_donghae")
+        self.assertEqual(response.json()["mode"], "fallback")
+
+    def test_successful_model_answer_is_marked_llm(self):
+        response, chat = self.ask([draft("안녕하세요.", intent="smalltalk")])
+        self.assertEqual(response.json()["mode"], "llm")
+        self.assertEqual(chat.call_count, 1)
 
     def test_history_is_sent_in_order(self):
         with patch.object(llm, "chat_json", return_value=draft()) as chat:

@@ -138,7 +138,8 @@ def main(argv: list[str] | None = None) -> int:
     latencies: list[float] = []
     print(f"== {label} · {len(scenarios)} scenarios ==")
     for scenario in scenarios:
-        failures, transcript = module.run_scenario(client, scenario)
+        # mode="llm": a silent fallback answer must not count as a model pass
+        failures, transcript = module.run_scenario(client, scenario, mode="llm")
         latencies += [seconds for _, _, seconds in transcript]
         by_group[scenario["group"]].append(not failures)
         if failures:
