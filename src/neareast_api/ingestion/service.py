@@ -15,6 +15,22 @@ from neareast_api.db.entities import (
 from neareast_api.modules.chat.retrieval import EMBEDDING_DIMENSIONS, Doc, embedding_text
 from neareast_api.modules.places.service import Place
 
+# Train numbers the collected records carry that differ from the number shown for the
+# target date: collected number -> (number to store, why). Applied on every import, so
+# collecting the timetable again does not bring the old number back.
+NUMBER_OVERRIDES = {"1814": ("1804", "11/21 레일블루 기준, 3주 기록은 1814")}
+
+
+def applyNumberOverrides(trains: list[dict]) -> list[dict]:
+    present = {train["no"] for train in trains}
+    renamed = []
+    for train in trains:
+        number, note = NUMBER_OVERRIDES.get(train["no"], (None, None))
+        if number is not None and number not in present:
+            train = {**train, "no": number, "number_note": note}
+        renamed.append(train)
+    return renamed
+
 
 class IngestionService:
     @staticmethod
@@ -115,7 +131,7 @@ class IngestionService:
             )
         )
         session.flush()
-        for train in snapshot["trains"]:
+        for train in applyNumberOverrides(snapshot["trains"]):
             serviceId = f"{snapshotId}:{train['no']}"
             session.add(
                 TrainRunEntity(

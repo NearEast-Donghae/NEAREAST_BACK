@@ -27,7 +27,7 @@ from neareast_api.modules.trains import schemas, service
 
 ROOT = Path(__file__).resolve().parents[1]
 API = "/api/v1"
-ALLOWED = ("KTX-이음", "ITX-마음", "ITX-새마을", "누리로", "무궁화호")
+ALLOWED = ("KTX-이음", "ITX-마음", "ITX-새마을", "새마을호", "누리로", "무궁화호")
 SOURCE = "레일블루 화면에서 수동 확인, 2026-11-20"
 
 
@@ -56,7 +56,7 @@ class AllowedValuesTests(unittest.TestCase):
                 session.commit()
             run.trainType = None  # and none at all is fine
             session.commit()
-            for name in ("무궁화", "KTX", "새마을", "", "누리로 "):
+            for name in ("무궁화", "KTX", "새마을", "ITX-청춘", "", "누리로 "):
                 with self.subTest(name):
                     run.trainType = name
                     with self.assertRaises(IntegrityError):
@@ -78,7 +78,7 @@ class AllowedValuesTests(unittest.TestCase):
         self.assertEqual(accepted.status_code, 201, accepted.text)
         self.assertEqual(accepted.json()["conditions"]["preferredTrainTypes"], list(ALLOWED))
         self.assertEqual(create([]).status_code, 201)
-        for types in (["무궁화"], ["KTX"], ["누리로", "새마을호"], ["ktx-이음"]):
+        for types in (["무궁화"], ["KTX"], ["누리로", "새마을"], ["ktx-이음"]):
             with self.subTest(types=types):
                 self.assertEqual(create(types).status_code, 422)
 
@@ -110,47 +110,88 @@ class _Seeded(unittest.TestCase):
 
 
 class KeptAcrossImportsTests(_Seeded):
-    def test_collecting_the_timetable_again_keeps_confirmed_types_and_their_source(self):
-        self.confirm("1861", "누리로")
-        self.confirm("841", "KTX-이음")
+    def clear(self, number):
+        run = self.session.scalar(
+            select(TrainRunEntity).where(TrainRunEntity.trainNumber == number))
+        run.trainType = run.trainTypeSource = None
+        self.session.commit()
+
+    def collected(self):
+        """The timetable as the collector builds it from the records: the 17:20 train to
+        부전 comes as 1814 there."""
         snapshot = self.snapshot()
-        IngestionService.importTimetable(self.session, snapshot)  # same day, collected again
+        for train in snapshot["trains"]:
+            if train["no"] == "1804":
+                train["no"] = "1814"
+                train.pop("number_note")
+        return snapshot
+
+    def test_collecting_the_timetable_again_keeps_confirmed_types_and_their_source(self):
+        self.clear("1864")
+        before = {run.trainNumber: (run.trainType, run.trainTypeSource)
+                  for run in self.session.scalars(select(TrainRunEntity))}
+        self.assertEqual(sum(1 for kind, _ in before.values() if kind), 62)
+        IngestionService.importTimetable(self.session, self.collected())  # same day, again
         self.session.expire_all()
-        runs = {run.trainNumber: run for run in self.session.scalars(select(TrainRunEntity))}
-        self.assertEqual(len(runs), 63)
-        self.assertEqual((runs["1861"].trainType, runs["1861"].trainTypeSource), ("누리로", SOURCE))
-        self.assertEqual((runs["841"].trainType, runs["841"].trainTypeSource), ("KTX-이음", SOURCE))
-        self.assertIsNone(runs["1864"].trainType)  # never confirmed: still empty
-        self.assertIsNone(runs["1864"].trainTypeSource)
+        after = {run.trainNumber: (run.trainType, run.trainTypeSource)
+                 for run in self.session.scalars(select(TrainRunEntity))}
+        self.assertEqual(after, before)
+        self.assertEqual(after["1861"], ("누리로", SOURCE))
+        self.assertEqual(after["1864"], (None, None))  # not confirmed: still empty
+
+    def test_the_renumbered_train_stays_1804_when_collected_again(self):
+        IngestionService.importTimetable(self.session, self.collected())
+        self.session.expire_all()
+        numbers = {run.trainNumber: run for run in self.session.scalars(select(TrainRunEntity))}
+        self.assertNotIn("1814", numbers)
+        self.assertEqual(numbers["1804"].trainType, "ITX-마음")
+        self.assertEqual(numbers["1804"].details["number_note"],
+                         "11/21 레일블루 기준, 3주 기록은 1814")
+        self.assertEqual(self.client.get(API + "/trains/1804").json()["destination"], "부전")
+        self.assertEqual(self.client.get(API + "/trains/1814").status_code, 404)
+
+    def test_a_record_that_already_has_the_new_number_is_not_renamed_onto_it(self):
+        snapshot = self.collected()
+        twin = dict(next(t for t in snapshot["trains"] if t["no"] == "1814"), no="1804")
+        snapshot["trains"].append(twin)
+        IngestionService.importTimetable(self.session, snapshot)
+        self.session.expire_all()
+        numbers = {run.trainNumber for run in self.session.scalars(select(TrainRunEntity))}
+        self.assertTrue({"1804", "1814"} <= numbers)
 
     def test_a_snapshot_for_another_day_gets_the_types_too(self):
-        self.confirm("1861", "누리로")
         snapshot = self.snapshot()
         snapshot["meta"] = {**snapshot["meta"], "target_date": "2026-11-28"}
         IngestionService.importTimetable(self.session, snapshot)
         self.session.expire_all()
         newer = self.session.get(TrainRunEntity, "2026-11-28:1861")
         self.assertEqual((newer.trainType, newer.trainTypeSource), ("누리로", SOURCE))
-        self.assertEqual(ContentRepository.timetable().types, {"1861": "누리로"})  # latest snapshot
+        self.assertEqual(len(ContentRepository.timetable().types), 63)  # the latest snapshot
 
 
 class ShownToTheUserTests(_Seeded):
+    def setUp(self):
+        super().setUp()
+        run = self.session.scalar(
+            select(TrainRunEntity).where(TrainRunEntity.trainNumber == "1864"))
+        run.trainType = run.trainTypeSource = None  # one train without a confirmed type
+        self.session.commit()
+
     def test_api_shows_the_type_or_null(self):
-        self.confirm("1861", "누리로")
         self.assertEqual(self.client.get(API + "/trains/1861").json()["type"], "누리로")
         self.assertIsNone(self.client.get(API + "/trains/1864").json()["type"])
         at_donghae = {t["no"]: t["type"] for t in
                       self.client.get(API + "/stations/station_donghae/trains").json()["trains"]}
         self.assertEqual((at_donghae["1861"], at_donghae["1864"]), ("누리로", None))
+        self.assertEqual((at_donghae["2502"], at_donghae["1641"]), ("새마을호", "ITX-마음"))
+        self.assertEqual(sum(1 for kind in at_donghae.values() if kind), 62)
 
     def test_a_train_is_named_by_its_type_or_else_by_number_and_line(self):
-        self.confirm("1861", "누리로")
         timetable = ContentRepository.timetable()
         self.assertTrue(service.describe(service.detail(timetable, "1861")).startswith("누리로 1861 "))
         self.assertTrue(service.describe(service.detail(timetable, "1864")).startswith("1864(동해선) "))
 
     def test_nearie_says_the_type_when_known_and_number_with_line_when_not(self):
-        self.confirm("1861", "누리로")
         response = self.client.post(API + "/chat/messages", json={
             "message": "추암역 열차 목록", "context": {"date": "2026-11-21", "focused": "station_chuam"}})
         self.assertEqual(response.status_code, 200, response.text)
@@ -172,10 +213,20 @@ class MigrationTests(unittest.TestCase):
                 "CREATE TABLE train_services (id VARCHAR(64) PRIMARY KEY, snapshot_id VARCHAR(10) "
                 "NOT NULL, train_number VARCHAR(20) NOT NULL, train_type VARCHAR(40), "
                 "details JSON NOT NULL, UNIQUE (snapshot_id, train_number))"))
-            for number, name in (("1861", None), ("1771", "무궁화"), ("841", "KTX-이음")):
+            connection.execute(text(
+                "CREATE TABLE train_stops (id VARCHAR(80) PRIMARY KEY, service_id VARCHAR(64) "
+                "NOT NULL REFERENCES train_services (id) ON DELETE CASCADE, position INTEGER "
+                "NOT NULL, place_id VARCHAR(64), details JSON NOT NULL)"))
+            for number, name in (("1861", None), ("1771", "무궁화"), ("841", "KTX-이음"),
+                                 ("1814", None)):
                 connection.execute(text(
-                    "INSERT INTO train_services VALUES (:id, '2026-11-21', :no, :type, '{}')"),
-                    {"id": f"2026-11-21:{number}", "no": number, "type": name})
+                    "INSERT INTO train_services VALUES (:id, '2026-11-21', :no, :type, :details)"),
+                    {"id": f"2026-11-21:{number}", "no": number, "type": name,
+                     "details": json.dumps({"no": number, "line": "동해선"}, ensure_ascii=False)})
+            for position in (0, 1):
+                connection.execute(text(
+                    "INSERT INTO train_stops VALUES (:id, '2026-11-21:1814', :position, NULL, '{}')"),
+                    {"id": f"2026-11-21:1814:{position}", "position": position})
 
     def run_step(self, step):
         with self.engine.begin() as connection:
@@ -205,10 +256,40 @@ class MigrationTests(unittest.TestCase):
     def test_only_confirmed_trains_are_written_and_every_value_is_allowed(self):
         self.assertTrue(set(self.migration.CONFIRMED.values()) <= set(ALLOWED))
         self.assertEqual(self.migration.SOURCE, SOURCE)
+        self.assertEqual(len(self.migration.CONFIRMED), 63)
         self.migration.CONFIRMED = {"1861": "누리로"}
         self.run_step(self.migration.upgrade)
         self.assertEqual(self.types(), {"1861": ("누리로", SOURCE), "1771": ("무궁화호", None),
-                                        "841": ("KTX-이음", None)})
+                                        "841": ("KTX-이음", None), "1804": (None, None)})
+
+    def test_1814_becomes_1804_with_its_stops_and_a_note_and_back(self):
+        self.run_step(self.migration.upgrade)
+        with self.engine.connect() as connection:
+            services = connection.execute(text(
+                "SELECT id, train_number, details FROM train_services "
+                "WHERE train_number IN ('1804', '1814')")).all()
+            stops = connection.execute(text(
+                "SELECT id, service_id FROM train_stops ORDER BY position")).all()
+        (service_id, number, details), = services
+        self.assertEqual((service_id, number), ("2026-11-21:1804", "1804"))
+        details = json.loads(details)
+        self.assertEqual((details["no"], details["line"]), ("1804", "동해선"))
+        self.assertEqual(details["number_note"], "11/21 레일블루 기준, 3주 기록은 1814")
+        self.assertEqual([tuple(row) for row in stops],
+                         [("2026-11-21:1804:0", "2026-11-21:1804"),
+                          ("2026-11-21:1804:1", "2026-11-21:1804")])
+        self.run_step(lambda: self.migration.renumber(self.migration.RENUMBERED))
+        with self.engine.connect() as connection:  # running it again changes nothing
+            self.assertEqual(connection.execute(text(
+                "SELECT count(*) FROM train_services WHERE train_number = '1804'")).scalar(), 1)
+        self.run_step(self.migration.downgrade)
+        with self.engine.connect() as connection:
+            self.assertEqual(connection.execute(text(
+                "SELECT train_number FROM train_services WHERE train_number IN ('1804', '1814')"
+            )).scalars().all(), ["1814"])
+            self.assertEqual(connection.execute(text(
+                "SELECT DISTINCT service_id FROM train_stops")).scalars().all(),
+                ["2026-11-21:1814"])
 
     def test_an_unknown_value_stops_the_upgrade_with_its_name(self):
         with self.engine.begin() as connection:
@@ -226,7 +307,7 @@ class MigrationTests(unittest.TestCase):
         with self.engine.connect() as connection:
             rows = dict(connection.execute(text(
                 "SELECT train_number, train_type FROM train_services")).all())
-        self.assertEqual(rows, {"1861": None, "1771": "무궁화호", "841": "KTX-이음"})
+        self.assertEqual(rows, {"1861": None, "1771": "무궁화호", "841": "KTX-이음", "1814": None})
 
     def test_seed_holds_exactly_the_confirmed_types(self):
         engine = create_engine("sqlite://")

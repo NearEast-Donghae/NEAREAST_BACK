@@ -23,8 +23,8 @@ class Basis(_Model):
 
 # The only train types the service knows. Anything else is rejected where it is written
 # (database constraint, timetable import, planning conditions) rather than shown.
-TRAIN_TYPES = ("KTX-이음", "ITX-마음", "ITX-새마을", "누리로", "무궁화호")
-TrainType = Literal["KTX-이음", "ITX-마음", "ITX-새마을", "누리로", "무궁화호"]
+TRAIN_TYPES = ("KTX-이음", "ITX-마음", "ITX-새마을", "새마을호", "누리로", "무궁화호")
+TrainType = Literal["KTX-이음", "ITX-마음", "ITX-새마을", "새마을호", "누리로", "무궁화호"]
 
 
 class TrainSummary(_Model):

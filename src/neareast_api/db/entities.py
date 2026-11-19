@@ -23,7 +23,7 @@ EMBEDDING_VALUE = Vector(1536).with_variant(JSON(), "sqlite")
 
 
 # Kept in step with modules/trains/schemas.TRAIN_TYPES (a test compares them).
-TRAIN_TYPES = ("KTX-이음", "ITX-마음", "ITX-새마을", "누리로", "무궁화호")
+TRAIN_TYPES = ("KTX-이음", "ITX-마음", "ITX-새마을", "새마을호", "누리로", "무궁화호")
 TRAIN_TYPE_RULE = "train_type IS NULL OR train_type IN ({})".format(
     ", ".join(f"'{name}'" for name in TRAIN_TYPES)
 )
