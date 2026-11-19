@@ -1,4 +1,4 @@
-"""Executable bootstrap contracts; no production business API is invented."""
+"""Executable bootstrap contracts; business routes are registered explicitly."""
 
 import os
 import unittest
@@ -14,12 +14,14 @@ from neareast_api.main import create_app
 
 
 class BootstrapTests(unittest.TestCase):
-    def test_app_starts_without_external_services_or_business_routes(self):
+    def test_app_starts_without_external_services_with_explicit_routes(self):
+        # Every public path is listed here on purpose: adding a route must be deliberate.
         with TestClient(create_app(Settings(docs_enabled=True))) as client:
             response = client.get("/openapi.json")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(
-                set(response.json()["paths"]), {"/health/live", "/health/ready"}
+                set(response.json()["paths"]),
+                {"/health/live", "/health/ready", "/api/v1/chat/messages"},
             )
             self.assertEqual(client.get("/docs").status_code, 200)
             self.assertEqual(client.get("/").status_code, 404)

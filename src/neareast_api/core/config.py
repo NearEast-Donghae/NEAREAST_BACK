@@ -14,6 +14,8 @@ class Settings(BaseModel):
     db_name: str = Field(default="neareast", min_length=1)
     db_user: str = Field(default="neareast", min_length=1)
     db_password: SecretStr = SecretStr("")
+    # Fixed chat answers without an LLM, so tests and frontend work without keys.
+    chat_mock: bool = True
 
     @classmethod
     def from_env(cls) -> "Settings":

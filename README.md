@@ -2,7 +2,7 @@
 
 Python 3.12 / FastAPI / PostgreSQL 17 로컬 개발 시작점입니다.
 Compose 명령 하나로 백엔드와 DB를 띄우고 Swagger에서 연결 상태를 확인합니다.
-업무 테이블·마이그레이션 이력·업무 Endpoint는 없으며 상태 확인 API 두 개만 제공합니다.
+업무 테이블·마이그레이션 이력은 없으며, 상태 확인 API 두 개와 챗봇 API(mock 모드)를 제공합니다.
 SQLAlchemy 공통 Base와 Alembic 설정은 준비되어 있습니다. 실행 시 DB 구조를 자동 변경하지 않습니다.
 앱 자체는 DB 연결 없이 시작할 수 있지만 DB가 응답해야 readiness가 성공합니다.
 `/`의 404는 정상이며 Swagger 주소는 `/docs`입니다.
@@ -65,9 +65,11 @@ NearEast_Backend/
 │   ├── db/metadata.py       # 기능별 모델의 명시적 등록 위치
 │   ├── db/url.py            # 공통 설정으로 DB 접속 URL 구성
 │   └── modules/             # 합의된 기능을 Python 패키지로 추가할 위치
+│       └── chat/            # 지도 맥락을 아는 챗봇 (router/schemas/service/tools)
 ├── alembic/                # 마이그레이션 환경과 비어 있는 versions/
 ├── alembic.ini             # 비밀번호 없는 Alembic 설정
-├── tests/                  # 앱·Health·마이그레이션 설정 검증
+├── tests/                  # 앱·Health·마이그레이션·챗봇 계약 검증
+│   └── chat_scenarios/     # 챗봇 품질 시나리오 (프롬프트 수정 때마다 재실행)
 ├── docs/development.md      # 모듈 경계와 HTTP API 작성 기준
 ├── pyproject.toml           # 의존성, 패키지 메타데이터
 ├── .env.example
@@ -75,6 +77,44 @@ NearEast_Backend/
 ├── compose.yaml            # 개발용 backend + db, 상태 확인, DB 볼륨
 └── Dockerfile              # 이 FastAPI 앱의 실행 이미지
 ```
+
+## 챗봇 API — `POST /api/v1/chat/messages`
+
+화면 맥락(열어 둔 마커, 내 핀, 날짜)을 함께 보내면 답변·다음 행동 칩·제안을 돌려줍니다.
+지금은 **mock 모드**(`NEAREAST_CHAT_MOCK=true`, 기본값)라 API 키 없이 내장 예시 데이터로 답합니다.
+열차 시각이 담긴 답에는 `(예시 데이터)`가 붙습니다. `false`로 두면 LLM 연결 전까지 503을 반환합니다.
+
+```jsonc
+// 요청
+{
+  "message": "언제가 좋아?",
+  "context": {
+    "date": "2026-11-21",           // null 가능
+    "pins": ["station_donghae"],    // 사용자 확정 핀 id
+    "focused": "station_donghae",   // 지금 열어 둔 마커 id, null 가능
+    "depth": "light",               // reference|light|full (기본 light)
+    "dismissed": ["poi_nongoldam"]  // 사용자가 거절한 제안 target id (기본 [])
+  },
+  "history": [{"role": "user", "content": "..."}]  // 최근 10턴까지
+}
+// 응답
+{
+  "reply": "...",
+  "intent": "train_lookup",          // knowledge|train_lookup|safety|proposal|smalltalk
+  "chips": ["그 시간 열차 목록"],      // 최대 3개, 그대로 다음 message로 보내면 대화가 이어짐
+  "proposals": [{"type": "add", "target": "poi_bukpyeong_market", "reason": "...",
+                 "needs_confirm": true, "certainty": "timetable"}],
+  "sources": [],                     // 답의 근거 문서 id
+  "tool_used": "station_rhythm"      // null 가능
+}
+```
+
+- `context`, `history`는 생략할 수 있습니다. 정의되지 않은 필드는 오타로 보고 **422**로 거부합니다.
+- 모르는 `focused`/`pins` id는 오류가 아니라 **200**입니다. 그 id는 무시하고 답에 모른다고 밝힙니다.
+- 서버가 강제하는 규칙: 제안은 항상 `needs_confirm: true`, `dismissed`의 target은 다시 제안하지 않음,
+  `depth: "reference"`면 제안 없음, `certainty`(`timetable`|`estimated`|`planned`|`null`)는 도구 결과에서 옮김.
+- 장소 id는 지도 마커 id와 같아야 합니다. 현재 id 목록은 `modules/chat/tools.py`의 임시 카탈로그이며
+  `data/places.json`이 생기면 그것으로 바뀝니다.
 
 ## Docker 밖에서 Python 직접 실행 — 선택 사항
 
@@ -118,6 +158,7 @@ python3.12 -m venv .venv
 | `NEAREAST_DB_NAME` | `.env.example`: `neareast` | 최초 생성 DB 이름 |
 | `NEAREAST_DB_USER` | `.env.example`: `neareast` | 개발용 DB 계정 |
 | `NEAREAST_DB_PASSWORD` | `.env.example`의 개발용 값 | Compose에서는 필수. 앱 설정에 없으면 readiness 실패 |
+| `NEAREAST_CHAT_MOCK` | `true` | 챗봇을 키 없이 내장 예시 데이터로 응답. `false`는 LLM 연결 전까지 503 |
 
 앱은 생성 시 프로세스 환경변수를 읽고 검증합니다. 잘못된 bool 값은 시작 오류로 처리합니다.
 앱 자체가 `.env`를 탐색하거나 로딩하지 않습니다. 로컬에서는 명령의 `--env-file .env`,
