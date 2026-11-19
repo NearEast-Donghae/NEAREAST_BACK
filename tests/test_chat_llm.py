@@ -488,6 +488,23 @@ class LLMResponderTests(unittest.TestCase):
             self.assertEqual(body["mode"], "fallback")
             self.assertEqual(body["tool_used"], "station_rhythm")  # a real, rule-checked answer
 
+    def test_unexpected_crash_is_logged_as_error_with_stack(self):
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING") as logs:
+            response, _ = self.ask([RuntimeError("boom in tool")])
+        self.assertEqual(response.json()["mode"], "fallback")
+        record = logs.records[0]
+        self.assertEqual(record.levelname, "ERROR")
+        self.assertIsNotNone(record.exc_info)  # the stack is kept
+        self.assertIn("RuntimeError: boom in tool", logs.output[0])
+        self.assertIn("Traceback", logs.output[0])
+
+    def test_expected_model_failure_is_a_warning_without_stack(self):
+        with self.assertLogs("neareast_api.modules.chat.service", "WARNING") as logs:
+            self.ask([llm.LLMError("chat call failed: RateLimitError status_code=429")])
+        self.assertEqual(logs.records[0].levelname, "WARNING")
+        self.assertIsNone(logs.records[0].exc_info)
+        self.assertIn("status_code=429", logs.output[0])
+
     def test_second_call_failure_also_falls_back(self):
         tool = {"name": "station_rhythm", "station_id": "station_donghae", "place_id": None,
                 "after": None}
