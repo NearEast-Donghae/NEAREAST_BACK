@@ -58,6 +58,7 @@ ALTERNATIVE_WORDS = ("공개된", "승강장", "맞이방")
 # The safety rewrite applies only when the user actually asks about these places.
 RISK_WORDS = ("선로", "건널목", "차단기", "철길", "철로")
 # "Leave the gap empty" is a valid choice (principle 2), not a question that needs documents.
+BOARDING_WORDS = ("탈 수", "타도", "타고", "타려", "탑승", "승차", "하차", "내릴", "내려", "정차")
 KEEP_EMPTY_WORDS = ("그대로", "쉬기", "쉴래", "쉴게", "비워")
 # Chips that ask for nearby places; they dead-end when the place has no nearby data.
 NEARBY_WORDS = ("근처", "주변", "같이 볼", "볼 곳", "갈 곳", "가는 길")
@@ -211,6 +212,20 @@ def unverified_time_claims(reply: str, evidence: str, train_count: int | None) -
     return problems
 
 
+def _passing_is_relevant(
+    draft: Draft, context: ResolvedContext, subject: retrieval.Place, sources: list[str]
+) -> bool:
+    """A passing station that is merely open on the map must not tag unrelated answers
+    (a greeting, a question about something else) with the boarding rule."""
+    if draft.tool_place == subject.id or context.mentioned == subject:
+        return True  # the question or the tool is explicitly about this station
+    return (
+        draft.intent == "train_lookup"
+        or subject.id in sources
+        or any(w in context.message for w in BOARDING_WORDS)
+    )
+
+
 def _has_nearby(place: retrieval.Place) -> bool:
     return bool(tools.nearby_spots(place.id, walk_minutes=10**6))
 
@@ -278,7 +293,8 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
         reply = f"{MOCK_NOTE} {reply}"
     # Passing stations: no boarding, observation only, with the rule as a source.
     subject = _subject(draft, context)
-    if subject is not None and subject.kind == "station" and subject.passenger_stop is False:
+    if (subject is not None and subject.kind == "station" and subject.passenger_stop is False
+            and _passing_is_relevant(draft, context, subject, sources)):
         if "관찰" not in reply:  # any wording of "observe only" is enough
             reply = f"{reply.rstrip()} {PASSING_NOTE}"
         if PASSING_DOC in content.docs and PASSING_DOC not in sources:

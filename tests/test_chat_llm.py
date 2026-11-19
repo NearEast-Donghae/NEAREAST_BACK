@@ -243,6 +243,33 @@ class LLMResponderTests(unittest.TestCase):
         self.assertIn("관찰만", body["reply"])
         self.assertIn("<safety_passing_station>", sent(chat, 0)[-2]["content"])  # model saw the rule
 
+    def test_open_passing_station_does_not_tag_unrelated_answers(self):
+        cases = (
+            ("안녕", draft("안녕하세요, 동해 철도 여행을 함께 짜는 니어리예요.", intent="smalltalk")),
+            ("2031년에 뭐가 바뀌어?", draft("2031년 고속화·지하화로 해안 선로 풍경이 사라질 예정이에요.",
+                                       sources=["rail_2031_changes"])),
+        )
+        for message, reply in cases:
+            with self.subTest(message):
+                response, _ = self.ask([reply], message=message, focused="station_mangsang")
+                body = response.json()
+                self.assertEqual(body["reply"], reply["reply"])
+                self.assertNotIn("safety_passing_station", body["sources"])
+
+    def test_open_passing_station_is_explained_when_the_answer_is_about_it(self):
+        cases = (
+            ("여기서 탈 수 있어?", draft("망상역은 평소에 여객열차가 서지 않아요.", intent="smalltalk")),
+            ("여기 뭐야?", draft("망상역은 2011년부터 여객열차가 서지 않아요.",
+                              sources=["station_mangsang"])),
+            ("삼화역 알려줘", draft("삼화역은 화물역이에요.", sources=["station_samhwa"])),
+        )
+        for message, reply in cases:
+            with self.subTest(message):
+                response, _ = self.ask([reply], message=message, focused="station_mangsang")
+                body = response.json()
+                self.assertIn("관찰만", body["reply"])
+                self.assertIn("safety_passing_station", body["sources"])
+
     def test_rhythm_result_offers_nearby_candidates_without_pins_or_dismissed(self):
         tool = {"name": "station_rhythm", "station_id": "station_donghae", "place_id": None,
                 "after": None}
