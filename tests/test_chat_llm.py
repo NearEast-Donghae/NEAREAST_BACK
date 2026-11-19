@@ -204,6 +204,44 @@ class LLMResponderTests(unittest.TestCase):
         # chips about unknown places dropped, then padded to two
         self.assertEqual(body["chips"], ["동해역 열차 리듬", "동해역 근처"])
 
+    RHYTHM_CHUAM = {"name": "station_rhythm", "station_id": "station_chuam", "place_id": None,
+                    "after": None}
+    GAP_PROPOSALS = [
+        {"type": "add", "target": "poi_chotdaebawi", "reason": "추암역 공백(08:05–13:40)에 좋아요",
+         "time_bound": True},
+        {"type": "add", "target": "station_chuam", "reason": "역에서 그냥 쉬어도 좋아요",
+         "time_bound": True},
+    ]
+
+    def gap_answer(self, message, **context):
+        response, _ = self.ask(
+            [draft(intent="train_lookup", tool=self.RHYTHM_CHUAM),
+             draft("(예시 데이터) 추암역은 08:05부터 13:40까지 비어요.", intent="train_lookup",
+                   proposals=self.GAP_PROPOSALS)],
+            message=message, **context)
+        return [p["target"] for p in response.json()["proposals"]]
+
+    def test_the_looked_up_station_itself_is_not_proposed(self):
+        # Seen in evaluation: "그냥 쉬기" came back as a proposal to add 추암역 itself.
+        self.assertEqual(self.gap_answer("추암역 다음 열차까지 많이 비어?"), ["poi_chotdaebawi"])
+
+    def test_another_station_can_still_be_proposed(self):
+        nearby = {"name": "nearby_spots", "station_id": None, "place_id": "poi_nongoldam",
+                  "after": None}
+        mukho = {"type": "add", "target": "station_mukho", "reason": "논골담길에서 도보 10분이에요",
+                 "time_bound": False}
+        response, _ = self.ask(
+            [draft(intent="proposal", tool=nearby),
+             draft("(예시 데이터) 논골담길 근처에 묵호역이 있어요.", intent="proposal",
+                   proposals=[mukho])],
+            message="논골담길 근처")
+        self.assertEqual([p["target"] for p in response.json()["proposals"]], ["station_mukho"])
+
+    def test_declining_to_fill_the_gap_removes_proposals(self):
+        # Seen in evaluation: "빈 시간은 그대로 둘래요" still got a place proposed.
+        self.assertEqual(self.gap_answer("빈 시간은 그대로 둘래요", focused="station_chuam"), [])
+        self.assertEqual(self.gap_answer("그냥 쉬기로 할게", focused="station_chuam"), [])
+
     def test_proposal_answers_that_are_not_ungrounded_are_kept(self):
         nongoldam = {"type": "add", "target": "poi_nongoldam", "reason": "가까워요",
                      "time_bound": False}

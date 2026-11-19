@@ -338,10 +338,14 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     pinned = {p.id for p in context.pins}
     blocked = set(raw.dismissed) | set(context.unknown_ids)
     proposals = []
-    if raw.depth != "reference":  # depth=reference: information only, no plan changes
+    # "Leave it empty" is the user's choice (principle 2): nothing is proposed on top of it.
+    declined = any(w in context.message for w in KEEP_EMPTY_WORDS)
+    if raw.depth != "reference" and not declined:  # reference: information only
         for p in draft.proposals:
             if p.target in blocked or content.place(p.target) is None:
                 continue
+            if p.target == draft.tool_place:
+                continue  # the place the gap/nearby lookup was about is not a suggestion
             if (p.type == "add") == (p.target in pinned):  # no-op add/remove
                 continue
             proposals.append(
@@ -368,7 +372,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     # Knowledge only from documents: an ungrounded answer becomes the fixed no-info reply.
     # A proposal-intent answer counts as grounded when the model did propose catalog places
     # (even if depth/pins/dismissed filtered them out) or the user is declining to fill time.
-    declining = any(w in context.message for w in KEEP_EMPTY_WORDS)
+    declining = declined
     ungrounded = draft.tool_used is None and not sources and (
         draft.intent == "knowledge"
         or (draft.intent == "proposal" and not draft.proposals and not declining)
