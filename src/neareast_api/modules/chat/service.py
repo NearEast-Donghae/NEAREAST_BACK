@@ -454,7 +454,15 @@ def _clip(reply: str) -> str:
     return kept
 
 
-def _has_nearby(place: retrieval.Place) -> bool:
+def _located(place: retrieval.Place | None) -> bool:
+    return place is not None and place.lat is not None and place.lng is not None
+
+
+def _has_nearby(place: retrieval.Place, content: retrieval.Content) -> bool:
+    """A "near X" chip leads somewhere: with coordinates, places within a short walk;
+    without them, the example table."""
+    if _located(place):
+        return bool(recommend_service.nearby(content.places, place.id))
     return bool(tools.nearby_spots(place.id, walk_minutes=10**6))
 
 
@@ -470,6 +478,10 @@ PLAN_REQUEST = re.compile(
 OWN_PLAN = re.compile(
     r"(?:내가|제가|직접|알아서|혼자)[^.?!]{0,10}(?:짤게|짤래|짤 ?거|짜 ?볼게|세울게|정할게|할게)")
 OWN_PLAN_REPLY = "좋아요, 일정은 직접 짜시면 돼요. 궁금한 열차나 장소가 있으면 언제든 물어봐 주세요."
+# "계획 짜는 팁 있어?": asking how to plan is a question, not a request to have one made.
+PLAN_ADVICE = re.compile(r"(?:짜는|세우는|만드는)\s*(?:팁|법|방법|요령|노하우)|(?:팁|요령|노하우)[^.?!]{0,6}(?:있|알려|줘)")
+PLAN_ADVICE_REPLY = ("일정은 일정 화면에서 직접 짤 수 있어요. 보고 싶은 열차와 가고 싶은 곳을 먼저 담아 두면 "
+                     "편해요. 역을 열어 두고 열차가 언제 몰리는지 물어보는 것도 좋아요.")
 PLAN_HANDOFF = ("{month}월 {day}일 여행 조건을 정리했어요. {what}을 확인하고 아래 카드에서 "
                 "일정 화면으로 이어갈 수 있어요. 조건을 확인한 뒤 일정을 생성해 주세요.")
 PLAN_NEEDS_PINS = ("어느 역에서 출발하거나 어디를 방문하고 싶으세요? 대화로 알려 주셔도 되고, "
@@ -507,7 +519,8 @@ def date_in_message(message: str, today: dt.date) -> dt.date | None:
 def _wants_plan(intent: str, message: str) -> bool:
     """A plan request by the responder's reading or by the wording. Asking to plan
     something on the tracks is a safety question first."""
-    if any(word in message for word in RISK_WORDS) or OWN_PLAN.search(message):
+    if (any(word in message for word in RISK_WORDS) or OWN_PLAN.search(message)
+            or PLAN_ADVICE.search(message)):
         return False
     return intent == "plan_request" or is_plan_request(message)
 
@@ -586,7 +599,7 @@ def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResp
     hasSpokenPlace = bool(conditions.departurePlaceId or conditions.arrivalPlaceId)
     stations = [p for p in context.pins if p.kind == "station"]
     chips = [f"{p.name} 열차 리듬" for p in stations[:1]]
-    chips += [f"{p.name} 근처" for p in context.pins[:1] if _has_nearby(p)]
+    chips += [f"{p.name} 근처" for p in context.pins[:1] if _has_nearby(p, context.content)]
     if not context.pins and not context.saved.trains and not hasSpokenPlace:
         reply, chips = PLAN_NEEDS_PINS, []
     elif date is None:
@@ -626,7 +639,10 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     """Every rule here holds no matter what the responder (mock or LLM) produced."""
     if _wants_plan(draft.intent, context.message):
         return _plan_handoff(draft, context, mode)
-    if draft.intent == "plan_request" and OWN_PLAN.search(context.message):
+    if draft.intent == "plan_request" and PLAN_ADVICE.search(context.message):
+        draft = dataclasses.replace(  # a question about planning: answered, nothing handed over
+            draft, intent="smalltalk", reply=PLAN_ADVICE_REPLY, proposals=[], plan=None)
+    elif draft.intent == "plan_request" and OWN_PLAN.search(context.message):
         draft = dataclasses.replace(  # planning stays with the user: nothing is handed over
             draft, intent="smalltalk", reply=OWN_PLAN_REPLY, proposals=[], plan=None)
     elif draft.intent == "plan_request":  # asked about the tracks: answered as safety
@@ -772,25 +788,26 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
             )
             reply = f"{notice} {reply}"
 
-    # Chips must lead somewhere: no "nearby" chip for a place without nearby data.
+    # Chips must lead somewhere: no "nearby" chip for a place with nothing near it. The
+    # same goes for the chips added below to keep the conversation going.
+    def leads_somewhere(chip: str) -> bool:
+        place = content.place_in_text(chip)
+        return not (place is not None and any(w in chip for w in NEARBY_WORDS)
+                    and not _has_nearby(place, content))
+
     kept = []
     for chip in chips:
-        place = content.place_in_text(chip)
-        if place is not None and any(w in chip for w in NEARBY_WORDS) and not _has_nearby(place):
-            continue
-        if chip not in kept:
+        if leads_somewhere(chip) and chip not in kept:
             kept.append(chip)
     # At least two chips so a conversation can continue by tapping alone.
     fillers = []
     if subject is not None and subject.kind == "station":
-        fillers += [f"{subject.name} 열차 리듬"]
-        if _has_nearby(subject):
-            fillers.append(f"{subject.name} 근처")
-    fillers += DEFAULT_CHIPS
+        fillers += [f"{subject.name} 열차 리듬", f"{subject.name} 근처"]
+    fillers += DEFAULT_CHIPS + ["묵호역 열차 리듬"]
     for chip in fillers:
         if len(kept) >= 2:
             break
-        if chip not in kept:
+        if chip not in kept and leads_somewhere(chip):
             kept.append(chip)
     chips = kept
 
@@ -806,6 +823,38 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
 
 
 # --- LLM responder: one structured call, a second only after a tool request ------
+
+MAX_PROMPT_PLACES = 40
+
+
+def _relevant_places(context: ResolvedContext, docs) -> list[retrieval.Place]:
+    """The places a request can be about, instead of the whole catalog: every station
+    (there are few, and they are what the service is about), what is on the screen, what
+    the user named in this conversation, the places the retrieved documents are about,
+    and what is within a short walk of the screen and the named places. Tool results
+    name their own places, so those need not be listed here."""
+    content = context.content
+    chosen: dict[str, retrieval.Place] = {}
+
+    def add(place: retrieval.Place | None) -> None:
+        if place is not None and len(chosen) < MAX_PROMPT_PLACES:
+            chosen.setdefault(place.id, place)
+
+    in_play = [context.focused, *context.pins,
+               *content.places_in_text(context.user_text or context.message), context.recalled]
+    for place in in_play:
+        add(place)
+    for place in content.places.values():
+        if place.kind == "station":
+            add(place)
+    for doc in docs:
+        for place_id in doc.places:
+            add(content.place(place_id))
+    for place in [p for p in in_play if p is not None]:
+        if _located(place):
+            for _, near in recommend_service.nearby(content.places, place.id):
+                add(near)
+    return list(chosen.values())
 
 MARKDOWN = re.compile(r"\*\*|__|^#+\s*|`", re.MULTILINE)
 LIST_MARKER = re.compile(r"^\s*(?:[-*•·]|\d+[.)])\s+", re.MULTILINE)
@@ -855,8 +904,10 @@ def _llm_draft(
             docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[doc_id]]
 
     raw = context.raw
-    static = prompts.build_static(content)
+    static = prompts.build_static()
     screen = prompts.build_context(
+        places=_relevant_places(context, docs),
+        message=request.message,
         today=dt.datetime.now(KST).date(),
         date=raw.date,
         pins=[p.id for p in context.pins],
@@ -967,19 +1018,24 @@ def _weakest(certainties) -> Certainty | None:
 def _nearby_candidates(
     place_id: str, context: ResolvedContext, gap: tools.Gap | None = None
 ) -> list[dict]:
-    """Places worth proposing: not already pinned, not dismissed. For a gap they come from
-    the shared rule (modules/recommend), so the chat and the plan screen propose the
-    same places for the same reason. Until the catalog has coordinates the rule cannot
-    measure a walk, and the example walking minutes are used instead."""
+    """Places worth proposing: not already pinned, not dismissed. They come from the
+    shared rule (modules/recommend): for a gap the places that fit in it, otherwise the
+    places within a short walk. Walking minutes are computed from coordinates by the one
+    function the walk-time answer uses too. Only an anchor without coordinates falls back
+    to the example table, and that answer is labelled as example data."""
     skip = {p.id for p in context.pins} | set(context.raw.dismissed)
+    places = context.content.places
     anchor = context.content.place(place_id)
-    if gap is not None and anchor is not None and anchor.lat is not None:
+    if _located(anchor) and gap is not None:
         return [
-            {"id": s.target, "name": context.content.places[s.target].name,
-             "walk_minutes": s.walk_min, "reason": s.reason, "notes": s.notes}
-            for s in recommend_service.suggest(context.content.places, place_id, gap.start, gap.end,
-                                           skip=skip, date=context.raw.date)
+            {"id": s.target, "name": places[s.target].name, "walk_minutes": s.walk_min,
+             "reason": s.reason, "notes": s.notes, "purpose": s.purpose}
+            for s in recommend_service.suggest(places, place_id, gap.start, gap.end,
+                                               skip=skip, date=context.raw.date)
         ]
+    if _located(anchor):
+        return [{"id": place.id, "name": place.name, "walk_minutes": minutes}
+                for minutes, place in recommend_service.nearby(places, place_id, skip=skip)]
     return [
         {"id": s.place_id, "name": p.name, "walk_minutes": s.walk_minutes}
         for s in tools.nearby_spots(place_id)
@@ -1092,8 +1148,11 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
         if anchor is None:
             return ToolRun(None, {"tool": name, "error": "장소를 알 수 없어요"})
         spots = _nearby_candidates(anchor.id, context)
-        return ToolRun(name, {"tool": name, "place": anchor.name, "spots": spots,
-                              "source": tools.SOURCE}, None, anchor.id, tools.SOURCE)
+        source = tools.COORDINATES if _located(anchor) else tools.SOURCE
+        result = {"tool": name, "place": anchor.name, "spots": spots, "source": source}
+        if source == tools.COORDINATES:
+            result["walk_basis"] = tools.WALK_BASIS
+        return ToolRun(name, result, None, anchor.id, source)
 
     return ToolRun(None, {"tool": name, "error": "알 수 없는 도구"})
 
@@ -1168,7 +1227,7 @@ def _mock_knowledge(message: str, context: ResolvedContext) -> Draft:
 def _mock_safety(message: str, context: ResolvedContext) -> Draft:
     content = context.content
     anchor = context.anchor
-    spots = tools.nearby_spots(anchor.id) if anchor else []
+    spots = [] if anchor is None or _located(anchor) else tools.nearby_spots(anchor.id)
     stations = [
         p.name for p in (content.place(s.place_id) for s in spots) if p and p.kind == "station"
     ]
@@ -1253,7 +1312,7 @@ def _mock_train(message: str, context: ResolvedContext) -> Draft:
         draft.tool_certainty = gap.certainty
         for spot in _nearby_candidates(station.id, context, gap):
             place = context.content.place(spot["id"])
-            if place is not None and place.kind == "poi":
+            if place is not None and place.kind == "poi" and spot.get("purpose") != "meal":
                 draft.proposals.append(
                     DraftProposal(
                         type="add",
@@ -1277,31 +1336,43 @@ def _mock_nearby(message: str, context: ResolvedContext) -> Draft:
             intent="proposal",
             chips=["동해역 근처", "묵호역 근처", "추암역 근처"],
         )
+    measured = _located(anchor)
     spots = [
-        (place, s.walk_minutes)
-        for s in tools.nearby_spots(anchor.id)
-        if (place := content.place(s.place_id)) is not None
+        (place, spot["walk_minutes"])
+        for spot in (_nearby_candidates(anchor.id, context) if measured else
+                     [{"id": s.place_id, "walk_minutes": s.walk_minutes}
+                      for s in tools.nearby_spots(anchor.id)])
+        if (place := content.place(spot["id"])) is not None
     ]
     if not spots:
         return Draft(
             reply=f"{anchor.name} 근처에서 걸어갈 만한 곳은 아직 확인된 정보가 없어요.",
             intent="proposal",
             chips=[f"{anchor.name} 열차 리듬", "동해역 근처"],
+            tool_used="nearby_spots" if measured else None,  # looked, and found nothing near
+            tool_place=anchor.id if measured else None,
         )
-    listed = ", ".join(f"{place.name}(도보 {minutes}분)" for place, minutes in spots)
+    if measured:
+        listed = ", ".join(f"{place.name}(걸어서 약 {minutes}분)" for place, minutes in spots)
+        reply = (f"{anchor.name} 근처에 {listed}이 있어요. {tools.WALK_BASIS} "
+                 "담을지는 직접 골라 주세요.")
+    else:
+        listed = ", ".join(f"{place.name}(도보 {minutes}분)" for place, minutes in spots)
+        reply = f"{MOCK_NOTE} {anchor.name} 근처에 {listed}이 있어요. 담을지는 직접 골라 주세요."
     return Draft(
-        reply=f"{MOCK_NOTE} {anchor.name} 근처에 {listed}이 있어요. 담을지는 직접 골라 주세요.",
+        reply=reply,
         intent="proposal",
         chips=[f"{anchor.name} 열차 리듬", "빈 시간은 그대로 둘래요"],
         proposals=[
             DraftProposal(
                 type="add",
                 target=place.id,
-                reason=f"{anchor.name}에서 도보 {minutes}분이에요",
+                reason=(f"{anchor.name}에서 걸어서 약 {minutes}분이에요" if measured
+                        else f"{anchor.name}에서 도보 {minutes}분이에요"),
             )
             for place, minutes in spots
         ],
         tool_used="nearby_spots",
-        tool_source=tools.SOURCE,
+        tool_source=tools.COORDINATES if measured else tools.SOURCE,
         tool_place=anchor.id,
     )

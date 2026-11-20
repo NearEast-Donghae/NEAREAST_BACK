@@ -136,6 +136,20 @@ class LLMResponderTests(unittest.TestCase):
             message="근처 추천", focused="station_mukho")
         self.assertEqual([p["target"] for p in response.json()["proposals"]], ["poi_nongoldam"])
 
+    def test_a_document_named_by_another_name_says_so_in_its_heading(self):
+        # Seen on the real model: asked about 북평역 (동해역's old name) it followed a
+        # document about 북평성당 that vector search had added.
+        response, chat = self.ask([draft("동해역은 1940년 북평역으로 문을 열었어요.",
+                                         sources=["station_donghae"])], message="북평역이 뭐야?")
+        context = sent(chat)[-2]["content"]
+        self.assertIn('<station_donghae> 동해역 (질문의 "북평역"은 이 문서가 다루는 이름이에요)', context)
+        self.assertEqual(response.json()["sources"], ["station_donghae"])
+        # Named by its title, or not named at all: no note.
+        _, chat = self.ask([draft("동해역은 분기역이에요.", sources=["station_donghae"])],
+                           message="동해역이 뭐야?")
+        self.assertIn("<station_donghae> 동해역\n", sent(chat)[-2]["content"])
+        self.assertNotIn("이 문서가 다루는 이름", sent(chat)[-2]["content"])
+
     def test_single_call_without_tool_and_sources_limited_to_given_docs(self):
         response, chat = self.ask(
             [draft("동해역은 분기역이에요.", sources=["station_donghae", "invented_doc"])],

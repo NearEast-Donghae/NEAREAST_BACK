@@ -45,6 +45,7 @@ STATIC = """너는 동해시 철도 여행 서비스 NEAREAST의 조수 "니어�
 - 제안의 reason은 사용자의 핀이나 열차 공백(예: "동해역 공백(11:15–16:00)")과 연결해 쓴다.
 - station_rhythm 결과에 공백(gaps)이 있고 nearby 후보가 있으면, 가장 긴 공백에 다녀올 수 있는 nearby 장소 1~2곳을 proposals로 덧붙인다(time_bound=true, reason에 역 이름과 공백 구간, 도보 시간). 공백 자체는 빈 채로 두고 "그냥 쉬기"도 괜찮다고 reply에서만 말한다. "그냥 쉬기"는 proposals에 넣지 않는다. proposals의 target은 nearby 후보 장소다.
 - nearby_spots 결과의 장소는 proposals(add, time_bound=false)로 담을 수 있게 내놓는다. 고르는 건 사용자다.
+- 도구 결과의 후보에 purpose가 "meal"로 적힌 곳은 식당이다. 둘러볼 곳이 아니라 "식사할 곳"으로만 말한다. walk_minutes는 결과에 적힌 숫자 그대로 쓰고, source가 "coordinates"면 어림이라고 밝힌다.
 - [화면 맥락]의 거절한 제안은 다시 제안하지 않는다. 빈 시간은 빈 채로 두고 선택지만 덧붙인다. "그냥 쉬기"도 선택지다.
 - 계획 깊이가 reference면 proposals를 비운다. light면 되는지만, full이면 시간표까지 알려준다.
 - 선로·건널목 안이나 차단기 안쪽, 선로 부지 촬영·진입·대기는 "권하지 않아요"라고 첫 문장에서 분명히 말한다. "가능할 수도 있지만"처럼 여지를 두지 않는다. 그리고 반드시 역 맞이방·승강장 같은 공개된 장소 대안을 함께 제시한다. 거절로 끝내지 않는다.
@@ -81,8 +82,7 @@ station_id·place_id는 [장소] 목록의 id만 쓴다. 비워 두면 서버가
 질문 "9시에 동해역에서 출발하는 일정 짜줘"
 {{"intent":"plan_request","reply":"일정 화면으로 넘겨 드릴게요.","chips":[],"proposals":[],"sources":[],"tool_request":null,"plan":{{"date":null,"start_place":"station_donghae","start_time":"09:00","end_place":null,"end_time":null}}}}
 
-[장소] (id: 이름, 승하차)
-{places}"""
+[장소]는 매 요청의 [화면 맥락] 아래에 주어진다. 역 전부와, 화면에 있거나 질문·문서에 나온 장소, 그 근처 장소만 들어 있다. 거기 없는 장소 id는 쓰지 않는다."""
 
 CONTEXT = """[화면 맥락]
 첫 대화: {first_turn}
@@ -92,6 +92,9 @@ CONTEXT = """[화면 맥락]
 계획 깊이: {depth}
 거절한 제안: {dismissed}
 북평민속시장 장날: {market_day}
+
+[장소] (id: 이름, 승하차)
+{places}
 
 [문서]
 {docs}"""
@@ -181,23 +184,33 @@ def _place_label(content: Content, place_id: str | None) -> str:
     return f"{place_id} ({place.name})" if place else "없음"
 
 
-def format_docs(docs: Sequence[Doc]) -> str:
+def format_docs(docs: Sequence[Doc], message: str = "") -> str:
+    """Each document under its id. When the question uses one of a document's other names
+    (an old station name, a short form), the heading says so: without it the model does
+    not connect "북평역" with the 동해역 document and follows a merely similar one."""
     if not docs:
         return "(없음)"
-    return "\n\n".join(f"<{d.id}> {d.title}\n{d.body}" for d in docs[:MAX_DOCS])
+
+    def heading(doc: Doc) -> str:
+        named = [k for k in doc.keywords if k != doc.title and k in message]
+        note = f" (질문의 \"{named[0]}\"은 이 문서가 다루는 이름이에요)" if named else ""
+        return f"<{doc.id}> {doc.title}{note}"
+
+    return "\n\n".join(f"{heading(d)}\n{d.body}" for d in docs[:MAX_DOCS])
 
 
-@lru_cache(maxsize=4)
-def _static_for(places: tuple[tuple[str, str, bool | None], ...]) -> str:
-    lines = "\n".join(f"- {pid}: {name}, {_stop_label(stop)}" for pid, name, stop in places)
-    return STATIC.format(places=lines)
+@lru_cache(maxsize=1)
+def build_static() -> str:
+    """Byte-identical for every request (the cacheable prefix). It carries no place list:
+    the catalog has grown past a hundred places, so only the ones that matter to a
+    request are listed, in its context message."""
+    return STATIC.format()
 
 
-def build_static(content: Content) -> str:
-    """Byte-identical for every request with the same place catalog (cacheable prefix)."""
-    return _static_for(
-        tuple((p.id, p.name, p.passenger_stop) for p in content.places.values())
-    )
+def format_places(places: Sequence) -> str:
+    if not places:
+        return "(없음)"
+    return "\n".join(f"- {p.id}: {p.name}, {_stop_label(p.passenger_stop)}" for p in places)
 
 
 def build_context(
@@ -212,6 +225,8 @@ def build_context(
     docs: Sequence[Doc],
     first_turn: bool = True,
     market_day: str | None = None,
+    places: Sequence = (),
+    message: str = "",
 ) -> str:
     return CONTEXT.format(
         first_turn="예" if first_turn else "아니요",
@@ -223,7 +238,8 @@ def build_context(
         pins=", ".join(_place_label(content, p) for p in pins) or "없음",
         depth=depth,
         dismissed=", ".join(dismissed) or "없음",
-        docs=format_docs(docs),
+        docs=format_docs(docs, message),
+        places=format_places(places),
     )
 
 

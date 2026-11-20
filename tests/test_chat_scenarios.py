@@ -2,12 +2,13 @@
 scripts/eval_chat.py runs the same checks against the real LLM.
 
 Expectation keys (all optional):
-  intent, tool_used, tool_used_in, sources, sources_include, sources_include_any,
+  intent, tool_used, tool_used_in, sources, sources_include, sources_include_any, sources_nonempty,
   reply_contains, reply_contains_any, reply_not_contains, no_proposals,
   proposal_targets_exclude, proposal_reason_contains, proposal_certainty_not_null,
   polite, each_step_has_chips, action ("plan_request" or null), action_date,
   action_places, action_start, action_end
-Scenario keys: llm_only (skipped in mock mode, reason in _note), _note (why a check is relaxed).
+Scenario keys: llm_only (skipped in mock mode, reason in _note), mock_only (meaningful only on
+the small unit-test seed; the real-data evaluation skips it), _note (why a check is relaxed).
 """
 
 import json
@@ -44,6 +45,7 @@ POLITE_ENDINGS = ("요", "죠")
 def impolite_sentences(reply):
     """해요체 check: every sentence ends in 요/죠 (parentheses and tildes ignored)."""
     text = re.sub(r"\([^)]*\)", "", reply).replace("~", "")
+    text = re.sub(r"(?<=\d)\.(?=\d)", "·", text)  # "1.3을 곱해" is one sentence
     sentences = [part.strip() for part in re.split(r"[.!?…]+", text)]
     return [part for part in sentences if part and not part.endswith(POLITE_ENDINGS)]
 
@@ -128,6 +130,8 @@ def run_scenario(client, scenario, mode=None):
     for source in expect.get("sources_include", []):
         if source not in body["sources"]:
             failures.append(f"sources {body['sources']} lack {source}")
+    if expect.get("sources_nonempty") and not body["sources"]:
+        failures.append("answered without any source")
     if "sources_include_any" in expect and not set(expect["sources_include_any"]) & set(body["sources"]):
         failures.append(f"sources {body['sources']} lack any of {expect['sources_include_any']}")
     for text in expect.get("reply_contains", []):

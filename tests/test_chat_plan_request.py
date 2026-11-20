@@ -282,6 +282,18 @@ class ModelPathTests(_Case):
         body, _ = self.ask_model([model()], "내가 담은 걸로 일정 짜줘", date="2026-11-21", pins=PINS)
         self.assertIsNotNone(body["action"])  # "내가 담은" is not keeping the planning
 
+    def test_asking_how_to_plan_is_not_a_request_even_if_the_model_says_so(self):
+        # Seen on the real model: "계획 짜는 팁 있어?" came back as a hand-over.
+        for message in ("계획 짜는 팁 있어?", "일정 세우는 방법 알려줘", "코스 짜는 요령 좀 알려줘"):
+            with self.subTest(message):
+                body, _ = self.ask_model([model(reply="일정 화면으로 넘겨 드릴게요.")], message,
+                                         date="2026-11-21", pins=PINS)
+                self.assertIsNone(body["action"])
+                self.assertNotEqual(body["intent"], "plan_request")
+                self.assertIn("일정 화면에서 직접", body["reply"])
+        body, _ = self.ask_model([model()], "팁은 됐고 그냥 일정 짜줘", date="2026-11-21", pins=PINS)
+        self.assertIsNotNone(body["action"])  # a request stays a request
+
     def test_a_model_plan_on_an_ordinary_answer_is_ignored(self):
         body, _ = self.ask_model(
             [model(intent="smalltalk", reply="안녕하세요.", plan=plan(date="2026-11-21"))],
