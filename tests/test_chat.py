@@ -48,7 +48,8 @@ class ChatHttpTests(unittest.TestCase):
         body = response.json()
         self.assertEqual(
             set(body),
-            {"reply", "intent", "action", "chips", "proposals", "sources", "tool_used", "mode"},
+            {"reply", "intent", "action", "chips", "proposals", "sources", "tool_used", "steps",
+             "mode"},
         )
         self.assertEqual(body["mode"], "mock")
         self.assertEqual(body["intent"], "train_lookup")

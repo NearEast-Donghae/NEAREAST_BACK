@@ -268,7 +268,8 @@ class ServiceStorageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(
             set(response.json()),
-            {"reply", "intent", "action", "chips", "proposals", "sources", "tool_used", "mode"},
+            {"reply", "intent", "action", "chips", "proposals", "sources", "tool_used", "steps",
+             "mode"},
         )
 
 

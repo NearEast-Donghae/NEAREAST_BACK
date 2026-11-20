@@ -16,6 +16,7 @@ import json
 import logging
 import re
 import time
+import typing
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
@@ -28,6 +29,7 @@ from neareast_api.modules.chat.schemas import (
     ChatContext,
     ChatRequest,
     ChatResponse,
+    ChatStep,
     Intent,
     PersonaLoading,
     PersonaResponse,
@@ -44,6 +46,15 @@ logger = logging.getLogger(__name__)
 MAX_CHIPS = 3
 SLOW_REQUEST_MS = 5000  # the frontend switches to the "slow" text at 5 s
 MAX_REPLY_CHARS = 400  # the prompt asks for 2-4 sentences; this is the hard stop
+MAX_AGENT_REPLY_CHARS = 600  # an answer built on several lookups may run to 6 sentences
+# Agent loop: another tool step is started only with this much of the request budget left
+# (a step is a tool run plus a model call, and the final answer still has to follow).
+AGENT_STEP_RESERVE_SECONDS = 4.5
+AGENT_OUT_OF_TIME = "시간이 오래 걸려 여기까지만 확인했어요. 나머지는 다시 물어봐 주세요."
+PLACE_SEARCH_CATEGORIES = {"attraction": "관광지", "culture": "문화시설", "market": "시장",
+                           "restaurant": "식당"}
+MAX_PLACES_FOUND = 6
+TOOL_NAMES = frozenset(typing.get_args(ToolName))
 KST = ZoneInfo("Asia/Seoul")
 # Clock times ("10:20", "오후 4시 10분", "10시대") and train counts ("3편") must be backed
 # by a tool result or a cited document. Durations ("도보 7분", "1시간 거리") are not clock times.
@@ -136,6 +147,7 @@ class Draft:
     # Documents found by the screen context or by a name in the question.
     named_docs: tuple[str, ...] = ()
     plan: dict | None = None  # plan conditions the model heard; checked in _plan_handoff
+    steps: list[ChatStep] = field(default_factory=list)  # what was looked up, in order
 
 
 @dataclass(frozen=True)
@@ -471,17 +483,17 @@ def _log_replaced(rule: str, original: str) -> None:
     logger.warning("rule replaced the reply [%s]; original: %r", rule, original[:300])
 
 
-def _clip(reply: str) -> str:
-    """A chat bubble stays short: whole sentences up to MAX_REPLY_CHARS."""
-    if len(reply) <= MAX_REPLY_CHARS:
+def _clip(reply: str, limit: int = MAX_REPLY_CHARS) -> str:
+    """A chat bubble stays short: whole sentences up to `limit` characters."""
+    if len(reply) <= limit:
         return reply
     kept = ""
     for sentence in re.split(r"(?<=[.!?…])\s+", reply):
-        if len(kept) + len(sentence) + 1 > MAX_REPLY_CHARS:
+        if len(kept) + len(sentence) + 1 > limit:
             # A long unbroken run (a train list) that would otherwise vanish: when most of
             # the bubble is still empty, keep its beginning up to an item boundary.
-            room = MAX_REPLY_CHARS - len(kept) - 2
-            if len(kept) < MAX_REPLY_CHARS // 2 and room > 20:
+            room = limit - len(kept) - 2
+            if len(kept) < limit // 2 and room > 20:
                 piece = sentence[:room]
                 # Cut between list items if possible ("…), " then ", "), else between words.
                 cut = piece.rfind("), ") + 1
@@ -889,7 +901,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     content = context.content
     pinned = {p.id for p in context.pins}
     blocked = set(raw.dismissed) | set(context.unknown_ids)
-    reply = _clip(draft.reply)
+    reply = _clip(draft.reply, MAX_AGENT_REPLY_CHARS if len(draft.steps) > 1 else MAX_REPLY_CHARS)
     chips = list(draft.chips)
     sources = [s for s in dict.fromkeys(draft.sources) if s in content.docs]
     if draft.intent != "smalltalk" and draft.tool_used != "walk_time":
@@ -1071,6 +1083,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
         proposals=proposals,
         sources=sources,
         tool_used=draft.tool_used,
+        steps=draft.steps if mode == "llm" else [],
         mode=mode,
     )
 
@@ -1123,6 +1136,10 @@ class ToolRun:
     evidence: str = ""  # the whole day's trains, beyond the digest the model saw
     train_count: int | None = None
 
+    @property
+    def summary(self) -> str:
+        return _step_summary(self)
+
 
 def _llm_draft(
     request: ChatRequest, context: ResolvedContext, settings: Settings,
@@ -1157,7 +1174,9 @@ def _llm_draft(
             docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[doc_id]]
 
     raw = context.raw
-    static = prompts.build_static()
+    agent = settings.chat_agent
+    static = prompts.build_agent_static() if agent else prompts.build_static()
+    schema = prompts.AGENT_SCHEMA if agent else prompts.DRAFT_SCHEMA
     screen = prompts.build_context(
         places=_relevant_places(context, docs),
         message=request.message,
@@ -1174,15 +1193,16 @@ def _llm_draft(
     )
     history = [(t.role, t.content) for t in request.history]
 
-    def call(tool_result: dict | None, label: str) -> dict:
+    def call(label: str, tool_result: dict | None = None,
+             tool_results: list[dict] | None = None, steps_left: int = 0) -> dict:
         messages = prompts.build_messages(
-            static=static, history=history, context=screen,
-            message=request.message, tool_result=tool_result,
+            static=static, history=history, context=screen, message=request.message,
+            tool_result=tool_result, tool_results=tool_results, steps_left=steps_left,
         )
         with stages.timed(f"llm_{label}"):
-            return llm.chat_json(settings, messages, prompts.DRAFT_SCHEMA, label, deadline)
+            return llm.chat_json(settings, messages, schema, label, deadline)
 
-    first = call(None, "first")
+    first = call("first")
     # Walking time: asked in words the server knows, or by the model's own tool request.
     # A plan request is handed over as it is: neither a walk nor any other tool is run.
     wants_plan = _wants_plan(str(first.get("intent")), request.message)
@@ -1190,44 +1210,84 @@ def _llm_draft(
     pair = None if risky or wants_plan else _walk_pair(context)
     asked = first.get("tool_request") or {}
     by_ride = any(word in request.message for word in RIDE_WORDS)
-    if (pair is None and not risky and not by_ride and not wants_plan
+    if (pair is None and not risky and not by_ride and not wants_plan and not agent
             and asked.get("name") == "walk_time"):
         ends = [content.place(asked.get(key) or "") for key in ("station_id", "place_id")]
         if None not in ends and ends[0] != ends[1]:
             pair = (ends[0], ends[1])
     if pair is not None:
-        return _walk_draft(*pair)
-    run = None
-    if first.get("tool_request") and not wants_plan:
-        with stages.timed("tool"):
-            run = _run_tool(first["tool_request"], context)
-        final = call(run.result, "after_tool")  # a second tool request is ignored
-    else:
+        draft = _walk_draft(*pair)
+        draft.steps = [ChatStep(tool="walk_time", summary=_walk_run(*pair).summary)]
+        return draft
+    runs: list[ToolRun] = []
+    out_of_time = False
+    if not first.get("tool_request") or wants_plan:
         final = first
+    elif not agent:
+        with stages.timed("tool"):
+            runs.append(_run_tool(first["tool_request"], context))
+        final = call("after_tool", tool_result=runs[0].result)  # a second request is ignored
+    else:
+        final, out_of_time = _agent_steps(first, call, context, settings, deadline, stages, runs)
     draft = _parse_draft(final)
     provided = {d.id for d in docs}
     draft.sources = [s for s in draft.sources if s in provided]
     draft.reply = _tidy(draft.reply, first_turn=not request.history)
-    if run is not None and run.name is not None:
-        draft.tool_used = run.name
-        draft.tool_certainty = run.certainty
-        draft.tool_source = run.source
-        draft.tool_basis = run.result.get("basis")
-        draft.tool_place = run.place_id
-        draft.evidence = "\n".join(
-            [json.dumps(run.result, ensure_ascii=False, default=str), run.evidence])
-        draft.train_count = run.train_count
-        if run.name == "nearby_spots" and run.result.get("nearest_beyond"):
-            # Nothing near: the sentence and its numbers are the server's, and a place
-            # half an hour away is information, not a proposal.
-            draft.reply = _none_nearby(run.result["place"], run.result["within_minutes"],
-                                       run.result["nearest_beyond"])
-            draft.proposals = []
+    _apply_runs(draft, runs)
+    if out_of_time:
+        # The budget ran out before the model could answer: what was looked up is said in
+        # the server's words, and nothing the model wrote before the lookups is kept.
+        draft.reply = " ".join([*(step.summary for step in draft.steps), AGENT_OUT_OF_TIME])
+        draft.proposals = []
+    if (len(runs) == 1 and runs[0].name == "nearby_spots"
+            and runs[0].result.get("nearest_beyond")):
+        # Nothing near: the sentence and its numbers are the server's, and a place
+        # half an hour away is information, not a proposal.
+        result = runs[0].result
+        draft.reply = _none_nearby(result["place"], result["within_minutes"],
+                                   result["nearest_beyond"])
+        draft.proposals = []
     # Documents the model was given are evidence too, cited or not ("하루 6편" from a doc).
     draft.evidence = "\n".join([draft.evidence, *(d.body for d in docs)])
     draft.vector_docs = vector_docs
     draft.named_docs = tuple(h.doc.id for h in hits if h.reason != "vector")
     return draft
+
+
+def _agent_steps(first: dict, call, context: ResolvedContext, settings: Settings,
+                 deadline: llm.Deadline | None, stages: _Stages,
+                 runs: list[ToolRun]) -> tuple[dict, bool]:
+    """Tool steps until the model answers, the step limit is reached or the request budget
+    is nearly spent. Returns the model's final output and whether time ran out before it
+    could answer (the caller then writes the reply from the steps). `runs` is filled as
+    the steps happen, so it holds what was checked even when a call fails."""
+    current, found, seen = first, set(), set()
+    limit = settings.chat_agent_max_steps
+    for step in range(1, limit + 1):
+        asked = current.get("tool_request")
+        if not asked:
+            break
+        key = json.dumps(asked, sort_keys=True, ensure_ascii=False)
+        repeated = key in seen  # the same lookup again: nothing new to learn, answer now
+        seen.add(key)
+        if not repeated:
+            with stages.timed(f"tool_{step}"):
+                run = _run_tool(asked, context, frozenset(found), agent=True)
+            runs.append(run)
+            found |= _found_ids(run)
+        short = deadline is not None and deadline.remaining() < AGENT_STEP_RESERVE_SECONDS
+        left = 0 if repeated or short or step == limit else limit - step
+        try:
+            current = call(f"step_{step}", tool_results=[r.result for r in runs],
+                           steps_left=left)
+        except llm.LLMError as exc:
+            if not any(r.name for r in runs):
+                raise  # nothing was learned: the built-in responder answers
+            logger.warning("agent stopped after %d step(s): %s", len(runs), exc)
+            return {**first, "proposals": [], "tool_request": None}, True
+        if left == 0:
+            break
+    return current, False
 
 
 def _select_docs(hits: list[retrieval.Hit], context: ResolvedContext) -> list[retrieval.Doc]:
@@ -1375,8 +1435,10 @@ def _rhythm_result(rhythm: tools.StationRhythm) -> dict:
     }
 
 
-def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
-    """Run one requested tool. Certainty comes from the result, never from the model."""
+def _run_tool(request: dict, context: ResolvedContext, found: frozenset[str] = frozenset(),
+              agent: bool = False) -> ToolRun:
+    """Run one requested tool. Certainty comes from the result, never from the model.
+    `found`: place ids earlier tool steps returned (agent mode), which later steps may use."""
     name = request.get("name")
     content = context.content
     # Tools may only look at places the user put in play (screen or message): the
@@ -1385,6 +1447,17 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
     for place in (context.mentioned, context.recalled):
         if place:
             in_play.add(place.id)
+    if agent:  # a multi-stop question names several places; earlier steps found others
+        in_play |= {p.id for p in content.places_in_text(context.message)} | found
+        if name == "saved_items":
+            return _saved_items(context)
+        if name == "search_places":
+            return _search_places(request, context, in_play)
+        if name == "walk_time":
+            ends = [content.place(request.get(key) or "") for key in ("station_id", "place_id")]
+            if None in ends or ends[0] == ends[1] or not {e.id for e in ends} <= in_play:
+                return ToolRun(None, {"tool": name, "error": "두 장소를 알 수 없어요"})
+            return _walk_run(*ends)
     named = context.mentioned
     recalled = context.recalled if context.recalled and context.recalled.kind == "station" else None
     default_station = (
@@ -1410,6 +1483,10 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
             # Candidates for filling a gap, so proposals can name a real place.
             longest = max(rhythm.gaps, key=tools.gap_minutes, default=None)
             result["nearby"] = _nearby_candidates(station.id, context, longest)
+        elif (agent and context.timetable is not None
+              and (to := content.place(request.get("place_id") or "")) is not None
+              and to.kind == "station" and to.id != station.id and to.id in in_play):
+            return _trips_run(station, to, _normalize_after(request.get("after")), context)
         else:
             after = _normalize_after(request.get("after"))
             whole = tools.station_rhythm(station.id, date, context.timetable)
@@ -1446,6 +1523,166 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
         return ToolRun(name, result, None, anchor.id, source)
 
     return ToolRun(None, {"tool": name, "error": "알 수 없는 도구"})
+
+
+# --- agent tools: read-only, and only about places already in play ------------------
+
+MAX_TRIPS_SHOWN = 8
+
+
+def _trips_run(origin: retrieval.Place, to: retrieval.Place, after: str | None,
+               context: ResolvedContext) -> ToolRun:
+    """Trains one can ride from one station to another (both real stops)."""
+    found = timetable_service.search(context.timetable, origin.id, to.id, after)
+    lines = [f"{t.dep} {origin.name} 출발 → {t.arr} {to.name} 도착, "
+             f"{t.type or t.line} {t.no}, {t.minutes}분" for t in found.trains]
+    basis = context.timetable.basis().summary
+    result = {"tool": "search_trains", "from": origin.name, "to": to.name, "after": after,
+              "total_trains": len(lines), "trains": lines[:MAX_TRIPS_SHOWN],
+              "more": max(len(lines) - MAX_TRIPS_SHOWN, 0),
+              "source": tools.SNAPSHOT, "basis": f"{basis}의 어림 시각이에요."}
+    if not lines:
+        result["note"] = "두 역을 잇는 열차가 없어요(한쪽이 통과역이거나 그 시각 이후 열차가 없어요)."
+    return ToolRun("search_trains", result, "estimated" if lines else None, origin.id,
+                   tools.SNAPSHOT, evidence="\n".join(lines), train_count=len(lines))
+
+
+def _walk_run(a: retrieval.Place, b: retrieval.Place) -> ToolRun:
+    """Walking time as one step of several; the single-question answer is _walk_draft."""
+    walk = recommend_service.walk_between(a, b)
+    result = {"tool": "walk_time", "from": a.name, "to": b.name, "to_id": b.id,
+              "walk_minutes": walk.minutes, "source": tools.COORDINATES}
+    if walk.minutes is not None:
+        result["walk_basis"] = tools.WALK_BASIS
+    else:
+        result["note"] = ("위치 정보가 없어 계산할 수 없어요" if walk.reason == "no_coordinates"
+                          else "걸어가기에는 멀어요. 열차나 버스·택시를 권해요")
+    return ToolRun("walk_time", result, None, b.id, tools.COORDINATES)
+
+
+def _search_places(request: dict, context: ResolvedContext, in_play: set[str]) -> ToolRun:
+    """Places by name, by category, or by what one can walk to from a place in play.
+    Categories come from the tourism data; a place without one is found by name only."""
+    content = context.content
+    query = str(request.get("query") or "").strip()
+    category = request.get("category")
+    if category not in PLACE_SEARCH_CATEGORIES:
+        category = None
+    near = content.place(request.get("place_id") or "")
+    if near is not None and near.id not in in_play:
+        near = None
+    if not query and category is None:
+        return ToolRun(None, {"tool": "search_places", "error": "찾을 이름이나 분류가 없어요"})
+
+    def matches(place: retrieval.Place) -> bool:
+        named = not query or any(query in label for label in (place.name, *place.aliases))
+        return named and (category is None or place.category == category)
+
+    if near is not None and _located(near):
+        within = _walk_limit(context)
+        rows = [{"id": p.id, "name": p.name, "category": p.category, "walk_minutes": minutes}
+                for minutes, p in recommend_service.within_walk(
+                    content.places, near, tuple(PLACE_SEARCH_CATEGORIES) if category is None
+                    else (category,))
+                if matches(p) and minutes <= within]
+    else:
+        rows = [{"id": p.id, "name": p.name, "category": p.category}
+                for p in sorted(content.places.values(), key=lambda p: p.name)
+                if matches(p) and (near is None or p.id != near.id)]
+    result = {"tool": "search_places", "query": query or None, "category": category,
+              "near": near.name if near else None, "total": len(rows),
+              "places": rows[:MAX_PLACES_FOUND], "source": tools.COORDINATES}
+    if near is not None and _located(near):
+        result.update(within_minutes=_walk_limit(context), walk_basis=tools.WALK_BASIS)
+    elif near is not None:
+        result["note"] = f"{near.name}의 위치 정보가 없어 가까운 순서로 고르지 못했어요."
+    return ToolRun("search_places", result, None, near.id if near else None, tools.COORDINATES)
+
+
+def _saved_items(context: ResolvedContext) -> ToolRun:
+    """What the user has saved. Reading only: nothing is saved or removed here."""
+    content, saved = context.content, context.saved
+    places = [{"id": p.id, "name": p.name, "must": p.id in saved.mustPlaceIds}
+              for p in map(content.place, saved.placeIds) if p is not None]
+    trains = [{"train_no": no, "for": "탑승" if action == "ride" else "관찰",
+               "station": (content.place(station).name if content.place(station) else station)}
+              for no, action, station in saved.trains]
+    return ToolRun("saved_items", {"tool": "saved_items", "places": places, "trains": trains})
+
+
+def _step_summary(run: ToolRun) -> str:
+    """One line for the user about what a step found, written from the result."""
+    r = run.result
+    tool = run.name or r.get("tool")
+    if run.name is None:
+        return {"station_rhythm": "열차 리듬", "search_trains": "열차", "nearby_spots": "근처 장소",
+                "walk_time": "도보 시간", "search_places": "장소",
+                "saved_items": "담아 둔 것"}.get(tool, "요청한 것") + "을 확인하지 못했어요."
+    if tool == "station_rhythm":
+        return (f"{r['station_name']} 열차 리듬을 확인했어요"
+                f"(하루 {run.train_count}편, 공백 {len(r.get('gaps', []))}번).")
+    if tool == "search_trains" and "to" in r:
+        return (f"{r['from']}에서 {r['to']}까지 가는 열차 {r['total_trains']}편을 확인했어요."
+                if r["total_trains"] else f"{r['from']}에서 {r['to']}까지 가는 열차는 찾지 못했어요.")
+    if tool == "search_trains":
+        when = f" {r['after']} 이후" if r.get("after") else ""
+        return f"{r['station_name']}{when} 열차 {r['total_trains']}편을 확인했어요."
+    if tool == "nearby_spots":
+        if r.get("spots"):
+            return f"{r['place']} 근처 장소 {len(r['spots'])}곳을 찾았어요."
+        return f"{r['place']} 근처에는 걸어갈 만한 곳을 찾지 못했어요."
+    if tool == "walk_time":
+        if r["walk_minutes"] is None:
+            return f"{r['from']}에서 {r['to']}까지 도보 시간은 계산하지 못했어요."
+        return f"{r['from']}에서 {r['to']}까지 도보 시간을 계산했어요(약 {r['walk_minutes']}분)."
+    if tool == "search_places":
+        what = PLACE_SEARCH_CATEGORIES.get(r.get("category"), "장소")
+        where = f"{r['near']} 근처 " if r.get("near") else ""
+        return (f"{where}{what} {r['total']}곳을 찾았어요." if r["total"]
+                else f"{where}{what}은 찾지 못했어요.")
+    if tool == "saved_items":
+        return f"담아 둔 장소 {len(r['places'])}곳과 열차 {len(r['trains'])}편을 확인했어요."
+    return "확인했어요."
+
+
+def _found_ids(run: ToolRun) -> set[str]:
+    """Place ids a step returned, which the next steps may look at."""
+    r = run.result
+    rows = [*r.get("spots", []), *r.get("nearby", []), *r.get("places", [])]
+    ids = {row["id"] for row in rows if isinstance(row, dict) and "id" in row}
+    if r.get("nearest_beyond"):
+        ids.add(r["nearest_beyond"]["id"])
+    if r.get("to_id"):
+        ids.add(r["to_id"])
+    return ids
+
+
+_SOURCE_ORDER = (tools.MOCK, tools.SNAPSHOT, tools.COORDINATES)  # which one the answer shows
+
+
+def _apply_runs(draft: Draft, runs: list[ToolRun]) -> None:
+    """What the tools returned, onto the draft the server rules read. With several steps:
+    the weakest certainty, every result as evidence, and the train lookup (if any) as the
+    tool the answer is "from", since the rules about times hang on it."""
+    done = [run for run in runs if run.name is not None]
+    draft.steps = [ChatStep(tool=tool, summary=run.summary) for run in runs
+                   if (tool := run.name or run.result.get("tool")) in TOOL_NAMES]
+    if not done:
+        return
+    main = next((run for run in done if run.name in ("station_rhythm", "search_trains")),
+                done[-1])
+    draft.tool_used = main.name
+    draft.tool_place = main.place_id
+    draft.tool_certainty = _weakest(run.certainty for run in done)
+    sources = {run.source for run in done}
+    draft.tool_source = next((s for s in _SOURCE_ORDER if s in sources), main.source)
+    bases = dict.fromkeys(run.result["basis"] for run in done if run.result.get("basis"))
+    draft.tool_basis = " ".join(bases) or None
+    draft.evidence = "\n".join(
+        part for run in done
+        for part in (json.dumps(run.result, ensure_ascii=False, default=str), run.evidence))
+    counts = [run.train_count for run in done if run.train_count is not None]
+    draft.train_count = max(counts) if counts else None
 
 
 # --- mock responder: deterministic keyword routing, no keys or network -----------

@@ -21,6 +21,8 @@ services:
       NEAREAST_CHAT_MAX_TOKENS: "${NEAREAST_CHAT_MAX_TOKENS:-1000}"
       NEAREAST_LLM_TIMEOUT_SECONDS: "${NEAREAST_LLM_TIMEOUT_SECONDS:-8}"
       NEAREAST_CHAT_DEADLINE_SECONDS: "${NEAREAST_CHAT_DEADLINE_SECONDS:-12}"
+      NEAREAST_CHAT_AGENT: "${NEAREAST_CHAT_AGENT:-false}"
+      NEAREAST_CHAT_AGENT_MAX_STEPS: "${NEAREAST_CHAT_AGENT_MAX_STEPS:-4}"
       # Not passed on purpose: NEAREAST_CONTENT_DIR (deprecated after PostgreSQL migration) and
       # NEAREAST_CHAT_REASONING_EFFORT (an empty value is invalid; set it here if needed).
       # Container-to-container traffic uses the service name and internal port.

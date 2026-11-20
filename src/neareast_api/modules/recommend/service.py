@@ -67,8 +67,8 @@ def walk_between(a: Place, b: Place) -> Walk:
 # What may be offered. A place whose category the tourism data does not give is never
 # offered: nothing is guessed from a name.
 VISIT_CATEGORIES = ("attraction", "culture", "market")  # somewhere to go and look
-MEAL_CATEGORY = "restaurant"
-INDOOR_CATEGORY = "culture"  # museums, halls: the places listed first for `indoor_first`  # offered only when the gap covers a meal time, as a meal
+MEAL_CATEGORY = "restaurant"  # offered only when the gap covers a meal time, as a meal
+INDOOR_CATEGORY = "culture"  # museums, halls: the places listed first for `indoor_first`
 MEAL_WINDOWS = (("11:00", "14:00", "점심"), ("17:00", "20:00", "저녁"))
 MEAL_MIN_OVERLAP = 30  # minutes of the gap that must fall inside the meal time
 MAX_MEALS_PER_GAP = 1

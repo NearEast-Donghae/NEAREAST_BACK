@@ -102,6 +102,31 @@ CONTEXT = """[화면 맥락]
 [문서]
 {docs}"""
 
+# Agent mode: the same rules, more tools, and several tool steps before the answer. Kept
+# apart from STATIC so the prompt is byte-identical to before when the agent is off.
+AGENT_RULES = """
+
+[여러 단계로 확인하기]
+- 한 번의 도구로 답할 수 없는 질문(여러 역, 이동과 식사, "몇 시 전에 돌아올 수 있어?")은 도구를 차례로 요청한다. 한 단계에 도구 하나. 결과를 보고 다음 도구를 고르거나, 충분하면 tool_request를 null로 두고 답한다.
+- 단순한 질문은 지금처럼 도구 없이 또는 도구 한 번으로 끝낸다. 필요 없는 도구를 부르지 않는다. 같은 도구를 같은 값으로 다시 부르지 않는다.
+- 도구는 읽기만 한다. 담기와 계획 확정은 할 수 없다. 담고 싶은 장소는 proposals로만 내놓는다.
+- 여러 조건을 확인했으면 되는지 안 되는지와 그 근거(시각, 도보 시간)를 3~6문장으로 말한다. 시각표나 순서를 일정처럼 짜 주지 않는다. 일정으로 만들고 싶으면 칩 "이대로 일정 짜줘"를 준다.
+- 확인하지 못한 것은 확인하지 못했다고 말한다. 도구 결과에 없는 시각·편수·도보 시간은 말하지 않는다.
+
+[추가 도구]
+- search_trains(station_id=타는 역, place_id=내리는 역, after="HH:MM" 선택): 두 역 사이에 탈 수 있는 열차(출발·도착 시각, 소요 분). place_id를 비우면 그 역의 열차 목록이다.
+- search_places(query=이름 일부 선택, category=선택, place_id=기준 장소 선택): 장소 찾기. category는 attraction(관광지) | culture(문화시설) | market(시장) | restaurant(식당) 중 하나. place_id를 주면 그 장소에서 걸어갈 수 있는 곳만 가까운 순서로, 도보 시간과 함께 준다. "묵호역 근처 식당"은 category="restaurant", place_id="station_mukho".
+- saved_items(): 사용자가 담아 둔 장소와 열차. "내가 담은 곳", "담아 둔 열차"를 물을 때 쓴다.
+station_id·place_id에는 [장소] 목록의 id와 앞선 도구 결과에 나온 id를 쓸 수 있다."""
+
+TOOL_RESULTS_MORE = """[도구 결과]
+{tool_results}
+지금까지 확인한 것이다. 더 필요하면 tool_request로 다음 도구를 하나 요청한다(남은 횟수 {left}번). 충분하면 tool_request를 null로 두고 이 결과만 인용해 최종 답을 만든다."""
+
+TOOL_RESULTS_FINAL = """[도구 결과]
+{tool_results}
+이 결과만 인용해 최종 답을 만든다. 더 확인할 수 없다. tool_request는 null로 둔다. 확인하지 못한 것은 못 했다고 말한다."""
+
 TOOL_RESULT = """[도구 결과]
 {tool_result}
 이 결과만 인용해 최종 답을 만든다. tool_request는 null로 둔다."""
@@ -246,6 +271,20 @@ def build_context(
     )
 
 
+def build_agent_static() -> str:
+    """The agent's fixed prefix: STATIC plus the multi-step rules. Byte-identical per request."""
+    return STATIC.format() + AGENT_RULES
+
+
+def build_tool_results(tool_results: Sequence[dict], left: int) -> str:
+    """Every result so far, numbered in the order the tools ran. `left`: tool steps still
+    allowed; 0 asks for the final answer."""
+    listed = "\n".join(f"{i}. {json.dumps(r, ensure_ascii=False, default=str)}"
+                       for i, r in enumerate(tool_results, 1))
+    template = TOOL_RESULTS_MORE if left > 0 else TOOL_RESULTS_FINAL
+    return template.format(tool_results=listed, left=left)
+
+
 def build_tool_result(tool_result: dict) -> str:
     return TOOL_RESULT.format(
         tool_result=json.dumps(tool_result, ensure_ascii=False, default=str)
@@ -259,6 +298,8 @@ def build_messages(
     context: str,
     message: str,
     tool_result: dict | None = None,
+    tool_results: Sequence[dict] | None = None,
+    steps_left: int = 0,
 ) -> list[dict]:
     """Fixed prefix first so repeated calls (and the post-tool call) hit the cache."""
     messages = [{"role": "system", "content": static}]
@@ -267,4 +308,21 @@ def build_messages(
     messages.append({"role": "user", "content": message})
     if tool_result is not None:
         messages.append({"role": "system", "content": build_tool_result(tool_result)})
+    if tool_results:
+        messages.append(
+            {"role": "system", "content": build_tool_results(tool_results, steps_left)})
     return messages
+
+
+def _agent_schema() -> dict:
+    """DRAFT_SCHEMA with the agent's tools and their two extra arguments."""
+    schema = json.loads(json.dumps(DRAFT_SCHEMA))
+    request = schema["properties"]["tool_request"]["anyOf"][1]
+    request["properties"]["name"]["enum"] += ["search_places", "saved_items"]
+    request["properties"]["query"] = _NULLABLE_STR
+    request["properties"]["category"] = _NULLABLE_STR
+    request["required"] += ["query", "category"]
+    return schema
+
+
+AGENT_SCHEMA = _agent_schema()
