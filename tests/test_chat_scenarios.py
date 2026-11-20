@@ -8,7 +8,9 @@ Expectation keys (all optional):
   polite, each_step_has_chips, action ("plan_request" or null), action_date,
   action_places, action_start, action_end
 Scenario keys: llm_only (skipped in mock mode, reason in _note), mock_only (meaningful only on
-the small unit-test seed; the real-data evaluation skips it), _note (why a check is relaxed).
+the small unit-test seed; the real-data evaluation skips it). Group AG: questions that need
+several lookups, checked by what the answer contains so that every responder (built-in,
+one lookup, agent) is measured the same way, _note (why a check is relaxed).
 """
 
 import json
@@ -77,7 +79,9 @@ def invariant_failures(request, body):
         failures.append("PL: action on an answer that is not a plan request")
     if body["intent"] == "plan_request" and (body["proposals"] or body["tool_used"]):
         failures.append("PL: plan request answered with proposals or a tool")
-    if body["intent"] == "knowledge" and not body["sources"] and "확인된 정보가 없어요" not in body["reply"]:
+    # Knowledge rests on documents, or on something looked up (what the user has saved).
+    if (body["intent"] == "knowledge" and not body["sources"] and not body["tool_used"]
+            and "확인된 정보가 없어요" not in body["reply"]):
         failures.append("Q4: knowledge answer without sources")
     return failures
 
@@ -142,6 +146,9 @@ def run_scenario(client, scenario, mode=None):
             failures.append(f"reply lacks {text!r}")
     if "reply_contains_any" in expect and not any(t in body["reply"] for t in expect["reply_contains_any"]):
         failures.append(f"reply lacks any of {expect['reply_contains_any']}")
+    for pattern in expect.get("reply_regex", []):
+        if not re.search(pattern, body["reply"], re.S):
+            failures.append(f"reply does not match {pattern!r}")
     for text in expect.get("reply_not_contains", []):
         if text in body["reply"]:
             failures.append(f"reply should not contain {text!r}")

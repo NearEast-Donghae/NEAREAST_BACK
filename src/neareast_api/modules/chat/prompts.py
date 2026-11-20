@@ -112,12 +112,22 @@ AGENT_RULES = """
 - 도구는 읽기만 한다. 담기와 계획 확정은 할 수 없다. 담고 싶은 장소는 proposals로만 내놓는다.
 - 여러 조건을 확인했으면 되는지 안 되는지와 그 근거(시각, 도보 시간)를 3~6문장으로 말한다. 시각표나 순서를 일정처럼 짜 주지 않는다. 일정으로 만들고 싶으면 칩 "이대로 일정 짜줘"를 준다.
 - 확인하지 못한 것은 확인하지 못했다고 말한다. 도구 결과에 없는 시각·편수·도보 시간은 말하지 않는다.
+- 열차를 확인했으면 "여러 편 있어요"로 끝내지 않는다. 질문에 맞는 열차 한두 편의 출발·도착 시각을 결과에 적힌 그대로 말한다. 도보 시간을 확인했으면 그 분 수를 말한다.
+- 방향을 지킨다. "A에서 B로 간다"면 station_id=A, place_id=B다. 돌아오는 열차는 반대로 한 번 더 찾는다.
+- "몇 시 전에 도착/돌아올 수 있어?"는 after가 아니라 before에 그 시각을 넣는다. before를 주면 그 시각까지 도착하는 열차만, 늦은 것부터 보여 준다.
+- "걸어갈까 열차 탈까?"처럼 두 방법을 견주는 질문은 walk_time과 search_trains를 둘 다 확인하고 둘 다 말한다.
 
 [추가 도구]
-- search_trains(station_id=타는 역, place_id=내리는 역, after="HH:MM" 선택): 두 역 사이에 탈 수 있는 열차(출발·도착 시각, 소요 분). place_id를 비우면 그 역의 열차 목록이다.
+- search_trains(station_id=타는 역, place_id=내리는 역, after="HH:MM" 선택, before="HH:MM" 선택): 두 역 사이에 탈 수 있는 열차(출발·도착 시각, 소요 분)와 첫차·막차. after는 그 시각 이후 출발, before는 그 시각까지 도착. place_id를 비우면 그 역의 열차 목록이다.
 - search_places(query=이름 일부 선택, category=선택, place_id=기준 장소 선택): 장소 찾기. category는 attraction(관광지) | culture(문화시설) | market(시장) | restaurant(식당) 중 하나. place_id를 주면 그 장소에서 걸어갈 수 있는 곳만 가까운 순서로, 도보 시간과 함께 준다. "묵호역 근처 식당"은 category="restaurant", place_id="station_mukho".
 - saved_items(): 사용자가 담아 둔 장소와 열차. "내가 담은 곳", "담아 둔 열차"를 물을 때 쓴다.
-station_id·place_id에는 [장소] 목록의 id와 앞선 도구 결과에 나온 id를 쓸 수 있다."""
+station_id·place_id에는 [장소] 목록의 id와 앞선 도구 결과에 나온 id를 쓸 수 있다.
+
+[여러 단계 예시]
+질문 "동해역에서 묵호역 가서 논골담길까지 걸으면 얼마나 걸려?"
+1단계 tool_request {"name":"search_trains","station_id":"station_donghae","place_id":"station_mukho","after":null,"before":null,"query":null,"category":null}
+2단계 tool_request {"name":"walk_time","station_id":"station_mukho","place_id":"poi_nongoldam","after":null,"before":null,"query":null,"category":null}
+답 "동해역에서 묵호역까지는 열차로 6분쯤이에요. 예를 들면 09:32에 출발해 09:38에 도착해요. 묵호역에서 논골담길까지는 걸어서 약 20분이에요."(시각과 분은 도구 결과의 것만 쓴다)"""
 
 TOOL_RESULTS_MORE = """[도구 결과]
 {tool_results}
@@ -319,9 +329,9 @@ def _agent_schema() -> dict:
     schema = json.loads(json.dumps(DRAFT_SCHEMA))
     request = schema["properties"]["tool_request"]["anyOf"][1]
     request["properties"]["name"]["enum"] += ["search_places", "saved_items"]
-    request["properties"]["query"] = _NULLABLE_STR
-    request["properties"]["category"] = _NULLABLE_STR
-    request["required"] += ["query", "category"]
+    for name in ("before", "query", "category"):
+        request["properties"][name] = _NULLABLE_STR
+    request["required"] += ["before", "query", "category"]
     return schema
 
 

@@ -377,6 +377,8 @@ def unverified_time_claims(reply: str, evidence: str, train_count: int | None) -
             problems.append(f"time {sorted(hours)}:{minute}")
     for m in TRAIN_COUNT.finditer(reply):
         count = int(m.group(1))
+        if re.search(rf"(?<!\d){count}(?!\d)", evidence) and count >= 100:
+            continue  # a train number from the result ("ITX-마음 1831 편"), not a count
         if m.group(0) not in evidence and not (train_count is not None and count <= train_count):
             problems.append(f"count {count}")
     return problems
@@ -1486,7 +1488,8 @@ def _run_tool(request: dict, context: ResolvedContext, found: frozenset[str] = f
         elif (agent and context.timetable is not None
               and (to := content.place(request.get("place_id") or "")) is not None
               and to.kind == "station" and to.id != station.id and to.id in in_play):
-            return _trips_run(station, to, _normalize_after(request.get("after")), context)
+            return _trips_run(station, to, _normalize_after(request.get("after")), context,
+                              _normalize_after(request.get("before")))
         else:
             after = _normalize_after(request.get("after"))
             whole = tools.station_rhythm(station.id, date, context.timetable)
@@ -1531,20 +1534,36 @@ MAX_TRIPS_SHOWN = 8
 
 
 def _trips_run(origin: retrieval.Place, to: retrieval.Place, after: str | None,
-               context: ResolvedContext) -> ToolRun:
-    """Trains one can ride from one station to another (both real stops)."""
-    found = timetable_service.search(context.timetable, origin.id, to.id, after)
-    lines = [f"{t.dep} {origin.name} 출발 → {t.arr} {to.name} 도착, "
-             f"{t.type or t.line} {t.no}, {t.minutes}분" for t in found.trains]
+               context: ResolvedContext, before: str | None = None) -> ToolRun:
+    """Trains one can ride from one station to another (both real stops). `after`: leaving
+    from that time on; `before`: arriving by that time, the latest ones shown first."""
+    found = timetable_service.search(context.timetable, origin.id, to.id, after).trains
+    if before is not None:
+        found = [t for t in found if t.dep <= t.arr <= before]  # same-day arrival by then
+
+    def line(t) -> str:
+        return (f"{t.dep} {origin.name} 출발 → {t.arr} {to.name} 도착, "
+                f"{t.type or t.line} {t.no}, {t.minutes}분")
+
+    lines = [line(t) for t in found]
+    shown = lines[-MAX_TRIPS_SHOWN:][::-1] if before is not None else lines[:MAX_TRIPS_SHOWN]
     basis = context.timetable.basis().summary
     result = {"tool": "search_trains", "from": origin.name, "to": to.name, "after": after,
-              "total_trains": len(lines), "trains": lines[:MAX_TRIPS_SHOWN],
+              "before": before, "total_trains": len(lines), "trains": shown,
               "more": max(len(lines) - MAX_TRIPS_SHOWN, 0),
               "source": tools.SNAPSHOT, "basis": f"{basis}의 어림 시각이에요."}
-    if not lines:
-        result["note"] = "두 역을 잇는 열차가 없어요(한쪽이 통과역이거나 그 시각 이후 열차가 없어요)."
-    return ToolRun("search_trains", result, "estimated" if lines else None, origin.id,
-                   tools.SNAPSHOT, evidence="\n".join(lines), train_count=len(lines))
+    if lines:
+        result.update(first_train=lines[0], last_train=lines[-1])
+    else:
+        result["note"] = "조건에 맞는 열차가 없어요(한쪽이 통과역이거나 그 시각에 맞는 열차가 없어요)."
+    # A station trains pass without stopping is why there is nothing to ride: the answer
+    # is then about that station (the observe-only rule is added to it).
+    passing = next((p for p in (to, origin) if p.passenger_stop is False), None)
+    if passing is not None:
+        result["passenger_stop"] = False
+        result["note"] = f"{passing.name}은 여객열차가 서지 않아 타고 내릴 수 없어요. 관찰만 할 수 있어요."
+    return ToolRun("search_trains", result, "estimated" if lines else None,
+                   (passing or origin).id, tools.SNAPSHOT, evidence="\n".join(lines), train_count=len(lines))
 
 
 def _walk_run(a: retrieval.Place, b: retrieval.Place) -> ToolRun:
@@ -1619,11 +1638,14 @@ def _step_summary(run: ToolRun) -> str:
                 "walk_time": "도보 시간", "search_places": "장소",
                 "saved_items": "담아 둔 것"}.get(tool, "요청한 것") + "을 확인하지 못했어요."
     if tool == "station_rhythm":
-        return (f"{r['station_name']} 열차 리듬을 확인했어요"
-                f"(하루 {run.train_count}편, 공백 {len(r.get('gaps', []))}번).")
+        return (f"{r['station_name']} 열차 리듬(하루 {run.train_count}편, "
+                f"공백 {len(r.get('gaps', []))}번)을 확인했어요.")
     if tool == "search_trains" and "to" in r:
-        return (f"{r['from']}에서 {r['to']}까지 가는 열차 {r['total_trains']}편을 확인했어요."
-                if r["total_trains"] else f"{r['from']}에서 {r['to']}까지 가는 열차는 찾지 못했어요.")
+        when = (f" {r['before']}까지 도착하는" if r.get("before") else
+                f" {r['after']} 이후" if r.get("after") else "")
+        return (f"{r['from']}에서 {r['to']}까지 가는{when} 열차 {r['total_trains']}편을 확인했어요."
+                if r["total_trains"]
+                else f"{r['from']}에서 {r['to']}까지 가는{when} 열차는 찾지 못했어요.")
     if tool == "search_trains":
         when = f" {r['after']} 이후" if r.get("after") else ""
         return f"{r['station_name']}{when} 열차 {r['total_trains']}편을 확인했어요."
@@ -1633,8 +1655,9 @@ def _step_summary(run: ToolRun) -> str:
         return f"{r['place']} 근처에는 걸어갈 만한 곳을 찾지 못했어요."
     if tool == "walk_time":
         if r["walk_minutes"] is None:
-            return f"{r['from']}에서 {r['to']}까지 도보 시간은 계산하지 못했어요."
-        return f"{r['from']}에서 {r['to']}까지 도보 시간을 계산했어요(약 {r['walk_minutes']}분)."
+            return (f"{r['from']}에서 {r['to']}까지는 걸어가기에 멀어요." if "멀어요" in r.get("note", "")
+                    else f"{r['from']}에서 {r['to']}까지 도보 시간은 계산하지 못했어요.")
+        return f"{r['from']}에서 {r['to']}까지 도보 시간(약 {r['walk_minutes']}분)을 계산했어요."
     if tool == "search_places":
         what = PLACE_SEARCH_CATEGORIES.get(r.get("category"), "장소")
         where = f"{r['near']} 근처 " if r.get("near") else ""

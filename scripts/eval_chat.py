@@ -109,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", help="write the run summary and every answer as JSON here")
     parser.add_argument("--vector-search", choices=["on", "off"], help="override the setting")
     parser.add_argument("--min-similarity", type=float, help="override the similarity floor")
+    parser.add_argument("--responder", choices=["mock", "single", "agent"],
+                        help="mock: built-in rules, no model / single: one lookup at most / "
+                             "agent: up to NEAREAST_CHAT_AGENT_MAX_STEPS lookups (default: settings)")
     args = parser.parse_args(argv)
 
     load_dotenv(args.env_file, override=False)
@@ -122,14 +125,22 @@ def main(argv: list[str] | None = None) -> int:
         update["chat_vector_search"] = args.vector_search == "on"
     if args.min_similarity is not None:
         update["vector_min_similarity"] = args.min_similarity
+    if args.responder:
+        update["chat_mock"] = args.responder == "mock"
+        update["chat_agent"] = args.responder == "agent"
     base = Settings.from_env()
     settings = base.model_copy(update=update)
-    if not settings.openai_api_key.get_secret_value():
+    expected_mode = "mock" if settings.chat_mock else "llm"
+    if not settings.chat_mock and not settings.openai_api_key.get_secret_value():
         print(f"NEAREAST_OPENAI_API_KEY가 없습니다 ({args.env_file}).", file=sys.stderr)
         return 2
     label = settings.chat_model + (
         f"@{settings.chat_reasoning_effort}" if settings.chat_reasoning_effort else ""
     )
+    if settings.chat_mock:
+        label = "built-in rules (mock)"
+    elif settings.chat_agent:
+        label += f"+agent{settings.chat_agent_max_steps}"
 
     module = load_scenario_module()
     only = set(args.only)
@@ -189,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"== {label} · {len(scenarios)} scenarios ==")
     for scenario in scenarios:
         # mode="llm": a silent fallback answer must not count as a model pass
-        failures, transcript = module.run_scenario(client, scenario, mode="llm")
+        failures, transcript = module.run_scenario(client, scenario, mode=expected_mode)
         latencies += [seconds for _, _, seconds in transcript]
         answers.append({"id": scenario["id"], "group": scenario["group"], "failures": failures,
                         "transcript": [{"message": m, "body": b, "seconds": round(t, 3)}
@@ -215,6 +226,8 @@ def main(argv: list[str] | None = None) -> int:
     entries = [e for e in records if e["kind"] != "request"]  # model calls (tokens)
     requests = [e for e in records if e["kind"] == "request"]
     fallbacks = sum(1 for e in requests if e["mode"] != "llm")
+    step_counts = [len(b.get("steps", [])) for a in answers for b in
+                   (t["body"] for t in a["transcript"])]
     slowest = max((e for e in records if e["kind"] == "request"),
                   key=lambda e: e["total_ms"], default=None)
     run_log.unlink(missing_ok=True)
@@ -242,11 +255,16 @@ def main(argv: list[str] | None = None) -> int:
         "fallbacks": fallbacks,
         "prompt_tokens_per_chat_call": per_call,
         "embedding_calls": sum(1 for e in entries if e["kind"] == "embedding:query"),
+        "steps_avg": round(sum(step_counts) / len(step_counts), 2) if step_counts else 0,
+        "steps_max": max(step_counts, default=0),
+        "multi_step_answers": sum(1 for c in step_counts if c > 1),
     }
     print(f"{len(latencies)} requests · 95% within {speed['latency_p95_s']}s · over 6s "
           f"{speed['over_6s']} · over 12s {speed['over_12s']} · fallback answers {fallbacks} · "
           f"{per_call} prompt tokens per chat call · {speed['embedding_calls']} embeddings")
 
+    print(f"lookups per answer: avg {speed['steps_avg']} · max {speed['steps_max']} · "
+          f"answers with more than one {speed['multi_step_answers']}")
     if slowest:
         print(f"slowest request: {slowest['total_ms']} ms, stages {slowest['stages']}")
     if args.out:
