@@ -272,7 +272,7 @@ class KnowledgeEnrichmentMigrationTests(unittest.TestCase):
         self.assertEqual(self.migration.down_revision, "market_aliases")
         config = Config(str(PROJECT_ROOT / "alembic.ini"))
         config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
-        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["0006_train_type_contract"])
+        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["0007_station_coordinates"])
 
     def test_postgresql_sql_updates_four_documents(self):
         output = io.StringIO()
@@ -286,6 +286,70 @@ class KnowledgeEnrichmentMigrationTests(unittest.TestCase):
         self.assertIn("1963년 6월 8일", sql)
         self.assertIn("seantour.kr", sql)
 
+
+class StationCoordinatesMigrationTests(unittest.TestCase):
+    """0007 fills the coordinates of 추암역 and 망상역 only where they are empty."""
+
+    CHUAM, MANGSANG = "station_chuam", "station_mangsang"
+
+    def setUp(self):
+        path = PROJECT_ROOT / "alembic" / "versions" / "0007_station_coordinates.py"
+        spec = importlib.util.spec_from_file_location("station_coordinates", path)
+        self.migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.migration)
+        self.engine = create_engine("sqlite://")
+        self.addCleanup(self.engine.dispose)
+        self.places = metadata.tables["places"]
+        self.places.create(self.engine)
+
+    def add(self, place, lat=None, lng=None):
+        with self.engine.begin() as connection:
+            connection.execute(self.places.insert().values(
+                id=place, name=place, kind="station", aliases=[], operating_info={},
+                lat=lat, lng=lng))
+
+    def run_step(self, step):
+        with self.engine.begin() as connection:
+            with Operations.context(MigrationContext.configure(connection)):
+                step()
+
+    def coordinates(self):
+        with self.engine.connect() as connection:
+            return {row.id: (row.lat, row.lng) for row in connection.execute(
+                self.places.select().order_by(self.places.c.id))}
+
+    def test_it_follows_the_train_type_revision(self):
+        self.assertEqual(self.migration.down_revision, "0006_train_type_contract")
+
+    def test_values_are_inside_donghae(self):
+        for place, (lat, lng) in self.migration.COORDINATES.items():
+            with self.subTest(place):
+                self.assertTrue(37.40 < lat < 37.65 and 129.00 < lng < 129.20)
+
+    def test_empty_coordinates_are_filled_and_downgrade_empties_them_again(self):
+        self.add(self.CHUAM)
+        self.add(self.MANGSANG)
+        self.add("station_donghae", 37.4985, 129.1239)
+        self.run_step(self.migration.upgrade)
+        after = self.coordinates()
+        self.assertEqual(after[self.CHUAM], self.migration.COORDINATES[self.CHUAM])
+        self.assertEqual(after[self.MANGSANG], self.migration.COORDINATES[self.MANGSANG])
+        self.assertEqual(after["station_donghae"], (37.4985, 129.1239))  # not ours: untouched
+        self.run_step(self.migration.downgrade)
+        after = self.coordinates()
+        self.assertEqual(after[self.CHUAM], (None, None))
+        self.assertEqual(after["station_donghae"], (37.4985, 129.1239))
+
+    def test_coordinates_already_there_are_kept_both_ways(self):
+        self.add(self.CHUAM, 37.4781, 129.1577)  # e.g. from a later seed
+        self.run_step(self.migration.upgrade)
+        self.assertEqual(self.coordinates()[self.CHUAM], (37.4781, 129.1577))
+        self.run_step(self.migration.downgrade)
+        self.assertEqual(self.coordinates()[self.CHUAM], (37.4781, 129.1577))
+
+    def test_a_database_without_those_stations_is_left_alone(self):
+        self.run_step(self.migration.upgrade)
+        self.assertEqual(self.coordinates(), {})
 
 
 if __name__ == "__main__":
