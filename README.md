@@ -68,11 +68,15 @@ python -m ruff check src scripts tests
 
 실제 PostgreSQL 테스트는 `NEAREAST_RUN_POSTGRES_TESTS=1`로 실행합니다. 별도 테스트 스키마를 만들고 정리합니다. 프론트나 데이터 수집 프로젝트가 없어도 백엔드 기본 테스트가 실행됩니다.
 
+니어리는 `NEAREAST_CHAT_AGENT=true`일 때 한 답에 읽기 전용 조회를 최대 `NEAREAST_CHAT_AGENT_MAX_STEPS`번(기본 4) 이어서 할 수 있습니다. 기본은 꺼짐이고, 끄면 조회 한 번까지인 이전 동작 그대로입니다. 응답의 `steps`에 무엇을 조회했는지가 담깁니다([프론트용 예시](docs/backend-integration.md)).
+
 챗봇 평가는 설정된 DB(실제 seed)와 실제 모델로 시나리오 전체를 돌립니다. OpenAI 키가 필요하고 비용이 듭니다(nano 기준 1회 약 0.07달러).
 
 ```bash
 python scripts/eval_chat.py --quiet --out eval.json          # 전체
 python scripts/eval_chat.py --group V --vector-search off     # 묶음만, 벡터 검색 끄고
+python scripts/eval_chat.py --responder agent --group AG      # 여러 단계 시나리오를 에이전트로
+python scripts/eval_chat.py --responder mock                  # 내장 규칙만(키·비용 없음)
 ```
 
 `NEAREAST_EMBEDDING_MODEL`이 seed의 벡터를 만든 모델(`text-embedding-3-large`)과 다르면 벡터 검색은 조용히 건너뜁니다. 평가 출력의 "임베딩 호출 수"가 0이면 이 값을 확인합니다.
