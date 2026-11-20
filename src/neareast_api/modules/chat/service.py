@@ -816,6 +816,38 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
 
 # --- LLM responder: one structured call, a second only after a tool request ------
 
+MAX_PROMPT_PLACES = 40
+
+
+def _relevant_places(context: ResolvedContext, docs) -> list[retrieval.Place]:
+    """The places a request can be about, instead of the whole catalog: every station
+    (there are few, and they are what the service is about), what is on the screen, what
+    the user named in this conversation, the places the retrieved documents are about,
+    and what is within a short walk of the screen and the named places. Tool results
+    name their own places, so those need not be listed here."""
+    content = context.content
+    chosen: dict[str, retrieval.Place] = {}
+
+    def add(place: retrieval.Place | None) -> None:
+        if place is not None and len(chosen) < MAX_PROMPT_PLACES:
+            chosen.setdefault(place.id, place)
+
+    in_play = [context.focused, *context.pins,
+               *content.places_in_text(context.user_text or context.message), context.recalled]
+    for place in in_play:
+        add(place)
+    for place in content.places.values():
+        if place.kind == "station":
+            add(place)
+    for doc in docs:
+        for place_id in doc.places:
+            add(content.place(place_id))
+    for place in [p for p in in_play if p is not None]:
+        if _located(place):
+            for _, near in recommend_service.nearby(content.places, place.id):
+                add(near)
+    return list(chosen.values())
+
 MARKDOWN = re.compile(r"\*\*|__|^#+\s*|`", re.MULTILINE)
 LIST_MARKER = re.compile(r"^\s*(?:[-*•·]|\d+[.)])\s+", re.MULTILINE)
 
@@ -864,8 +896,9 @@ def _llm_draft(
             docs = [*docs[: prompts.MAX_DOCS - 1], content.docs[doc_id]]
 
     raw = context.raw
-    static = prompts.build_static(content)
+    static = prompts.build_static()
     screen = prompts.build_context(
+        places=_relevant_places(context, docs),
         today=dt.datetime.now(KST).date(),
         date=raw.date,
         pins=[p.id for p in context.pins],
