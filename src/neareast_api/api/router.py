@@ -9,6 +9,7 @@ from neareast_api.modules.chat.router import router as chat_router
 from neareast_api.modules.conversations.controller import router as conversationsRouter
 from neareast_api.modules.itineraries.controller import router as itinerariesRouter
 from neareast_api.modules.places.router import router as places_router
+from neareast_api.modules.planner.options import router as planningOptionsRouter
 from neareast_api.modules.saved.controller import router as savedRouter
 from neareast_api.modules.trains.router import router as trains_router
 
@@ -16,7 +17,7 @@ from neareast_api.modules.trains.router import router as trains_router
 def build_api_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(authRouter)
-    for publicRouter in (places_router, trains_router):
+    for publicRouter in (places_router, trains_router, planningOptionsRouter):
         router.include_router(publicRouter, dependencies=[Depends(getSession)])
     for protectedRouter in (
         chat_router,

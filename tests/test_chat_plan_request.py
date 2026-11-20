@@ -154,6 +154,28 @@ class ModelPathTests(_Case):
             body = self.ask(message, **context)
         return body, chat
 
+    def test_spoken_places_allow_handoff_without_saved_places(self):
+        said = plan(start_place=DONGHAE, start_time="09:00", end_place=MUKHO, end_time="18:00")
+        body, _ = self.ask_model([model(plan=said)],
+            "2026-11-21 아침 9시 동해역에서 출발해서 오후 6시 묵호역에 도착하는 일정 짜줘")
+        payload = body["action"]["payload"]
+        self.assertEqual(payload["departurePlaceId"], DONGHAE)
+        self.assertEqual(payload["arrivalPlaceId"], MUKHO)
+        self.assertEqual(payload["travelDate"], "2026-11-21")
+        self.assertEqual(payload["requiredPlaceIds"], [])
+
+    def test_guessed_places_do_not_bypass_missing_place_question(self):
+        said = plan(start_place=DONGHAE, end_place=MUKHO)
+        body, _ = self.ask_model([model(plan=said)], "2026-11-21 일정 짜줘")
+        self.assertIsNone(body["action"])
+        self.assertIn("어느 역", body["reply"])
+
+    def test_spoken_places_without_date_ask_for_date(self):
+        said = plan(start_place=DONGHAE, end_place=MUKHO)
+        body, _ = self.ask_model([model(plan=said)], "동해역 출발 묵호역 도착 일정 짜줘")
+        self.assertIsNone(body["action"])
+        self.assertIn("날짜", body["reply"])
+
     def test_an_itinerary_written_by_the_model_never_reaches_the_user(self):
         made_up = "09:13 동해역 출발, 10:02 묵호역 도착, 12:00 북평민속시장 점심으로 짰어요."
         add = {"type": "add", "target": "poi_nongoldam", "reason": "코스에 넣었어요", "time_bound": False}

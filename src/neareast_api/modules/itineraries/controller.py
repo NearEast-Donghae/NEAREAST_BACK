@@ -198,7 +198,10 @@ def generateItineraries(
     from neareast_api.modules.planner.service import PlannerService
     result = PlannerService.generate(session, planningRequest.conditions, request.app.state.settings)
     if result["itinerary"] is not None:
-        body = ItineraryCreateDto(**{**result["itinerary"], "planningRequestId": requestId})
+        body = ItineraryCreateDto(**{
+            **result["itinerary"], "planningRequestId": requestId,
+            "source": "ai" if planningRequest.source == "chat" else "planner",
+        })
         itinerary = ItineraryService.save(session, user.id, body)
         result["itinerary"] = ItineraryService.serialize(itinerary).model_dump(mode="json")
     return result

@@ -36,6 +36,7 @@ class BootstrapTests(unittest.TestCase):
                     "/api/v1/itineraries/{itineraryId}",
                     "/api/v1/itineraries/{itineraryId}/revisions",
                     "/api/v1/planning-requests",
+                    "/api/v1/planning-options",
                     "/api/v1/planning-requests/{requestId}",
                     "/api/v1/planning-requests/{requestId}/generations",
                     "/health/live",

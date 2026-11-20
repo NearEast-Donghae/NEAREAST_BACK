@@ -470,11 +470,11 @@ PLAN_REQUEST = re.compile(
 OWN_PLAN = re.compile(
     r"(?:내가|제가|직접|알아서|혼자)[^.?!]{0,10}(?:짤게|짤래|짤 ?거|짜 ?볼게|세울게|정할게|할게)")
 OWN_PLAN_REPLY = "좋아요, 일정은 직접 짜시면 돼요. 궁금한 열차나 장소가 있으면 언제든 물어봐 주세요."
-PLAN_HANDOFF = ("{month}월 {day}일 하루 일정은 일정 화면에서 짜요. 담아 둔 {what}을 그대로 "
-                "일정 화면으로 넘겨 드릴게요. 순서와 시간은 거기서 직접 고를 수 있어요.")
-PLAN_NEEDS_PINS = ("일정에 넣을 곳이 아직 없어요. 지도에서 가고 싶은 역이나 장소, 열차를 먼저 "
-                   "담아 주시겠어요?")
-PLAN_NEEDS_DATE = "어느 날짜로 짤까요? 날짜만 정해 주시면 담아 둔 곳을 일정 화면으로 넘겨 드릴게요."
+PLAN_HANDOFF = ("{month}월 {day}일 여행 조건을 정리했어요. {what}을 확인하고 아래 카드에서 "
+                "일정 화면으로 이어갈 수 있어요. 조건을 확인한 뒤 일정을 생성해 주세요.")
+PLAN_NEEDS_PINS = ("어느 역에서 출발하거나 어디를 방문하고 싶으세요? 대화로 알려 주셔도 되고, "
+                   "지도에서 관심 장소를 담아 주셔도 돼요.")
+PLAN_NEEDS_DATE = "어느 날짜로 짤까요? 날짜를 알려 주시면 지금 정한 조건을 일정 화면에서 확인할 수 있어요."
 _HHMM = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
 _KOREAN_DATE = re.compile(r"(\d{1,2})월\s*(\d{1,2})일")
@@ -582,10 +582,12 @@ def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResp
         logger.info("plan request: responder reply dropped, server text used")
 
     action = None
+    conditions = _plan_conditions(date or today, said, context)
+    hasSpokenPlace = bool(conditions.departurePlaceId or conditions.arrivalPlaceId)
     stations = [p for p in context.pins if p.kind == "station"]
     chips = [f"{p.name} 열차 리듬" for p in stations[:1]]
     chips += [f"{p.name} 근처" for p in context.pins[:1] if _has_nearby(p)]
-    if not context.pins and not context.saved.trains:
+    if not context.pins and not context.saved.trains and not hasSpokenPlace:
         reply, chips = PLAN_NEEDS_PINS, []
     elif date is None:
         reply = PLAN_NEEDS_DATE
@@ -609,8 +611,10 @@ def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str) -> ChatResp
             what.append(f"곳({names})")
         if context.saved.trains:
             what.append(f"열차 {len({no for no, _, _ in context.saved.trains})}편")
+        if hasSpokenPlace:
+            what.append("대화에서 정한 출발·도착 장소")
         reply = PLAN_HANDOFF.format(month=date.month, day=date.day, what="과 ".join(what))
-        action = ChatAction(type="plan_request", payload=_plan_conditions(date, said, context))
+        action = ChatAction(type="plan_request", payload=conditions)
     for chip in DEFAULT_CHIPS:
         if len(chips) < 2 and chip not in chips:
             chips.append(chip)
