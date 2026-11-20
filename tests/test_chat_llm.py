@@ -512,7 +512,8 @@ class LLMResponderTests(unittest.TestCase):
 
     def test_replaced_replies_are_logged_with_the_original_text(self):
         cases = (
-            ("부산역 맛집 알려줘", draft("부산역 주변이라면 북평민속시장이 좋아요."), "no documents"),
+            ("완목 신호기 어디 있어?", draft("완목 신호기는 동해역 구내에 있어요."), "no documents"),
+            ("부산역 맛집 알려줘", draft("부산역 주변이라면 북평민속시장이 좋아요."), "outside the area"),
             ("열차 언제 와?", draft("동해역은 09:13에 열차가 와요.", intent="train_lookup"),
              "unverified time"),
             ("건널목 안에서 찍어도 돼?", draft("가능할 수도 있어요.", intent="safety"), "safety"),

@@ -404,6 +404,92 @@ MARKET_TALK = ("장날", "장이 서", "장이 열", "장 서", "장이 안")
 HAPYEONG_DOC = "safety_hapyeong_crossing"
 
 
+# Places and regions outside 동해시. A question about one of them, with nothing of ours
+# named and no train asked about, is outside what Nearie knows: documents that merely
+# resemble the question ("부산 맛집" → a 동해 restaurant) are not an answer to it.
+OUTSIDE_AREAS = (
+    "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "제주", "경기", "수원", "강릉",
+    "속초", "삼척", "태백", "정선", "평창", "양양", "춘천", "원주", "경주", "포항", "안동", "전주",
+    "여수", "목포", "통영", "거제", "일본", "도쿄", "오사카", "후쿠오카", "중국", "대만", "미국",
+    "유럽", "해외",
+)
+_TRAVEL_BY_TRAIN = ("열차", "기차", "KTX", "ITX", "누리로", "무궁화", "새마을", "시간표", "에서 오",
+                    "에서 가", "출발", "도착", "타고", "환승")
+OUT_OF_AREA = "동해시 안의 역과 장소만 안내하고 있어요."
+
+
+def outside_area(message: str, content: retrieval.Content) -> str | None:
+    """The outside region a question is about, or None. A question that also names one of
+    our places, or is about a train (trains do come from 서울 and 강릉), is ours."""
+    region = next((name for name in OUTSIDE_AREAS if name in message), None)
+    if region is None or content.places_in_text(message):
+        return None
+    if any(word in message for word in _TRAVEL_BY_TRAIN) or f"{region}행" in message:
+        return None  # "강릉행 몇 시야?": a train from here, not a question about 강릉
+    return region
+
+
+def _subject_places(context: ResolvedContext) -> set[str]:
+    """Places the question itself is about: the ones it names, and the open marker (or
+    first pin) when it points at it with "여기/이거"."""
+    ids = {p.id for p in context.content.places_in_text(context.message)}
+    if context.anchor is not None and any(w in context.message for w in DEICTIC_WORDS):
+        ids.add(context.anchor.id)
+    return ids
+
+
+def _unrelated_to_subject(sources: list[str], draft: Draft, context: ResolvedContext) -> bool:
+    """Every cited document was found by similarity only, and none of them is about a
+    place the question is about. With no place in the question there is nothing to be
+    unrelated to: "비 오는 날 실내" is answered from whatever is closest in meaning."""
+    subjects = _subject_places(context)
+    if not subjects or not sources or not all(s in draft.vector_docs for s in sources):
+        return False
+    docs = context.content.docs
+    return not any(s in subjects or subjects & set(docs[s].places) for s in sources)
+
+
+_NUMBER = re.compile(r"\d[\d,]*\d|\d")
+
+
+def _backed_by(reply: str, body: str) -> bool:
+    """A document can stand as the source of an answer that named none: every number and
+    clock time in the answer is in it, or, with no numbers, several of its words are."""
+    numbers = [n for n in _NUMBER.findall(reply)]
+    if numbers:
+        return all(n in body for n in numbers) and not unverified_time_claims(reply, body, None)
+    words = {w[:3] for w in re.findall(r"[가-힣]{3,}", reply)}
+    return sum(1 for w in words if w in body) >= 4
+
+
+def _attributed(reply: str, draft: Draft, content: retrieval.Content) -> list[str]:
+    """Sources for an answer the responder left without any: the documents it was given
+    because the screen or the question named them, when the answer is in them. A model
+    that answers correctly from a document but forgets to cite it keeps its answer."""
+    return [doc_id for doc_id in draft.named_docs
+            if doc_id in content.docs and _backed_by(reply, content.docs[doc_id].body)]
+
+
+# What the model writes about where times come from. The server states the basis itself
+# (once, in full), so these are taken out before it is added.
+_OWN_BASIS = re.compile(
+    r"\s*\((?:[^()]*?)(?:어림|운행 기록)[^()]*\)|"
+    r"최근\s*토요일[^,.!?()]{0,30}?(?:기준(?:으로는|으로|의|이라서|이라|에서는)?|기반(?:으로)?)[,]?\s*")
+
+
+def _without_own_basis(reply: str) -> str:
+    """The reply without the model's own "최근 토요일 운행 기록 기준 어림" wording."""
+    kept = []
+    for sentence in _sentences(reply):
+        about_basis = ("운행 기록" in sentence or "어림" in sentence)
+        if about_basis and not _clock_claims(sentence) and not TRAIN_COUNT.search(sentence) \
+                and len(_sentences(reply)) > 1:
+            continue  # a sentence only about the basis: the server's line replaces it
+        kept.append(_OWN_BASIS.sub(" " if sentence else "", sentence).strip())
+    text = re.sub(r"\s{2,}", " ", " ".join(k for k in kept if k))
+    return re.sub(r"\s+([,.!?])", r"\1", text).strip() or reply
+
+
 def _asked_docs(context: ResolvedContext) -> list[str]:
     """Documents the question is plainly about, whatever the responder cites: the
     Hapyeong crossing case, and the market for a market-day question. They are given to
@@ -919,6 +1005,25 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     if disowned and sources:
         _log_replaced("no information, yet sources", reply)
         sources = []
+    # An answer the responder left without sources, though it is in a document it was
+    # given by name: that document is the source.
+    if (mode == "llm" and not sources and not disowned and draft.tool_used is None
+            and draft.intent in ("knowledge", "proposal")
+            and (found := _attributed(reply, draft, content))):
+        logger.info("sources attributed by the server: %s", ", ".join(found))
+        sources = found
+    # Outside what Nearie knows, by condition and not by wording: a region outside 동해,
+    # or documents that only resemble the question and are not about the place it names.
+    off_topic = draft.tool_used is None and draft.intent != "safety" and (
+        outside_area(context.message, content) is not None
+        or _unrelated_to_subject(sources, draft, context))
+    if off_topic:
+        _log_replaced("outside the area or unrelated documents", reply)
+        reply = (f"{NO_INFO} {OUT_OF_AREA}" if outside_area(context.message, content)
+                 else NO_INFO)
+        sources, disowned = [], True
+        chips = [c for c in chips if content.place_in_text(c) is not None]
+        draft = dataclasses.replace(draft, intent="knowledge", proposals=[])
 
     # A place may be proposed only when something ties it to this conversation: the user
     # put it in play (screen, pins, named in the message), a tool returned it, or a
@@ -993,7 +1098,7 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
         reply = PROPOSAL_AGREED if "담" in context.last_reply else ACK_REPLY  # a yes, not a question
         draft = dataclasses.replace(draft, intent="smalltalk")
         proposals = []
-    elif ungrounded and reply != NO_TIME_WITHOUT_TOOL:
+    elif ungrounded and reply != NO_TIME_WITHOUT_TOOL and not off_topic:
         if not reply.startswith(NO_INFO):
             _log_replaced(f"no documents ({draft.intent})", reply)
         pointing = (any(w in context.message for w in DEICTIC_WORDS)
@@ -1027,6 +1132,8 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     # Snapshot times are estimates: the answer always says what they rest on.
     if draft.tool_source == tools.SNAPSHOT and draft.tool_basis and not unverified:
         # Sentence by sentence: the model mentioning one basis must not hide the other.
+        if BASIS_MARK not in reply:
+            reply = _without_own_basis(reply)  # said once, in the server's words
         for sentence in re.split(r"(?<=[.])\s+", draft.tool_basis):
             mark = PASSING_MARK if PASSING_MARK in sentence else BASIS_MARK
             if mark not in reply:
