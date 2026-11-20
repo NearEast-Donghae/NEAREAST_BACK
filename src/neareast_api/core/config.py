@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    tmapApiKey: SecretStr = SecretStr("")
     docs_enabled: bool = True
     sessionCookieName: str = "neareast_session"
     sessionLifetimeHours: int = Field(default=168, ge=1, le=720)
@@ -43,8 +44,8 @@ class Settings(BaseModel):
     llm_timeout_seconds: float = Field(default=8, gt=0, le=120)
     # Whole-request budget for the model path; past it the built-in responder answers.
     chat_deadline_seconds: float = Field(default=12, gt=0, le=120)
-    # Every LLM/embedding call appends its token usage here (JSON lines).
-    llm_usage_log: str = Field(default="llm_usage.jsonl", min_length=1)
+    # Offline evaluation can opt into a file; the service uses standard logging.
+    llm_usage_log: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -58,4 +59,6 @@ class Settings(BaseModel):
                 values[name] = value
         if not values.get("openai_api_key") and os.environ.get("OPENAI_API_KEY"):
             values["openai_api_key"] = os.environ["OPENAI_API_KEY"]
+        if not values.get("tmapApiKey") and os.environ.get("TMAP_API_KEY"):
+            values["tmapApiKey"] = os.environ["TMAP_API_KEY"]
         return cls.model_validate(values)

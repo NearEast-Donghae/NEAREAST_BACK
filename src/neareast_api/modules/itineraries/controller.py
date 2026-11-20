@@ -193,6 +193,12 @@ def generateItineraries(
 ):
     planningRequest = ownedPlanningRequest(session, requestId, user.id)
     generator = getattr(request.app.state, "itineraryGenerator", None)
-    if generator is None:
-        raise HTTPException(503, "Route generator is not connected yet")
-    return generator(planningRequest.conditions)
+    if generator is not None:
+        return generator(planningRequest.conditions)
+    from neareast_api.modules.planner.service import PlannerService
+    result = PlannerService.generate(session, planningRequest.conditions, request.app.state.settings)
+    if result["itinerary"] is not None:
+        body = ItineraryCreateDto(**{**result["itinerary"], "planningRequestId": requestId})
+        itinerary = ItineraryService.save(session, user.id, body)
+        result["itinerary"] = ItineraryService.serialize(itinerary).model_dump(mode="json")
+    return result

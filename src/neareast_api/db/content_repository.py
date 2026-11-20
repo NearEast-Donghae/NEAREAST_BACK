@@ -23,7 +23,7 @@ class ContentRepository:
             row.id: Place(
                 row.id, row.name, row.kind, row.passengerStop, tuple(row.aliases), row.lat, row.lng
             )
-            for row in rows
+            for row in rows if not (row.operatingInfo or {}).get("canonicalPlaceId")
         }
 
     @staticmethod
@@ -32,13 +32,18 @@ class ContentRepository:
         from neareast_api.modules.places.service import PlacesError
 
         session = contentSession()
+        rows = list(session.scalars(
+            select(KnowledgeDocumentEntity).order_by(KnowledgeDocumentEntity.id)
+        ))
+        verifiedPlaces = {placeId for row in rows
+                          if row.id.startswith(("tourapi:", "historical:")) and row.sourceUrl
+                          for placeId in row.places}
         documents = {
-            row.id: Doc(
-                row.id, row.title, row.kind, tuple(row.places), tuple(row.keywords), row.body
-            )
-            for row in session.scalars(
-                select(KnowledgeDocumentEntity).order_by(KnowledgeDocumentEntity.id)
-            )
+            row.id: Doc(row.id, row.title, row.kind, tuple(row.places), tuple(row.keywords), row.body)
+            for row in rows
+            if not (row.sourceUrl is None and (
+                row.id.startswith("seed-preserved:") or row.id in verifiedPlaces
+            ))
         }
         if not documents:
             raise ContentError("Knowledge has not been imported")

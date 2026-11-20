@@ -14,6 +14,7 @@ from neareast_api.modules.itineraries.dto import (
     ItineraryDto,
     PlanningConditionsDto,
 )
+from neareast_api.modules.places.identity import canonicalPlaceId
 
 
 def ownedItinerary(
@@ -50,6 +51,15 @@ def validatePlaceIds(session: Session, placeIds: list[str]) -> None:
 
 
 def validateConditions(session: Session, conditions: PlanningConditionsDto) -> None:
+    for field in ("departurePlaceId", "arrivalPlaceId"):
+        identifier = getattr(conditions, field)
+        if identifier:
+            setattr(conditions, field, canonicalPlaceId(session, identifier))
+    conditions.requiredPlaceIds = list(dict.fromkeys(
+        canonicalPlaceId(session, identifier) for identifier in conditions.requiredPlaceIds
+    ))
+    for train in conditions.selectedTrains or []:
+        train.stationId = canonicalPlaceId(session, train.stationId)
     placeIds = [
         placeId for placeId in [conditions.departurePlaceId, conditions.arrivalPlaceId] if placeId
     ]
@@ -75,6 +85,13 @@ class ItineraryService:
         body: ItineraryCreateDto,
         itinerary: ItineraryEntity | None = None,
     ) -> ItineraryEntity:
+        body = body.model_copy(deep=True)
+        for item in body.timeline:
+            if item.placeId:
+                item.placeId = canonicalPlaceId(session, item.placeId)
+        for leg in body.legs:
+            leg.fromPlaceId = canonicalPlaceId(session, leg.fromPlaceId)
+            leg.toPlaceId = canonicalPlaceId(session, leg.toPlaceId)
         if body.planningRequestId:
             ownedPlanningRequest(session, body.planningRequestId, userId)
         placeIds = [item.placeId for item in body.timeline if item.placeId]

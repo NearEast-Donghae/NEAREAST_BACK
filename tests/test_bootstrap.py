@@ -28,6 +28,7 @@ class BootstrapTests(unittest.TestCase):
                     "/api/v1/auth/login",
                     "/api/v1/auth/logout",
                     "/api/v1/users/me",
+                    "/api/v1/users/me/password",
                     "/api/v1/conversations",
                     "/api/v1/conversations/{conversationId}",
                     "/api/v1/conversations/{conversationId}/messages",
@@ -83,7 +84,7 @@ class BootstrapTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         compose = (root / "compose.yaml").read_text("utf-8")
         example = (root / ".env.example").read_text("utf-8")
-        not_in_compose = {"content_dir", "chat_reasoning_effort"}  # explained in compose.yaml
+        not_in_compose = {"content_dir", "chat_reasoning_effort", "llm_usage_log"}  # explained in compose.yaml
         for name in Settings.model_fields:
             env = "NEAREAST_" + re.sub(r"(?<!^)(?=[A-Z])", "_", name).upper()
             with self.subTest(env):

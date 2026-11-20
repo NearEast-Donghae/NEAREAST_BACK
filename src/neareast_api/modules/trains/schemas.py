@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from neareast_api.core.train_types import TrainType
+
 Direction = Literal["U", "D"]  # U 상행 / D 하행
 TIME = r"^([01]\d|2[0-3]):[0-5]\d$"
 
@@ -23,7 +25,7 @@ class Basis(_Model):
 
 class TrainSummary(_Model):
     no: str
-    type: str | None = Field(description="열차 종류. DB에 별도 확인하여 등록한 것만, 없으면 null")
+    type: TrainType | None = Field(description="열차 종류. DB에 별도 확인하여 등록한 것만, 없으면 null")
     line: str
     direction: Direction
     origin: str

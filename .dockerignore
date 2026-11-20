@@ -15,3 +15,7 @@ docs
 .mypy_cache
 *.log
 data/raw
+
+*.seed.gz
+!neareast.seed.gz
+*-results.txt

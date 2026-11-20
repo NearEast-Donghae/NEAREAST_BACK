@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from neareast_api.db.entities import PlaceEntity, SavedPlaceEntity, SavedTrainEntity, currentTime
 from neareast_api.modules.chat.service import SavedSelection
 from neareast_api.modules.itineraries.service import validatePlaceIds
+from neareast_api.modules.places.identity import canonicalPlaceId
 from neareast_api.modules.saved.dto import (
     SavedDto,
     SavedPlaceCreateDto,
@@ -62,7 +63,9 @@ def checkTrain(session: Session, trainNo: str, action: str, stationId: str) -> N
     station = session.get(PlaceEntity, stationId)
     if station.kind != "station":
         raise HTTPException(422, "stationId must be a station")
-    atStation = trainService.station_trains(loadTimetable(), stationId).trains
+    timetable = loadTimetable()
+    trainNo = trainService.canonicalTrainNumber(timetable, trainNo)
+    atStation = trainService.station_trains(timetable, stationId).trains
     stop = next((train for train in atStation if train.no == trainNo), None)
     if stop is None:
         raise HTTPException(422, NOT_AT_STATION)
@@ -82,6 +85,7 @@ class SavedService:
         session: Session, userId: str, body: SavedPlaceCreateDto
     ) -> tuple[SavedPlaceEntity, bool]:
         """Returns the item and whether it was created now (an existing one is returned as is)."""
+        body = body.model_copy(update={"placeId": canonicalPlaceId(session, body.placeId)})
         same = select(SavedPlaceEntity).where(
             SavedPlaceEntity.userId == userId, SavedPlaceEntity.placeId == body.placeId
         )
@@ -103,10 +107,15 @@ class SavedService:
     def saveTrain(
         session: Session, userId: str, body: SavedTrainCreateDto
     ) -> tuple[SavedTrainEntity, bool]:
-        trainNo = trainNumber(body.trainNo)
+        body = body.model_copy(update={"stationId": canonicalPlaceId(session, body.stationId)})
+        timetable = loadTimetable()
+        trainNo = trainService.canonicalTrainNumber(timetable, body.trainNo)
+        aliases = {trainNo, *(train.get("original_no") for train in timetable.trains
+                             if train["no"] == trainNo and trainService.canonicalTrainNumber(
+                                 timetable, train.get("original_no", trainNo)) == trainNo)} - {None}
         same = select(SavedTrainEntity).where(
             SavedTrainEntity.userId == userId,
-            SavedTrainEntity.trainNo == trainNo,
+            SavedTrainEntity.trainNo.in_(aliases),
             SavedTrainEntity.action == body.action,
             SavedTrainEntity.stationId == body.stationId,
         )
@@ -188,10 +197,11 @@ class SavedService:
         stop = None
         if timetable is not None:
             atStation = trainService.station_trains(timetable, saved.stationId).trains
-            stop = next((train for train in atStation if train.no == saved.trainNo), None)
+            trainNo = trainService.canonicalTrainNumber(timetable, saved.trainNo)
+            stop = next((train for train in atStation if train.no == trainNo), None)
         return SavedTrainDto(
             id=saved.id,
-            trainNo=saved.trainNo,
+            trainNo=stop.no if stop else saved.trainNo,
             action=saved.action,
             stationId=saved.stationId,
             stationName=session.get(PlaceEntity, saved.stationId).name,
@@ -224,11 +234,13 @@ class SavedService:
     def selection(session: Session, userId: str) -> SavedSelection:
         """What the chat needs to know about the user's saved items."""
         places = SavedService.places(session, userId)
+        timetable = trainService.load_or_none(".")
         return SavedSelection(
             placeIds=tuple(saved.placeId for saved in places),
             mustPlaceIds=tuple(saved.placeId for saved in places if saved.priority == "must"),
             trains=tuple(
-                (saved.trainNo, saved.action, saved.stationId)
+                (trainService.canonicalTrainNumber(timetable, saved.trainNo) if timetable else saved.trainNo,
+                 saved.action, saved.stationId)
                 for saved in SavedService.trains(session, userId)
             ),
         )

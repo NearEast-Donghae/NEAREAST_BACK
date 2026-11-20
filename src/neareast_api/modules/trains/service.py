@@ -86,7 +86,7 @@ def rhythm(times: list[str]) -> Rhythm:
     ordered = sorted(times, key=_minutes)
     gaps = [
         Gap(start=a, end=b, minutes=_minutes(b) - _minutes(a))
-        for a, b in zip(ordered, ordered[1:])
+        for a, b in zip(ordered, ordered[1:], strict=False)
         if _minutes(b) - _minutes(a) >= GAP_MINUTES
     ]
     busiest = max(sorted(hourly), key=lambda h: hourly[h]) if hourly else None
@@ -144,7 +144,7 @@ def search(timetable: Timetable, from_id: str, to_id: str, after: str | None = N
 
 
 def detail(timetable: Timetable, train_no: str) -> TrainDetail | None:
-    number = train_no.lstrip("0") or "0"
+    number = canonicalTrainNumber(timetable, train_no)
     train = next((t for t in timetable.trains if t["no"] == number), None)
     if train is None:
         return None
@@ -152,6 +152,16 @@ def detail(timetable: Timetable, train_no: str) -> TrainDetail | None:
                   pass_time=s.get("pass"), stop_type=s["stop_type"], time_basis=s.get("basis"))
              for s in train["stops"]]
     return TrainDetail(**_summary(timetable, train), stops=stops, basis=timetable.basis())
+
+
+def canonicalTrainNumber(timetable: Timetable, trainNo: str) -> str:
+    number = trainNo.strip().lstrip("0") or "0"
+    if any(train["no"] == number for train in timetable.trains):
+        return number
+    matches = {train["no"] for train in timetable.trains
+               if train.get("original_no") == number
+               and train.get("number_correction", {}).get("validDate") == timetable.meta["target_date"]}
+    return matches.pop() if len(matches) == 1 else number
 
 
 def describe(train: TrainSummary) -> str:

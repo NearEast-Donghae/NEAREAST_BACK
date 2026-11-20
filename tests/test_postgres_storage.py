@@ -18,7 +18,6 @@ from neareast_api.core.config import Settings
 from neareast_api.db.entities import KnowledgeChunkEntity
 from neareast_api.db.metadata import metadata
 from neareast_api.db.url import build_database_url
-from neareast_api.ingestion.service import IngestionService
 from neareast_api.main import create_app
 from neareast_api.modules.chat import service as chatService
 
@@ -98,17 +97,17 @@ class PostgresStorageTests(test_service_storage.ServiceStorageTests):
 
     def test_pgvector_round_trip_and_cosine_distance(self):
         with self.app.state.sessionFactory() as session:
-            IngestionService.embedDocuments(
-                session,
-                "synthetic-test-model",
-                lambda model, texts: [[1.0] + [0.0] * 1535 for _ in texts],
-            )
-            chunk = session.scalar(select(KnowledgeChunkEntity))
+            chunk = session.scalar(select(KnowledgeChunkEntity).where(
+                KnowledgeChunkEntity.documentId == "station_mukho",
+                KnowledgeChunkEntity.position == 0,
+            ))
+            chunk.embedding = [1.0] + [0.0] * 1535
+            session.commit()
+            session.refresh(chunk)
             self.assertEqual(len(chunk.embedding), 1536)
             distance = session.scalar(
-                select(KnowledgeChunkEntity.embedding.cosine_distance([1.0] + [0.0] * 1535)).limit(
-                    1
-                )
+                select(KnowledgeChunkEntity.embedding.cosine_distance([1.0] + [0.0] * 1535))
+                .where(KnowledgeChunkEntity.id == chunk.id)
             )
             self.assertAlmostEqual(distance, 0.0)
 

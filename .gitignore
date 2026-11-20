@@ -21,3 +21,7 @@ llm_usage.jsonl
 eval_last.json
 .claude/settings.local.json
 data/raw/
+
+*.seed.gz
+!neareast.seed.gz
+*-results.txt
