@@ -9,7 +9,7 @@ docker compose up --build -d
 docker compose exec backend python scripts/seed_data.py
 ```
 
-첫 명령은 DB 준비 후 migration을 완료하고 백엔드를 시작합니다. 둘째 명령은 이미지에 포함된 루트의 `neareast.seed.gz`를 PostgreSQL에 적재합니다. 새 파일을 받은 경우 반드시 `--build`로 이미지에도 반영합니다. 전체 공개 데이터 적재가 한 트랜잭션이며 다시 실행할 수 있습니다.
+첫 명령은 DB 준비 후 migration을 완료하고 백엔드를 시작합니다. 둘째 명령은 이미지에 포함된 루트의 `neareast.seed.gz`를 PostgreSQL에 적재합니다. 새 파일을 받은 경우 반드시 `--build`로 이미지에도 반영합니다. 전체 공개 데이터 적재가 한 트랜잭션이며 다시 실행할 수 있습니다. seed는 만들어진 schema revision을 기록하고, DB가 그 revision이거나 그 뒤의 revision일 때만 적재합니다(그 전이거나 모르는 revision이면 한 행도 넣지 않고 멈춥니다).
 
 Swagger는 http://localhost:8012/docs 입니다. 계정은 각자 가입합니다. seed에는 사용자·세션·채팅·저장 여행이 없습니다.
 

@@ -71,15 +71,50 @@ def readSeed(path):
     return readPayload(path)["tables"]
 
 
-def importSeed(connection, path, dryRun=False):
+def schemaReaches(revisions, requiredRevision, scriptLocation=None):
+    """The database is at the revision the seed was made for, or at one that follows it.
+
+    A seed is tied to the schema it was exported from. Later revisions build on that
+    schema, so a database that has moved past the seed's revision can still take it;
+    one that has not reached it, or sits on an unrelated revision, cannot. Without the
+    migration scripts only the exact revision is accepted.
+    """
+    if requiredRevision in revisions:
+        return True
+    if scriptLocation is None:
+        return False
+    from alembic.script import ScriptDirectory
+    from alembic.util import CommandError
+
+    scripts = ScriptDirectory(str(scriptLocation))
+    pending, seen = list(revisions), set()
+    while pending:  # walk down from where the database is
+        revision = pending.pop()
+        if revision == requiredRevision:
+            return True
+        if revision in seen:
+            continue
+        seen.add(revision)
+        try:
+            script = scripts.get_revision(revision)
+        except CommandError:  # a revision these scripts do not know
+            continue
+        down = script.down_revision if script is not None else None
+        pending += [down] if isinstance(down, str) else list(down or ())
+    return False
+
+
+def importSeed(connection, path, dryRun=False, scriptLocation=None):
     payload = readPayload(path)
     requiredRevision = payload.get("release", {}).get("requiredRevision")
     if requiredRevision:
         if not inspect(connection).has_table("alembic_version"):
             raise ValueError("Run database migrations before importing this seed")
         revisions = set(connection.execute(text("SELECT version_num FROM alembic_version")).scalars())
-        if requiredRevision not in revisions:
-            raise ValueError(f"Seed requires schema revision {requiredRevision}")
+        if not schemaReaches(revisions, requiredRevision, scriptLocation):
+            raise ValueError(
+                f"Seed requires schema revision {requiredRevision} or a later one "
+                f"(database is at {', '.join(sorted(revisions)) or 'no revision'})")
     tables = payload["tables"]
     report = {"counts": {name: len(rows) for name, rows in tables.items()}, "dryRun": dryRun}
     for table in metadata.sorted_tables:
