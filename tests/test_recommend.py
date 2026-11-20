@@ -18,14 +18,22 @@ from neareast_api.modules.trains import service as trains_service
 API = "/api/v1"
 STATION, NEAR, FAR, NO_COORD, MARKET = (
     "station_a", "poi_near", "poi_far", "poi_nocoord", "poi_bukpyeong_market")
+EATERY, HOTEL, SHOP, CAMP, UNCLASSIFIED = (
+    "poi_eatery", "poi_hotel", "poi_shop", "poi_camp", "poi_unclassified")
 # 0.001 degree of latitude is about 111 m: 2 minutes on foot by the rule below.
 PLACES = {p.id: p for p in (
     Place(STATION, "가", "station", lat=37.500, lng=129.10),
-    Place(NEAR, "가까운 곳", "poi", lat=37.503, lng=129.10),     # 6 min
-    Place(MARKET, "북평민속시장", "poi", lat=37.497, lng=129.10),  # 6 min
-    Place(FAR, "먼 곳", "heritage", lat=37.530, lng=129.10),     # 58 min
-    Place(NO_COORD, "좌표 없는 곳", "poi"),
+    Place(NEAR, "가까운 곳", "poi", lat=37.503, lng=129.10, category="attraction"),  # 6 min
+    Place(MARKET, "북평민속시장", "poi", lat=37.497, lng=129.10, category="market"),  # 6 min
+    Place(FAR, "먼 곳", "poi", lat=37.530, lng=129.10, category="culture"),        # 58 min
+    Place(NO_COORD, "좌표 없는 곳", "poi", category="attraction"),
     Place("station_b", "나", "station", lat=37.502, lng=129.10),
+    # Close by, but not somewhere to go and look.
+    Place(EATERY, "식당", "poi", lat=37.501, lng=129.10, category="restaurant"),     # 2 min
+    Place(HOTEL, "호텔", "poi", lat=37.501, lng=129.10, category="lodging"),
+    Place(SHOP, "편의점", "poi", lat=37.501, lng=129.10, category="shopping"),
+    Place(CAMP, "캠핑장", "poi", lat=37.501, lng=129.10, category="leisure"),
+    Place(UNCLASSIFIED, "분류 없는 곳", "poi", lat=37.501, lng=129.10),
 )}
 
 
@@ -64,8 +72,10 @@ class MarketDayTests(unittest.TestCase):
 
 
 class SuggestTests(unittest.TestCase):
-    def targets(self, start="11:00", end="16:00", **kwargs):
-        return [s.target for s in recommend.suggest(PLACES, STATION, start, end, **kwargs)]
+    def targets(self, start="14:30", end="19:30", **kwargs):
+        """Places to visit offered for a gap (the meal offer is tested separately)."""
+        return [s.target for s in recommend.suggest(PLACES, STATION, start, end, **kwargs)
+                if s.purpose == "visit"]
 
     def test_only_places_to_visit_that_fit_in_the_gap(self):
         # Stations and places without coordinates are never offered.
@@ -91,6 +101,40 @@ class SuggestTests(unittest.TestCase):
     def test_unknown_anchor_gets_nothing(self):
         self.assertEqual(recommend.suggest(PLACES, "station_gone", "11:00", "16:00"), [])
 
+    def test_only_attractions_cultural_places_and_markets_are_places_to_visit(self):
+        offered = set(self.targets("08:00", "22:00", limit=50))
+        self.assertEqual(offered, {MARKET, NEAR, FAR})
+        for excluded in (HOTEL, SHOP, CAMP, EATERY):
+            self.assertNotIn(excluded, offered)
+
+    def test_a_place_the_data_does_not_classify_is_never_offered(self):
+        everything = [s.target for s in recommend.suggest(PLACES, STATION, "08:00", "22:00", limit=50)]
+        self.assertNotIn(UNCLASSIFIED, everything)
+        self.assertNotIn(UNCLASSIFIED, [p.id for _, p in recommend.nearby(PLACES, STATION)])
+
+    def test_a_restaurant_is_offered_only_for_a_gap_over_a_meal_time_and_as_a_meal(self):
+        def meals(start, end):
+            return [(s.target, s.reason) for s in recommend.suggest(PLACES, STATION, start, end)
+                    if s.purpose == "meal"]
+        (target, reason), = meals("11:15", "16:00")
+        self.assertEqual(target, EATERY)
+        for text in ("점심 시간과 겹쳐요", "식사하러", "편도 2분"):
+            self.assertIn(text, reason)
+        self.assertIn("저녁", meals("16:30", "19:00")[0][1])
+        self.assertEqual(meals("14:30", "16:30"), [])   # between the two meal times
+        self.assertEqual(meals("08:00", "11:20"), [])   # only 20 minutes of lunch time
+        self.assertEqual(meals("13:20", "16:00"), [(EATERY, meals("13:20", "16:00")[0][1])])
+        self.assertEqual(meals("20:10", "22:30"), [])   # after dinner time
+        # A meal is one extra offer; the places to visit are still there.
+        lunch = recommend.suggest(PLACES, STATION, "11:15", "16:00")
+        self.assertEqual([s.purpose for s in lunch], ["visit", "visit", "meal"])
+
+    def test_meal_times(self):
+        self.assertEqual(recommend.meal_time("11:15", "16:00"), "점심")
+        self.assertEqual(recommend.meal_time("17:00", "17:30"), "저녁")
+        self.assertIsNone(recommend.meal_time("14:00", "17:00"))
+        self.assertIsNone(recommend.meal_time("19:40", "23:00"))
+
     def test_a_suggestion_is_an_offer_with_its_reason(self):
         s = recommend.suggest(PLACES, STATION, "11:00", "16:00", skip={MARKET})[0]
         self.assertEqual((s.type, s.target, s.gap), ("add", NEAR, ["11:00", "16:00"]))
@@ -106,6 +150,28 @@ class SuggestTests(unittest.TestCase):
         self.assertTrue(any("장날이에요" in n for n in monday[0].notes))
         self.assertEqual(recommend.suggest(PLACES, STATION, "11:00", "16:00")[0].notes, [])
         self.assertEqual(saturday[1].notes, [])  # only the market has market days
+
+
+class NearbyTests(unittest.TestCase):
+    def test_places_to_visit_within_a_short_walk_nearest_first(self):
+        self.assertEqual([(m, p.id) for m, p in recommend.nearby(PLACES, STATION)],
+                         [(6, MARKET), (6, NEAR)])  # the far one is 58 minutes away
+        self.assertEqual([p.id for _, p in recommend.nearby(PLACES, STATION, within=60)],
+                         [MARKET, NEAR, FAR])
+        self.assertEqual([p.id for _, p in recommend.nearby(PLACES, STATION, skip={MARKET})], [NEAR])
+        self.assertEqual(recommend.nearby(PLACES, "station_gone"), [])
+        self.assertEqual(recommend.nearby(PLACES, NO_COORD), [])  # nothing can be measured
+
+    def test_one_pair_of_places_has_one_walking_time_everywhere(self):
+        walk = recommend.walk_between(PLACES[STATION], PLACES[FAR]).minutes
+        near = dict((p.id, m) for m, p in recommend.nearby(PLACES, STATION, within=90))
+        gap = {s.target: s.walk_min for s in recommend.suggest(PLACES, STATION, "08:00", "22:00", limit=50)}
+        self.assertEqual((near[FAR], gap[FAR]), (walk, walk))
+        for place_id in (MARKET, NEAR):
+            expected = recommend.walk_between(PLACES[STATION], PLACES[place_id]).minutes
+            self.assertEqual((near[place_id], gap[place_id]), (expected, expected))
+        # Both directions agree too.
+        self.assertEqual(recommend.walk_between(PLACES[FAR], PLACES[STATION]).minutes, walk)
 
 
 class ChatUsesTheSameSuggestionRule(unittest.TestCase):

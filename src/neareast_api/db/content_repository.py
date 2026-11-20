@@ -14,14 +14,23 @@ from neareast_api.db.session import contentSession
 class ContentRepository:
     @staticmethod
     def places():
-        from neareast_api.modules.places.service import Place, PlacesError
+        from neareast_api.db.planner_entities import PlannerLocationEntity
+        from neareast_api.modules.places.service import Place, PlacesError, category_of
 
-        rows = list(contentSession().scalars(select(PlaceEntity).order_by(PlaceEntity.id)))
+        session = contentSession()
+        rows = list(session.scalars(select(PlaceEntity).order_by(PlaceEntity.id)))
         if not rows:
             raise PlacesError("Place catalog has not been imported")
+        # The planner's record of the same place carries its tourism category when the
+        # place itself has no TourAPI entry.
+        planner = dict(session.execute(
+            select(PlannerLocationEntity.canonicalPlaceId, PlannerLocationEntity.payload)
+            .where(PlannerLocationEntity.canonicalPlaceId.is_not(None))
+        ).all())
         return {
             row.id: Place(
-                row.id, row.name, row.kind, row.passengerStop, tuple(row.aliases), row.lat, row.lng
+                row.id, row.name, row.kind, row.passengerStop, tuple(row.aliases), row.lat,
+                row.lng, category_of(row.id, row.operatingInfo, planner.get(row.id)),
             )
             for row in rows if not (row.operatingInfo or {}).get("canonicalPlaceId")
         }
