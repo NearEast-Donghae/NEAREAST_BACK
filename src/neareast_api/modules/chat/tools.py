@@ -16,7 +16,9 @@ from neareast_api.modules.trains.service import Timetable
 
 MOCK = "mock"
 SNAPSHOT = "snapshot"
-SOURCE = MOCK  # source of the walking-minute data
+SOURCE = MOCK  # source of the example walking minutes (places without coordinates)
+COORDINATES = "coordinates"  # walking minutes computed from the places' coordinates
+WALK_BASIS = "도보 시간은 직선거리에 1.3을 곱해 어림한 값이에요."
 PASSING_BASIS = "통과 시각은 앞뒤 정차역 시각으로 어림했어요."
 MOCK_GAP_MINUTES = 120
 

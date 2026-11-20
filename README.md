@@ -48,8 +48,12 @@ docker compose exec backend python scripts/seed_data.py --dry-run
 | 세션별 대화 | `/conversations`, `/conversations/{conversationId}/messages` |
 | 여행 저장·수정·조회·삭제·이력 | `/itineraries`, `/itineraries/{itineraryId}`, `/itineraries/{itineraryId}/revisions` |
 | 여행 조건·생성 | `/planning-requests`, `/planning-requests/{requestId}/generations` |
+| 플래너 온보딩(도착역·출발역·동행 선택지) | `GET /onboarding/options`, `/onboarding/origins?destination=...` |
+| 사진으로 고르는 온보딩(사진 목록, 고른 사진의 취향과 장소 제안) | `GET /onboarding/photos`, `PUT·GET·DELETE /onboarding/taste` |
 
 Vite가 proxy의 Host를 바꿔도 브라우저 Origin은 남습니다. 개발 프론트 주소를 `NEAREAST_CORS_ALLOW_ORIGINS`에 명시합니다. 배포에서는 실제 HTTPS 주소만 허용하고 `NEAREAST_COOKIE_SECURE=true`를 사용합니다.
+
+장소 응답의 `category`는 관광공사 자료의 분류를 그대로 옮긴 값입니다(`attraction`, `culture`, `leisure`, `shopping`, `restaurant`, `lodging`, `festival`, `course`, `market`). 자료에 분류가 없는 장소는 `null`이며 추측으로 채우지 않습니다. 챗봇의 "열차 공백에 갈 만한 곳"은 `attraction`·`culture`·`market`만 대상으로 하고, 식당은 공백이 점심(11~14시)·저녁(17~20시)과 30분 이상 겹칠 때만 식사 제안으로 따로 나옵니다. 근처 장소와 두 장소 사이 도보 시간은 같은 함수(직선거리 × 1.3, 시속 4.5km)로 계산하므로 같은 구간에 다른 숫자가 나오지 않습니다. 좌표가 없는 장소에서만 예시 데이터를 쓰고 답에 그렇게 밝힙니다.
 
 플래너는 팀원 구현 기준 단일 날짜·도보 일정·방문지 최대 5곳입니다. 열차 연계나 여러 날 일정은 아직 지원하지 않습니다. 좌표만 있다고 방문 가능으로 추정하지 않습니다.
 
@@ -64,3 +68,12 @@ python -m ruff check src scripts tests
 ```
 
 실제 PostgreSQL 테스트는 `NEAREAST_RUN_POSTGRES_TESTS=1`로 실행합니다. 별도 테스트 스키마를 만들고 정리합니다. 프론트나 데이터 수집 프로젝트가 없어도 백엔드 기본 테스트가 실행됩니다.
+
+챗봇 평가는 설정된 DB(실제 seed)와 실제 모델로 시나리오 전체를 돌립니다. OpenAI 키가 필요하고 비용이 듭니다(nano 기준 1회 약 0.07달러).
+
+```bash
+python scripts/eval_chat.py --quiet --out eval.json          # 전체
+python scripts/eval_chat.py --group V --vector-search off     # 묶음만, 벡터 검색 끄고
+```
+
+`NEAREAST_EMBEDDING_MODEL`이 seed의 벡터를 만든 모델(`text-embedding-3-large`)과 다르면 벡터 검색은 조용히 건너뜁니다. 평가 출력의 "임베딩 호출 수"가 0이면 이 값을 확인합니다.

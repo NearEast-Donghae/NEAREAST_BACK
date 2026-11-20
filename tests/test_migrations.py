@@ -50,7 +50,7 @@ class MigrationTests(unittest.TestCase):
 
     def test_shared_metadata_registers_service_tables(self):
         self.assertIs(metadata, Base.metadata)
-        self.assertEqual(len(metadata.tables), 23)
+        self.assertEqual(len(metadata.tables), 25)
         self.assertIn("knowledge_chunks", metadata.tables)
         self.assertEqual(ScriptDirectory.from_config(self.config).get_heads(), [])
 
@@ -272,7 +272,7 @@ class KnowledgeEnrichmentMigrationTests(unittest.TestCase):
         self.assertEqual(self.migration.down_revision, "market_aliases")
         config = Config(str(PROJECT_ROOT / "alembic.ini"))
         config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
-        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["0006_train_type_contract"])
+        self.assertEqual(ScriptDirectory.from_config(config).get_heads(), ["onboarding_photos"])
 
     def test_postgresql_sql_updates_four_documents(self):
         output = io.StringIO()

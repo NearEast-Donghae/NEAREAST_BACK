@@ -259,3 +259,46 @@ class SavedTrainEntity(Base):
     updatedAt: Mapped[datetime] = mapped_column(
         "updated_at", DateTime(timezone=True), default=currentTime
     )
+
+
+class OnboardingPhotoEntity(Base):
+    """A picture shown on the picture-choosing onboarding. Curated by a person: which
+    place it was taken at, its moods and (when a train is in the frame) which station's
+    trains those are. Nothing here is inferred at request time."""
+
+    __tablename__ = "onboarding_photos"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    imageUrl: Mapped[str] = mapped_column("image_url", Text)
+    photographer: Mapped[str | None] = mapped_column(String(120))
+    shotMonth: Mapped[str | None] = mapped_column("shot_month", String(6))
+    location: Mapped[str | None] = mapped_column(String(200))
+    source: Mapped[str] = mapped_column(String(120))
+    license: Mapped[str] = mapped_column(String(60))
+    placeId: Mapped[str | None] = mapped_column(
+        "place_id", ForeignKey("places.id", ondelete="SET NULL"), index=True
+    )
+    viewStationId: Mapped[str | None] = mapped_column(
+        "view_station_id", ForeignKey("places.id", ondelete="SET NULL")
+    )
+    moods: Mapped[list] = mapped_column(JSON_VALUE, default=list)
+    keywords: Mapped[list] = mapped_column(JSON_VALUE, default=list)
+    description: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    contentHash: Mapped[str | None] = mapped_column("content_hash", String(64))
+    embeddingModel: Mapped[str | None] = mapped_column("embedding_model", String(100))
+    embedding: Mapped[list | None] = mapped_column(EMBEDDING_VALUE)
+
+
+class UserTasteEntity(Base):
+    """The pictures a user chose on the onboarding. Only the choice is kept; what it
+    means (moods, places) is worked out when read, from the catalog as it is then."""
+
+    __tablename__ = "user_tastes"
+    userId: Mapped[str] = mapped_column(
+        "user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    photoIds: Mapped[list] = mapped_column("photo_ids", JSON_VALUE, default=list)
+    updatedAt: Mapped[datetime] = mapped_column(
+        "updated_at", DateTime(timezone=True), default=currentTime
+    )

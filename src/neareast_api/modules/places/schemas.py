@@ -20,6 +20,11 @@ class PlaceSummary(_Model):
     aliases: list[str]
     lat: float | None = Field(description="좌표 미입력이면 null")
     lng: float | None
+    category: str | None = Field(
+        default=None,
+        description="관광공사 자료의 분류: attraction, culture, market, restaurant, lodging, "
+                    "shopping, leisure, festival, course. 자료에 분류가 없으면 null",
+    )
 
 
 class PlaceList(_Model):
