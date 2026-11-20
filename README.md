@@ -49,6 +49,7 @@ docker compose exec backend python scripts/seed_data.py --dry-run
 | 여행 저장·수정·조회·삭제·이력 | `/itineraries`, `/itineraries/{itineraryId}`, `/itineraries/{itineraryId}/revisions` |
 | 여행 조건·생성 | `/planning-requests`, `/planning-requests/{requestId}/generations` |
 | 플래너 온보딩(도착역·출발역·동행 선택지) | `GET /onboarding/options`, `/onboarding/origins?destination=...` |
+| 사진으로 고르는 온보딩(사진 목록, 고른 사진의 취향과 장소 제안) | `GET /onboarding/photos`, `PUT·GET·DELETE /onboarding/taste` |
 
 Vite가 proxy의 Host를 바꿔도 브라우저 Origin은 남습니다. 개발 프론트 주소를 `NEAREAST_CORS_ALLOW_ORIGINS`에 명시합니다. 배포에서는 실제 HTTPS 주소만 허용하고 `NEAREAST_COOKIE_SECURE=true`를 사용합니다.
 
