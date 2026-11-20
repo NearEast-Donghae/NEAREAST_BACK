@@ -67,7 +67,8 @@ def walk_between(a: Place, b: Place) -> Walk:
 # What may be offered. A place whose category the tourism data does not give is never
 # offered: nothing is guessed from a name.
 VISIT_CATEGORIES = ("attraction", "culture", "market")  # somewhere to go and look
-MEAL_CATEGORY = "restaurant"  # offered only when the gap covers a meal time, as a meal
+MEAL_CATEGORY = "restaurant"
+INDOOR_CATEGORY = "culture"  # museums, halls: the places listed first for `indoor_first`  # offered only when the gap covers a meal time, as a meal
 MEAL_WINDOWS = (("11:00", "14:00", "점심"), ("17:00", "20:00", "저녁"))
 MEAL_MIN_OVERLAP = 30  # minutes of the gap that must fall inside the meal time
 MAX_MEALS_PER_GAP = 1
@@ -94,14 +95,18 @@ def within_walk(
 
 def nearby(
     places: Mapping[str, Place], anchor_id: str, *, skip: Collection[str] = (),
-    within: int = NEARBY_WALK_MIN, limit: int = MAX_NEARBY,
+    within: int = NEARBY_WALK_MIN, limit: int = MAX_NEARBY, indoor_first: bool = False,
 ) -> list[tuple[int, Place]]:
-    """Places worth a visit within a short walk of the anchor, nearest first."""
+    """Places worth a visit within a short walk of the anchor, nearest first.
+    `indoor_first` lists cultural (indoor) places before the others."""
     anchor = places.get(anchor_id)
     if anchor is None:
         return []
-    return [(minutes, place) for minutes, place in
-            within_walk(places, anchor, VISIT_CATEGORIES, skip) if minutes <= within][:limit]
+    found = [(minutes, place) for minutes, place in
+             within_walk(places, anchor, VISIT_CATEGORIES, skip) if minutes <= within]
+    if indoor_first:
+        found.sort(key=lambda f: f[1].category != INDOOR_CATEGORY)  # stable: nearest kept
+    return found[:limit]
 
 
 def meal_time(start: str, end: str) -> str | None:
@@ -117,6 +122,7 @@ def suggest(
     places: Mapping[str, Place], anchor_id: str, start: str, end: str, *,
     skip: Collection[str] = (), date: dt.date | None = None, far_first: bool = False,
     fit_from: str | None = None, limit: int = MAX_SUGGESTIONS_PER_GAP,
+    max_walk: int | None = None, indoor_first: bool = False,
 ) -> list[Suggestion]:
     """Places one can walk to, stay at and come back from within a gap at `anchor_id`:
     attractions, cultural places and markets, and one place to eat when the gap covers a
@@ -129,10 +135,12 @@ def suggest(
 
     def fitting(categories):
         return [(walk, place) for walk, place in within_walk(places, anchor, categories, skip)
-                if 2 * walk + SUGGEST_STAY_MIN + RETURN_SLACK <= room]
+                if 2 * walk + SUGGEST_STAY_MIN + RETURN_SLACK <= room
+                and (max_walk is None or walk <= max_walk)]
 
     visits = fitting(VISIT_CATEGORIES)
-    visits.sort(key=lambda f: (-f[0] if far_first else f[0], f[1].id))
+    visits.sort(key=lambda f: (indoor_first and f[1].category != INDOOR_CATEGORY,
+                               -f[0] if far_first else f[0], f[1].id))
     out = []
     for walk, place in visits[:limit]:
         notes = []

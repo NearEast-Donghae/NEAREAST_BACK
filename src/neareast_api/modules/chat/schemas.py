@@ -33,6 +33,8 @@ class ChatContext(_Strict):
     focused: PlaceId | None = None
     depth: Literal["reference", "light", "full"] = "light"
     dismissed: list[PlaceId] = Field(default_factory=list, max_length=100)
+    # Who the user travels with, from the planner's first screen. Optional.
+    companions: Literal["alone", "couple", "child", "parents"] | None = None
 
 
 class ChatTurn(_Strict):

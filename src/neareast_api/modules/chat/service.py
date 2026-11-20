@@ -35,6 +35,7 @@ from neareast_api.modules.chat.schemas import (
     ToolName,
 )
 from neareast_api.modules.itineraries.dto import PlanningConditionsDto, SelectedTrainDto
+from neareast_api.modules.recommend import companions
 from neareast_api.modules.recommend import service as recommend_service
 from neareast_api.modules.trains import service as timetable_service
 
@@ -763,6 +764,8 @@ def _plan_conditions(
         departurePlaceId=departure,
         arrivalPlaceId=arrival,
         requiredPlaceIds=required,
+        companions=context.raw.companions,
+        maxWalkingMinutes=companions.rule(context.raw.companions).maxWalkingMinutes,
         selectedTrainIds=list(dict.fromkeys(train.trainNo for train in trains)),
         selectedTrains=trains,
     )
@@ -834,6 +837,8 @@ def _plan_handoff(draft: Draft, context: ResolvedContext, mode: str, *,
         if conditions.startTime or conditions.endTime:
             what.append("시간은 {}~{}이에요.".format(
                 conditions.startTime or "", conditions.endTime or ""))
+        if conditions.maxWalkingMinutes is not None:
+            what.append(companions.rule(raw.companions).reason)
         passing = [p for p in visits if p.kind == "station" and p.passenger_stop is False]
         if passing:
             what.append(PLAN_OBSERVE_ONLY.format(names=_names(passing)))
@@ -972,6 +977,12 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
             reply = safe
         if "safety_track_crossing" in content.docs and "safety_track_crossing" not in sources:
             sources.insert(0, "safety_track_crossing")
+    # A companion rule that shaped the places offered is said out loud, never silent.
+    who = companions.rule(raw.companions)
+    shaped = ((draft.tool_used == "nearby_spots" and draft.tool_source == tools.COORDINATES)
+              or (draft.tool_used == "station_rhythm" and proposals))
+    if who.reason and who.reason not in reply and shaped and draft.intent != "safety":
+        reply = f"{reply.rstrip()} {who.reason}"
     # Example data is always labelled.
     if draft.tool_source == tools.MOCK and MOCK_NOTE not in reply:
         reply = f"{MOCK_NOTE} {reply}"
@@ -1244,21 +1255,32 @@ def _nearby_candidates(
     skip = {p.id for p in context.pins} | set(context.raw.dismissed)
     places = context.content.places
     anchor = context.content.place(place_id)
+    who = companions.rule(context.raw.companions)
     if _located(anchor) and gap is not None:
         return [
             {"id": s.target, "name": places[s.target].name, "walk_minutes": s.walk_min,
              "reason": s.reason, "notes": s.notes, "purpose": s.purpose}
             for s in recommend_service.suggest(places, place_id, gap.start, gap.end,
-                                               skip=skip, date=context.raw.date)
+                                               skip=skip, date=context.raw.date,
+                                               max_walk=who.maxWalkingMinutes,
+                                               indoor_first=who.indoorFirst)
         ]
     if _located(anchor):
         return [{"id": place.id, "name": place.name, "walk_minutes": minutes}
-                for minutes, place in recommend_service.nearby(places, place_id, skip=skip)]
+                for minutes, place in recommend_service.nearby(
+                    places, place_id, skip=skip, within=_walk_limit(context),
+                    indoor_first=who.indoorFirst)]
     return [
         {"id": s.place_id, "name": p.name, "walk_minutes": s.walk_minutes}
         for s in tools.nearby_spots(place_id)
         if s.place_id not in skip and (p := context.content.place(s.place_id)) is not None
     ]
+
+
+def _walk_limit(context: ResolvedContext) -> int:
+    """How far "nearby" reaches, one way: the default, or less for some companions."""
+    limit = companions.rule(context.raw.companions).maxWalkingMinutes
+    return min(limit or recommend_service.NEARBY_WALK_MIN, recommend_service.NEARBY_WALK_MIN)
 
 
 def _nearest_beyond(place_id: str, context: ResolvedContext) -> dict | None:
@@ -1382,7 +1404,7 @@ def _run_tool(request: dict, context: ResolvedContext) -> ToolRun:
         if source == tools.COORDINATES:
             result["walk_basis"] = tools.WALK_BASIS
             if not spots and (beyond := _nearest_beyond(anchor.id, context)):
-                result["within_minutes"] = recommend_service.NEARBY_WALK_MIN
+                result["within_minutes"] = _walk_limit(context)
                 result["nearest_beyond"] = beyond  # none within a short walk: the first one
         return ToolRun(name, result, None, anchor.id, source)
 
@@ -1585,7 +1607,7 @@ def _mock_nearby(message: str, context: ResolvedContext) -> Draft:
     if not spots:
         reply = f"{anchor.name} 근처에서 걸어갈 만한 곳은 아직 확인된 정보가 없어요."
         if measured and (beyond := _nearest_beyond(anchor.id, context)):
-            reply = (f"{anchor.name}에서 걸어서 {recommend_service.NEARBY_WALK_MIN}분 안에는 "
+            reply = (f"{anchor.name}에서 걸어서 {_walk_limit(context)}분 안에는 "
                      f"둘러볼 만한 곳이 없어요. 가장 가까운 곳은 {beyond['name']}"
                      f"(걸어서 약 {beyond['walk_minutes']}분)이에요. {tools.WALK_BASIS}")
         return Draft(

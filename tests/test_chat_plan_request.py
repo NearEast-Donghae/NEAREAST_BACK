@@ -77,7 +77,7 @@ class HandoffTests(_Case):
             "departurePlaceId": None, "arrivalPlaceId": None,
             "requiredPlaceIds": [DONGHAE, MUKHO, MARKET],
             "preferredTrainTypes": [], "selectedTrainIds": [], "selectedTrains": [],
-            "interests": [], "maxWalkingMinutes": None}})
+            "interests": [], "maxWalkingMinutes": None, "companions": None}})
 
     def test_the_payload_is_what_planning_requests_accept(self):
         from neareast_api.modules.itineraries.dto import PlanningConditionsDto
