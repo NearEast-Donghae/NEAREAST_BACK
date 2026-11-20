@@ -184,10 +184,19 @@ def _place_label(content: Content, place_id: str | None) -> str:
     return f"{place_id} ({place.name})" if place else "없음"
 
 
-def format_docs(docs: Sequence[Doc]) -> str:
+def format_docs(docs: Sequence[Doc], message: str = "") -> str:
+    """Each document under its id. When the question uses one of a document's other names
+    (an old station name, a short form), the heading says so: without it the model does
+    not connect "북평역" with the 동해역 document and follows a merely similar one."""
     if not docs:
         return "(없음)"
-    return "\n\n".join(f"<{d.id}> {d.title}\n{d.body}" for d in docs[:MAX_DOCS])
+
+    def heading(doc: Doc) -> str:
+        named = [k for k in doc.keywords if k != doc.title and k in message]
+        note = f" (질문의 \"{named[0]}\"은 이 문서가 다루는 이름이에요)" if named else ""
+        return f"<{doc.id}> {doc.title}{note}"
+
+    return "\n\n".join(f"{heading(d)}\n{d.body}" for d in docs[:MAX_DOCS])
 
 
 @lru_cache(maxsize=1)
@@ -217,6 +226,7 @@ def build_context(
     first_turn: bool = True,
     market_day: str | None = None,
     places: Sequence = (),
+    message: str = "",
 ) -> str:
     return CONTEXT.format(
         first_turn="예" if first_turn else "아니요",
@@ -228,7 +238,7 @@ def build_context(
         pins=", ".join(_place_label(content, p) for p in pins) or "없음",
         depth=depth,
         dismissed=", ".join(dismissed) or "없음",
-        docs=format_docs(docs),
+        docs=format_docs(docs, message),
         places=format_places(places),
     )
 

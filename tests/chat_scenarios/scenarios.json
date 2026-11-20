@@ -100,7 +100,7 @@
      "_note": "통과 시각은 기록이 없어 어림한 값이라는 것을 답에서 밝혀야 한다"},
     {"id": "q4-freight-no-official-data", "group": "Q4",
      "request": {"message": "삼화역 열차 시간 알려줘", "context": {}},
-     "expect": {"tool_used": null, "reply_contains_any": ["공식 데이터가 없어", "운행 기록이 없어", "확인된 정보가 없어요"], "reply_not_contains": [":"]},
+     "expect": {"tool_used": null, "reply_contains_any": ["공식 데이터", "운행 기록이 없어", "확인된 정보가 없어요"], "reply_not_contains": [":"]},
      "_note": "화물역은 여객 운행 기록이 없다. 예시 시각을 지어내지 않고 공식 데이터가 없다고 말한다"},
     {"id": "q4-no-station-no-times", "group": "Q4",
      "request": {"message": "열차 언제 와?", "context": {}},
@@ -136,8 +136,8 @@
      "_note": "기대값 변경(2026-11-20): 실제 seed의 동굴 문서에 관광공사 자료의 입장료가 들어왔다. 전에는 문서에 입장료가 없어 '확인된 정보가 없어요'가 정답이었다. 이제는 문서의 금액을 출처와 함께 말해야 한다. llm_only: 단위 테스트의 작은 시드에는 이 내용이 없다"},
     {"id": "q4-cave-hours-from-doc", "group": "Q4", "llm_only": true,
      "request": {"message": "천곡황금박쥐동굴 몇 시까지 해?", "context": {}},
-     "expect": {"sources_include": ["poi_cheongok_cave"], "reply_contains": ["18:00"], "tool_used": null},
-     "_note": "걸리면 안 되는 경우: 인용한 문서에 있는 운영 시간은 열차 시각 검사에 지워지면 안 된다. llm_only: mock은 '몇 시'를 열차 질문으로 보낸다"},
+     "expect": {"sources_nonempty": true, "reply_contains": ["18:00"], "tool_used": null},
+     "_note": "걸리면 안 되는 경우: 인용한 문서에 있는 운영 시간은 열차 시각 검사에 지워지면 안 된다. 기대값 변경(2026-11-20): 실제 seed에는 같은 동굴의 문서가 둘이라(기존 문서, 관광공사 자료) 어느 쪽을 출처로 달아도 통과로 본다. llm_only: mock은 '몇 시'를 열차 질문으로 보낸다"},
     {"id": "q4-market-day-no", "group": "Q4",
      "request": {"message": "북평민속시장 그날 열어?", "context": {"date": "2026-11-21"}},
      "expect": {"sources_include": ["poi_bukpyeong_market"], "reply_contains": ["11월 21일은 장날이 아니에요", "11월 23일"]},
@@ -195,7 +195,9 @@
 
     {"id": "q6-reason-links-gap", "group": "Q6",
      "request": {"message": "열차 언제 몰려?", "context": {"focused": "station_donghae", "pins": ["station_donghae"]}},
-     "expect": {"proposal_reason_contains": ["공백", "동해역"]}},
+     "expect": {"proposal_reason_contains": ["공백", "동해역"]},
+     "mock_only": true,
+     "_note": "mock_only(2026-11-20): 좌표가 없는 작은 시드에서 제안이 공백과 이어지는지 본다. 실제 seed에서는 동해역의 가장 긴 공백(07:55~09:32, 97분) 안에 다녀올 수 있는 곳이 없다(북평민속시장이 걸어서 편도 31분). 그 경우는 q6-donghae-gap-nothing-fits가 본다"},
     {"id": "q6-mukho-gap", "group": "Q6",
      "request": {"message": "묵호역 열차 비는 시간에 뭐 하지?", "context": {"focused": "station_mukho"}},
      "expect": {"proposal_reason_contains": ["공백", "묵호역"]}},
@@ -204,7 +206,9 @@
      "expect": {"proposal_reason_contains": ["공백", "추암역"]}},
     {"id": "q6-certainty-from-tool", "group": "Q6",
      "request": {"message": "동해역 열차 공백 시간에 갈 만한 곳", "context": {"focused": "station_donghae"}},
-     "expect": {"proposal_certainty_not_null": true}},
+     "expect": {"proposal_certainty_not_null": true},
+     "mock_only": true,
+     "_note": "mock_only(2026-11-20): 작은 시드에서 제안의 확실성이 도구에서 오는지 본다. 실제 seed에서는 이 공백에 맞는 장소가 없어 제안이 없는 것이 정답이다"},
     {"id": "q6-pinned-not-readded", "group": "Q6",
      "request": {"message": "열차 언제 몰려?", "context": {"focused": "station_mukho", "pins": ["station_mukho", "poi_nongoldam"]}},
      "expect": {"proposal_targets_exclude": ["poi_nongoldam"]}},
@@ -448,6 +452,10 @@
     {"id": "q4-dojjebigol-fee-unknown", "group": "Q4", "llm_only": true,
      "request": {"message": "도째비골 스카이밸리 입장료 얼마야?", "context": {}},
      "expect": {"sources_nonempty": true, "reply_contains": ["3,000원"]},
-     "_note": "기대값 변경(2026-11-20): 실제 seed에 도째비골 입장료(어른 3,000원)가 들어왔다. 전에는 문서에 없는 금액을 지어내지 않는지 보는 문항이었다. 이제는 문서의 금액을 출처와 함께 말해야 한다. llm_only: 단위 테스트의 작은 시드에는 이 내용이 없다"}
+     "_note": "기대값 변경(2026-11-20): 실제 seed에 도째비골 입장료(어른 3,000원)가 들어왔다. 전에는 문서에 없는 금액을 지어내지 않는지 보는 문항이었다. 이제는 문서의 금액을 출처와 함께 말해야 한다. llm_only: 단위 테스트의 작은 시드에는 이 내용이 없다"},
+    {"id": "q6-donghae-gap-nothing-fits", "group": "Q6", "llm_only": true,
+     "request": {"message": "동해역 열차 공백 시간에 갈 만한 곳", "context": {"focused": "station_donghae", "date": "2026-11-21"}},
+     "expect": {"tool_used_in": ["station_rhythm", "nearby_spots"], "proposal_targets_exclude": ["poi_bukpyeong_market"], "reply_not_contains": ["도보 10분", "예시 데이터"]},
+     "_note": "실제 seed 기준: 동해역의 긴 공백은 97분인데 북평민속시장은 걸어서 편도 31분이라 다녀올 수 없다(왕복 62분 + 머무는 30분 + 여유 10분). 맞지 않는 곳을 공백 제안으로 내놓거나 예시 데이터의 10분을 말하면 안 된다. llm_only: 작은 시드에는 좌표가 없다"}
   ]
 }

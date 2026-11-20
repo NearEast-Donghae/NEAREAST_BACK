@@ -12,11 +12,10 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from legacy_support import create_app
 from openai import APITimeoutError, OpenAIError
+from sqlalchemy import select
 
 from neareast_api.core.config import Settings
 from neareast_api.db.content_repository import ContentRepository
-from sqlalchemy import select
-
 from neareast_api.db.entities import KnowledgeChunkEntity, KnowledgeDocumentEntity, PlaceEntity
 from neareast_api.db.session import CONTENT_SESSION
 from neareast_api.modules.chat import llm, retrieval

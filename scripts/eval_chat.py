@@ -145,10 +145,13 @@ def main(argv: list[str] | None = None) -> int:
     scenarios = [
         s for s in module.SCENARIOS
         if (not args.group or s["group"] == args.group) and (not only or s["id"] in only)
+        and not s.get("mock_only")  # written for the small unit-test seed, not for real data
     ]
     from uuid import uuid4
+
     from sqlalchemy import create_engine, delete
     from sqlalchemy.orm import Session
+
     from neareast_api.db.entities import UserEntity
     from neareast_api.db.url import build_database_url
 

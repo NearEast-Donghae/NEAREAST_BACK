@@ -478,6 +478,10 @@ PLAN_REQUEST = re.compile(
 OWN_PLAN = re.compile(
     r"(?:내가|제가|직접|알아서|혼자)[^.?!]{0,10}(?:짤게|짤래|짤 ?거|짜 ?볼게|세울게|정할게|할게)")
 OWN_PLAN_REPLY = "좋아요, 일정은 직접 짜시면 돼요. 궁금한 열차나 장소가 있으면 언제든 물어봐 주세요."
+# "계획 짜는 팁 있어?": asking how to plan is a question, not a request to have one made.
+PLAN_ADVICE = re.compile(r"(?:짜는|세우는|만드는)\s*(?:팁|법|방법|요령|노하우)|(?:팁|요령|노하우)[^.?!]{0,6}(?:있|알려|줘)")
+PLAN_ADVICE_REPLY = ("일정은 일정 화면에서 직접 짤 수 있어요. 보고 싶은 열차와 가고 싶은 곳을 먼저 담아 두면 "
+                     "편해요. 역을 열어 두고 열차가 언제 몰리는지 물어보는 것도 좋아요.")
 PLAN_HANDOFF = ("{month}월 {day}일 여행 조건을 정리했어요. {what}을 확인하고 아래 카드에서 "
                 "일정 화면으로 이어갈 수 있어요. 조건을 확인한 뒤 일정을 생성해 주세요.")
 PLAN_NEEDS_PINS = ("어느 역에서 출발하거나 어디를 방문하고 싶으세요? 대화로 알려 주셔도 되고, "
@@ -515,7 +519,8 @@ def date_in_message(message: str, today: dt.date) -> dt.date | None:
 def _wants_plan(intent: str, message: str) -> bool:
     """A plan request by the responder's reading or by the wording. Asking to plan
     something on the tracks is a safety question first."""
-    if any(word in message for word in RISK_WORDS) or OWN_PLAN.search(message):
+    if (any(word in message for word in RISK_WORDS) or OWN_PLAN.search(message)
+            or PLAN_ADVICE.search(message)):
         return False
     return intent == "plan_request" or is_plan_request(message)
 
@@ -634,7 +639,10 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
     """Every rule here holds no matter what the responder (mock or LLM) produced."""
     if _wants_plan(draft.intent, context.message):
         return _plan_handoff(draft, context, mode)
-    if draft.intent == "plan_request" and OWN_PLAN.search(context.message):
+    if draft.intent == "plan_request" and PLAN_ADVICE.search(context.message):
+        draft = dataclasses.replace(  # a question about planning: answered, nothing handed over
+            draft, intent="smalltalk", reply=PLAN_ADVICE_REPLY, proposals=[], plan=None)
+    elif draft.intent == "plan_request" and OWN_PLAN.search(context.message):
         draft = dataclasses.replace(  # planning stays with the user: nothing is handed over
             draft, intent="smalltalk", reply=OWN_PLAN_REPLY, proposals=[], plan=None)
     elif draft.intent == "plan_request":  # asked about the tracks: answered as safety
@@ -899,6 +907,7 @@ def _llm_draft(
     static = prompts.build_static()
     screen = prompts.build_context(
         places=_relevant_places(context, docs),
+        message=request.message,
         today=dt.datetime.now(KST).date(),
         date=raw.date,
         pins=[p.id for p in context.pins],

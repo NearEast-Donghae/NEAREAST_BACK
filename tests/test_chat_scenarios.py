@@ -7,7 +7,8 @@ Expectation keys (all optional):
   proposal_targets_exclude, proposal_reason_contains, proposal_certainty_not_null,
   polite, each_step_has_chips, action ("plan_request" or null), action_date,
   action_places, action_start, action_end
-Scenario keys: llm_only (skipped in mock mode, reason in _note), _note (why a check is relaxed).
+Scenario keys: llm_only (skipped in mock mode, reason in _note), mock_only (meaningful only on
+the small unit-test seed; the real-data evaluation skips it), _note (why a check is relaxed).
 """
 
 import json
