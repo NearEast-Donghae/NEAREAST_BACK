@@ -25,7 +25,8 @@ def main():
             if arguments.operation == "export":
                 report = exportSeed(connection, arguments.path, not arguments.withoutEmbeddings)
             else:
-                report = importSeed(connection, arguments.path, arguments.dryRun)
+                report = importSeed(connection, arguments.path, arguments.dryRun,
+                                    Path(__file__).resolve().parents[1] / "alembic")
         print(json.dumps(report, ensure_ascii=False))
     finally:
         engine.dispose()
