@@ -67,7 +67,10 @@ def invariant_failures(request, body):
         if proposal["type"] == "add" and proposal["target"] in pins:
             failures.append(f"Q3: proposes adding pinned {proposal['target']}")
     # Same parser as the server: a clock time needs a tool result or a cited document.
-    if service._clock_claims(body["reply"]) and body["tool_used"] is None and not body["sources"]:
+    # A plan card repeats the hours the user gave ("시간은 09:00~19:00이에요"): those are the
+    # user's own conditions, checked against their words in service._plan_conditions.
+    if (service._clock_claims(body["reply"]) and body["tool_used"] is None and not body["sources"]
+            and body["intent"] != "plan_request"):
         failures.append(f"Q4: time claim without tool or source: {body['reply']}")
     # A plan request is handed to the plan screen, never answered with a plan.
     if (body["action"] is not None) and body["intent"] != "plan_request":
