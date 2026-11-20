@@ -286,6 +286,43 @@ class SafetyTests(_Case):
         self.assertIn("공개된 장소", body["reply"])
 
 
+class RealModelSafetyTests(_Case):
+    """What gpt-5.4-nano actually answered when the 2026-11-20 conversation was replayed."""
+
+    refusal = ("건널목은 선로·차단기 안쪽이나 건널목 안에서 보거나 촬영하는 건 권하지 않아요. "
+               "대신 역 맞이방이나 승강장처럼 공개된 곳에서 열차를 함께 볼 수 있어요.")
+
+    def test_a_refusal_to_a_public_place_question_is_not_served(self):
+        body, _ = self.ask_model([model(self.refusal, "safety")],
+                                 "추암역이랑 뭐 주변에 건널목 하나 볼까 하는데 뭐 없나?")
+        self.assertNotIn("권하지 않아요", body["reply"])
+        self.assertTrue(body["reply"].startswith(service.SAFETY_PUBLIC))
+        self.assertIn("역 맞이방이나 승강장처럼 공개된 곳", body["reply"])  # the rest is kept
+        self.assertNotIn("요. 대신 역", body["reply"])  # no dangling "대신"
+
+    def test_the_models_own_public_road_answer_needs_no_extra_line(self):
+        reply = ("차단기 안쪽이나 선로 부지에서는 촬영은 권하지 않아요. 대신 차단기 밖의 공개된 도로나 "
+                 "인도 쪽에서라면 사진을 계획해볼 수 있어요.")
+        body, _ = self.ask_model([model(reply, "safety")], "건널목 도로는 없어? 거기서 사진 찍구 싶음")
+        self.assertEqual(body["reply"], "차단기 밖의 공개된 도로나 인도 쪽에서라면 사진을 계획해볼 수 있어요.")
+
+    def test_a_follow_up_that_is_not_about_the_tracks_does_not_repeat_the_refusal(self):
+        history = [user("건널목 안에서 찍어도 돼?"), nearie(self.refusal)]
+        reply = ("추암역 쪽 건널목 안에서 보는 건 권하지 않아요. 대신 역 승강장처럼 공개된 장소에서 "
+                 "열차를 관찰하는 쪽으로 잡아 볼게요.")
+        body, _ = self.ask_model([model(reply, "safety")], "안전하게 볼 수 있는 곳", history)
+        self.assertEqual(body["reply"], "역 승강장처럼 공개된 장소에서 열차를 관찰하는 쪽으로 잡아 볼게요.")
+
+    def test_a_first_refusal_and_a_refusal_with_nothing_else_are_kept(self):
+        reply = "선로 가까이에서 보는 건 권하지 않아요. 승강장에서 보세요."
+        body, _ = self.ask_model([model(reply, "safety")], "안전하게 볼 수 있는 곳")
+        self.assertEqual(body["reply"], reply)  # nothing said earlier: not a repeat
+        only = "그건 권하지 않아요."
+        body, _ = self.ask_model([model(only, "safety")], "안전하게 볼 수 있는 곳",
+                                 [user("건널목 안에서 찍어도 돼?"), nearie(self.refusal)])
+        self.assertEqual(body["reply"], only)  # never an empty answer
+
+
 class WordingTests(_Case):
     def test_the_plan_summary_reads_as_sentences(self):
         body = self.ask("일정 짜줘", date="2026-11-21", pins=[DONGHAE, MUKHO])

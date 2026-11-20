@@ -540,6 +540,22 @@ def _without_hedges(reply: str) -> str:
                 and not any(n in s for n in (*_NEGATION, *ALTERNATIVE_WORDS, "도로", "인도"))))
 
 
+_LEFTOVER_LINK = re.compile(r"^(?:대신|다만|하지만|그래도|그 대신)[,\s]+")
+
+
+def _without_refusals(reply: str) -> str:
+    """The reply without its "권하지 않아요" sentences, when something else is left. The
+    sentence after a removed one loses its "대신"."""
+    kept, dropped = [], False
+    for sentence in _sentences(reply):
+        if "권하지 않아요" in sentence:
+            dropped = True
+            continue
+        kept.append(_LEFTOVER_LINK.sub("", sentence) if dropped else sentence)
+        dropped = False
+    return " ".join(kept) if kept else reply
+
+
 def _safety_alternative(context: "ResolvedContext") -> str:
     """A public place to go instead, by name when a station that takes passengers is in play."""
     for place in (context.mentioned, context.focused, *context.pins, context.recalled):
@@ -564,10 +580,14 @@ def _safe_reply(reply: str, context: "ResolvedContext") -> str:
         if not any(w in body for w in ALTERNATIVE_WORDS):
             body = f"{body} {_safety_alternative(context)}"
         return body
-    lead = SAFETY_PUBLIC_AGAIN if SAFETY_PUBLIC in earlier else SAFETY_PUBLIC
+    # A public place was asked about: a refusal is not the answer. The limit is stated
+    # once by the line below (or was, earlier in the conversation).
     body = body.replace(SAFETY_PUBLIC, "").replace(SAFETY_NO, "").strip()
-    if lead == SAFETY_PUBLIC_AGAIN or not any(m in body for m in SAFETY_PUBLIC_MARKS):
-        body = f"{lead} {body}".strip()
+    body = _without_refusals(body)
+    told = any(m in earlier for m in ("차단기 밖", SAFETY_NO))
+    says_where = "차단기 밖" in body or ("밖" in body and any(w in body for w in ("도로", "인도")))
+    if not says_where:
+        body = f"{SAFETY_PUBLIC_AGAIN if told else SAFETY_PUBLIC} {body}".strip()
     return body
 
 
@@ -977,6 +997,10 @@ def _finalize(draft: Draft, context: ResolvedContext, mode: str = "mock") -> Cha
             reply = safe
         if "safety_track_crossing" in content.docs and "safety_track_crossing" not in sources:
             sources.insert(0, "safety_track_crossing")
+    elif "권하지 않아요" in reply and "권하지 않아요" in "\n".join(context.assistant_turns):
+        # The refusal was given earlier and this message does not ask about the tracks
+        # ("안전하게 볼 수 있는 곳"): the answer is the alternative, not the refusal again.
+        reply = _without_refusals(reply)
     # A companion rule that shaped the places offered is said out loud, never silent.
     who = companions.rule(raw.companions)
     shaped = ((draft.tool_used == "nearby_spots" and draft.tool_source == tools.COORDINATES)
@@ -1193,6 +1217,12 @@ def _llm_draft(
         draft.evidence = "\n".join(
             [json.dumps(run.result, ensure_ascii=False, default=str), run.evidence])
         draft.train_count = run.train_count
+        if run.name == "nearby_spots" and run.result.get("nearest_beyond"):
+            # Nothing near: the sentence and its numbers are the server's, and a place
+            # half an hour away is information, not a proposal.
+            draft.reply = _none_nearby(run.result["place"], run.result["within_minutes"],
+                                       run.result["nearest_beyond"])
+            draft.proposals = []
     # Documents the model was given are evidence too, cited or not ("하루 6편" from a doc).
     draft.evidence = "\n".join([draft.evidence, *(d.body for d in docs)])
     draft.vector_docs = vector_docs
@@ -1275,6 +1305,13 @@ def _nearby_candidates(
         for s in tools.nearby_spots(place_id)
         if s.place_id not in skip and (p := context.content.place(s.place_id)) is not None
     ]
+
+
+def _none_nearby(name: str, within: int, beyond: dict) -> str:
+    """Nothing within a short walk: said the same way by every responder, numbers from
+    the one walking function."""
+    return (f"{name}에서 걸어서 {within}분 안에는 둘러볼 만한 곳이 없어요. 가장 가까운 곳은 "
+            f"{beyond['name']}(걸어서 약 {beyond['walk_minutes']}분)이에요. {tools.WALK_BASIS}")
 
 
 def _walk_limit(context: ResolvedContext) -> int:
@@ -1607,9 +1644,7 @@ def _mock_nearby(message: str, context: ResolvedContext) -> Draft:
     if not spots:
         reply = f"{anchor.name} 근처에서 걸어갈 만한 곳은 아직 확인된 정보가 없어요."
         if measured and (beyond := _nearest_beyond(anchor.id, context)):
-            reply = (f"{anchor.name}에서 걸어서 {_walk_limit(context)}분 안에는 "
-                     f"둘러볼 만한 곳이 없어요. 가장 가까운 곳은 {beyond['name']}"
-                     f"(걸어서 약 {beyond['walk_minutes']}분)이에요. {tools.WALK_BASIS}")
+            reply = _none_nearby(anchor.name, _walk_limit(context), beyond)
         return Draft(
             reply=reply,
             intent="proposal",
