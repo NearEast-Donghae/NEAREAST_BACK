@@ -26,7 +26,8 @@ class PlacesApiTests(unittest.TestCase):
         body = self.client.get(API).json()
         self.assertEqual([p["id"] for p in body["places"]], [p["id"] for p in self.catalog])
         self.assertEqual(set(body["places"][0]),
-                         {"id", "name", "kind", "passenger_stop", "aliases", "lat", "lng"})
+                         {"id", "name", "kind", "passenger_stop", "aliases", "lat", "lng",
+                          "category"})
 
     def test_kind_filter(self):
         stations = self.client.get(API + "?kind=station").json()["places"]

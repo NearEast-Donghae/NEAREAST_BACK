@@ -2,12 +2,15 @@
 scripts/eval_chat.py runs the same checks against the real LLM.
 
 Expectation keys (all optional):
-  intent, tool_used, tool_used_in, sources, sources_include, sources_include_any,
+  intent, tool_used, tool_used_in, sources, sources_include, sources_include_any, sources_nonempty,
   reply_contains, reply_contains_any, reply_not_contains, no_proposals,
   proposal_targets_exclude, proposal_reason_contains, proposal_certainty_not_null,
   polite, each_step_has_chips, action ("plan_request" or null), action_date,
   action_places, action_start, action_end
-Scenario keys: llm_only (skipped in mock mode, reason in _note), _note (why a check is relaxed).
+Scenario keys: llm_only (skipped in mock mode, reason in _note), mock_only (meaningful only on
+the small unit-test seed; the real-data evaluation skips it). Group AG: questions that need
+several lookups, checked by what the answer contains so that every responder (built-in,
+one lookup, agent) is measured the same way, _note (why a check is relaxed).
 """
 
 import json
@@ -44,6 +47,7 @@ POLITE_ENDINGS = ("요", "죠")
 def impolite_sentences(reply):
     """해요체 check: every sentence ends in 요/죠 (parentheses and tildes ignored)."""
     text = re.sub(r"\([^)]*\)", "", reply).replace("~", "")
+    text = re.sub(r"(?<=\d)\.(?=\d)", "·", text)  # "1.3을 곱해" is one sentence
     sentences = [part.strip() for part in re.split(r"[.!?…]+", text)]
     return [part for part in sentences if part and not part.endswith(POLITE_ENDINGS)]
 
@@ -65,14 +69,19 @@ def invariant_failures(request, body):
         if proposal["type"] == "add" and proposal["target"] in pins:
             failures.append(f"Q3: proposes adding pinned {proposal['target']}")
     # Same parser as the server: a clock time needs a tool result or a cited document.
-    if service._clock_claims(body["reply"]) and body["tool_used"] is None and not body["sources"]:
+    # A plan card repeats the hours the user gave ("시간은 09:00~19:00이에요"): those are the
+    # user's own conditions, checked against their words in service._plan_conditions.
+    if (service._clock_claims(body["reply"]) and body["tool_used"] is None and not body["sources"]
+            and body["intent"] != "plan_request"):
         failures.append(f"Q4: time claim without tool or source: {body['reply']}")
     # A plan request is handed to the plan screen, never answered with a plan.
     if (body["action"] is not None) and body["intent"] != "plan_request":
         failures.append("PL: action on an answer that is not a plan request")
     if body["intent"] == "plan_request" and (body["proposals"] or body["tool_used"]):
         failures.append("PL: plan request answered with proposals or a tool")
-    if body["intent"] == "knowledge" and not body["sources"] and "확인된 정보가 없어요" not in body["reply"]:
+    # Knowledge rests on documents, or on something looked up (what the user has saved).
+    if (body["intent"] == "knowledge" and not body["sources"] and not body["tool_used"]
+            and "확인된 정보가 없어요" not in body["reply"]):
         failures.append("Q4: knowledge answer without sources")
     return failures
 
@@ -128,6 +137,8 @@ def run_scenario(client, scenario, mode=None):
     for source in expect.get("sources_include", []):
         if source not in body["sources"]:
             failures.append(f"sources {body['sources']} lack {source}")
+    if expect.get("sources_nonempty") and not body["sources"]:
+        failures.append("answered without any source")
     if "sources_include_any" in expect and not set(expect["sources_include_any"]) & set(body["sources"]):
         failures.append(f"sources {body['sources']} lack any of {expect['sources_include_any']}")
     for text in expect.get("reply_contains", []):
@@ -135,6 +146,9 @@ def run_scenario(client, scenario, mode=None):
             failures.append(f"reply lacks {text!r}")
     if "reply_contains_any" in expect and not any(t in body["reply"] for t in expect["reply_contains_any"]):
         failures.append(f"reply lacks any of {expect['reply_contains_any']}")
+    for pattern in expect.get("reply_regex", []):
+        if not re.search(pattern, body["reply"], re.S):
+            failures.append(f"reply does not match {pattern!r}")
     for text in expect.get("reply_not_contains", []):
         if text in body["reply"]:
             failures.append(f"reply should not contain {text!r}")

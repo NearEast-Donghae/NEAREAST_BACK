@@ -17,7 +17,6 @@ from neareast_api.modules.recommend.schemas import Suggestion
 RETURN_SLACK = 10  # minutes to spare when coming back from a suggested place
 MAX_SUGGESTIONS_PER_GAP = 2
 SUGGEST_STAY_MIN = 30
-SUGGEST_KINDS = ("poi", "heritage")
 WALK_DETOUR = 1.3  # straight line -> streets
 WALK_KMH = 4.5
 MAX_WALK_MIN = 90  # longer than this is not offered as a walk
@@ -65,29 +64,85 @@ def walk_between(a: Place, b: Place) -> Walk:
     return Walk(minutes) if minutes is not None else Walk(None, "too_far")
 
 
+# What may be offered. A place whose category the tourism data does not give is never
+# offered: nothing is guessed from a name.
+VISIT_CATEGORIES = ("attraction", "culture", "market")  # somewhere to go and look
+MEAL_CATEGORY = "restaurant"  # offered only when the gap covers a meal time, as a meal
+INDOOR_CATEGORY = "culture"  # museums, halls: the places listed first for `indoor_first`
+MEAL_WINDOWS = (("11:00", "14:00", "점심"), ("17:00", "20:00", "저녁"))
+MEAL_MIN_OVERLAP = 30  # minutes of the gap that must fall inside the meal time
+MAX_MEALS_PER_GAP = 1
+NEARBY_WALK_MIN = 20  # "nearby" means within this walk
+MAX_NEARBY = 5
+
+
+def within_walk(
+    places: Mapping[str, Place], anchor: Place, categories: Collection[str],
+    skip: Collection[str] = (),
+) -> list[tuple[int, Place]]:
+    """(minutes, place) for every place of those categories one can walk to from the
+    anchor, nearest first. Every walking time in the service comes from walk_between, so
+    the same pair of places never gets two different numbers."""
+    found = []
+    for place in places.values():
+        if place.id == anchor.id or place.id in skip or place.category not in categories:
+            continue
+        walk = walk_between(anchor, place)
+        if walk.minutes is not None:
+            found.append((walk.minutes, place))
+    return sorted(found, key=lambda f: (f[0], f[1].id))
+
+
+def nearby(
+    places: Mapping[str, Place], anchor_id: str, *, skip: Collection[str] = (),
+    within: int = NEARBY_WALK_MIN, limit: int = MAX_NEARBY, indoor_first: bool = False,
+) -> list[tuple[int, Place]]:
+    """Places worth a visit within a short walk of the anchor, nearest first.
+    `indoor_first` lists cultural (indoor) places before the others."""
+    anchor = places.get(anchor_id)
+    if anchor is None:
+        return []
+    found = [(minutes, place) for minutes, place in
+             within_walk(places, anchor, VISIT_CATEGORIES, skip) if minutes <= within]
+    if indoor_first:
+        found.sort(key=lambda f: f[1].category != INDOOR_CATEGORY)  # stable: nearest kept
+    return found[:limit]
+
+
+def meal_time(start: str, end: str) -> str | None:
+    """"점심" or "저녁" when enough of the gap falls inside that meal time."""
+    for opens, closes, name in MEAL_WINDOWS:
+        overlap = min(_minutes(end), _minutes(closes)) - max(_minutes(start), _minutes(opens))
+        if overlap >= MEAL_MIN_OVERLAP:
+            return name
+    return None
+
+
 def suggest(
     places: Mapping[str, Place], anchor_id: str, start: str, end: str, *,
     skip: Collection[str] = (), date: dt.date | None = None, far_first: bool = False,
     fit_from: str | None = None, limit: int = MAX_SUGGESTIONS_PER_GAP,
+    max_walk: int | None = None, indoor_first: bool = False,
 ) -> list[Suggestion]:
-    """Places one can walk to, stay at and come back from within a gap at `anchor_id`.
-    `skip` holds what must not be offered (already pinned, or dismissed by the user).
+    """Places one can walk to, stay at and come back from within a gap at `anchor_id`:
+    attractions, cultural places and markets, and one place to eat when the gap covers a
+    meal time. `skip` holds what must not be offered (already pinned, or dismissed).
     `fit_from` (default `start`) is when the user is surely there in the worst case."""
     anchor = places.get(anchor_id)
     if anchor is None:
         return []
     room = _minutes(end) - _minutes(fit_from or start)
-    found = []
-    for place in places.values():
-        if place.id == anchor_id or place.id in skip or place.kind not in SUGGEST_KINDS:
-            continue
-        walk = walk_minutes(anchor, place)
-        if walk is None or 2 * walk + SUGGEST_STAY_MIN + RETURN_SLACK > room:
-            continue
-        found.append((walk, place))
-    found.sort(key=lambda f: (-f[0] if far_first else f[0], f[1].id))
+
+    def fitting(categories):
+        return [(walk, place) for walk, place in within_walk(places, anchor, categories, skip)
+                if 2 * walk + SUGGEST_STAY_MIN + RETURN_SLACK <= room
+                and (max_walk is None or walk <= max_walk)]
+
+    visits = fitting(VISIT_CATEGORIES)
+    visits.sort(key=lambda f: (indoor_first and f[1].category != INDOOR_CATEGORY,
+                               -f[0] if far_first else f[0], f[1].id))
     out = []
-    for walk, place in found[:limit]:
+    for walk, place in visits[:limit]:
         notes = []
         if place.id == MARKET_ID and date is not None:
             is_day, nearest = market_day(date)
@@ -99,4 +154,12 @@ def suggest(
             reason=(f"{anchor.name} 공백({start}–{end}) 안에 다녀올 수 있어요"
                     f"(걸어서 편도 {walk}분, 머무는 시간 {SUGGEST_STAY_MIN}분)"),
             notes=notes, walk_min=walk, stay_min=SUGGEST_STAY_MIN))
+    meal = meal_time(fit_from or start, end)
+    if meal is not None:
+        for walk, place in fitting((MEAL_CATEGORY,))[:MAX_MEALS_PER_GAP]:
+            out.append(Suggestion(
+                target=place.id, gap=[start, end], purpose="meal",
+                reason=(f"{anchor.name} 공백({start}–{end})이 {meal} 시간과 겹쳐요. "
+                        f"식사하러 다녀올 수 있어요(걸어서 편도 {walk}분)"),
+                notes=[], walk_min=walk, stay_min=SUGGEST_STAY_MIN))
     return out

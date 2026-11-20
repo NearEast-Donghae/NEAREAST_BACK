@@ -16,4 +16,6 @@ class Suggestion(BaseModel):
     certainty: Literal["timetable", "estimated", "planned"] = "estimated"
     notes: list[str]
     walk_min: int = Field(description="공백의 기준 장소에서 편도 도보(분)")
+    purpose: Literal["visit", "meal"] = Field(
+        default="visit", description="visit: 둘러볼 곳 / meal: 식사 시간과 겹치는 공백의 식당")
     stay_min: int

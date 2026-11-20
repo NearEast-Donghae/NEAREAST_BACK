@@ -17,7 +17,8 @@ HISTORY_CHARS = 6000  # total history text sent to the model (bounds prompt cost
 
 PlaceId = Annotated[str, Field(min_length=1, max_length=64)]
 Intent = Literal["knowledge", "train_lookup", "safety", "proposal", "smalltalk", "plan_request"]
-ToolName = Literal["station_rhythm", "search_trains", "nearby_spots", "walk_time"]
+ToolName = Literal["station_rhythm", "search_trains", "nearby_spots", "walk_time",
+                   "search_places", "saved_items"]
 # timetable: public timetable as-is / estimated: interpolated from neighbouring stations
 # planned: scheduled but same-day operation unconfirmed (e.g. freight) / None: not time-related
 Certainty = Literal["timetable", "estimated", "planned"]
@@ -33,6 +34,8 @@ class ChatContext(_Strict):
     focused: PlaceId | None = None
     depth: Literal["reference", "light", "full"] = "light"
     dismissed: list[PlaceId] = Field(default_factory=list, max_length=100)
+    # Who the user travels with, from the planner's first screen. Optional.
+    companions: Literal["alone", "couple", "child", "parents"] | None = None
 
 
 class ChatTurn(_Strict):
@@ -73,6 +76,13 @@ class ChatAction(_Strict):
     payload: PlanningConditionsDto
 
 
+class ChatStep(_Strict):
+    """One thing Nearie looked up on the way to the answer, in words for the user."""
+
+    tool: ToolName
+    summary: str  # "추암역 근처 장소 3곳을 찾았어요."
+
+
 class ChatResponse(_Strict):
     reply: str
     intent: Intent
@@ -82,6 +92,8 @@ class ChatResponse(_Strict):
     proposals: list[Proposal] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)
     tool_used: ToolName | None = None
+    # What was looked up, in order. Empty when nothing was, and for mock/fallback answers.
+    steps: list[ChatStep] = Field(default_factory=list)
     # llm: answered by the model / fallback: the model failed, built-in responder answered
     # mock: NEAREAST_CHAT_MOCK=true (no model configured)
     mode: Literal["llm", "fallback", "mock"]

@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from neareast_api.core.train_types import TrainType
+from neareast_api.modules.recommend.companions import Companion
 
 
 class TimelineItemDto(BaseModel):
@@ -91,6 +92,9 @@ class PlanningConditionsDto(BaseModel):
     selectedTrains: list[SelectedTrainDto] | None = Field(default=None, max_length=100)
     interests: list[str] = Field(default_factory=list, max_length=30)
     maxWalkingMinutes: int | None = Field(default=None, ge=0, le=1440)
+    # Optional: who the user travels with (planner onboarding). What it changes is the
+    # rule in modules/recommend/companions.py; omitting it changes nothing.
+    companions: Companion | None = None
 
     @model_validator(mode="after")
     def checkDates(self):

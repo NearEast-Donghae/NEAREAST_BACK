@@ -136,6 +136,20 @@ class LLMResponderTests(unittest.TestCase):
             message="근처 추천", focused="station_mukho")
         self.assertEqual([p["target"] for p in response.json()["proposals"]], ["poi_nongoldam"])
 
+    def test_a_document_named_by_another_name_says_so_in_its_heading(self):
+        # Seen on the real model: asked about 북평역 (동해역's old name) it followed a
+        # document about 북평성당 that vector search had added.
+        response, chat = self.ask([draft("동해역은 1940년 북평역으로 문을 열었어요.",
+                                         sources=["station_donghae"])], message="북평역이 뭐야?")
+        context = sent(chat)[-2]["content"]
+        self.assertIn('<station_donghae> 동해역 (질문의 "북평역"은 이 문서가 다루는 이름이에요)', context)
+        self.assertEqual(response.json()["sources"], ["station_donghae"])
+        # Named by its title, or not named at all: no note.
+        _, chat = self.ask([draft("동해역은 분기역이에요.", sources=["station_donghae"])],
+                           message="동해역이 뭐야?")
+        self.assertIn("<station_donghae> 동해역\n", sent(chat)[-2]["content"])
+        self.assertNotIn("이 문서가 다루는 이름", sent(chat)[-2]["content"])
+
     def test_single_call_without_tool_and_sources_limited_to_given_docs(self):
         response, chat = self.ask(
             [draft("동해역은 분기역이에요.", sources=["station_donghae", "invented_doc"])],
@@ -498,7 +512,8 @@ class LLMResponderTests(unittest.TestCase):
 
     def test_replaced_replies_are_logged_with_the_original_text(self):
         cases = (
-            ("부산역 맛집 알려줘", draft("부산역 주변이라면 북평민속시장이 좋아요."), "no documents"),
+            ("완목 신호기 어디 있어?", draft("완목 신호기는 동해역 구내에 있어요."), "no documents"),
+            ("부산역 맛집 알려줘", draft("부산역 주변이라면 북평민속시장이 좋아요."), "outside the area"),
             ("열차 언제 와?", draft("동해역은 09:13에 열차가 와요.", intent="train_lookup"),
              "unverified time"),
             ("건널목 안에서 찍어도 돼?", draft("가능할 수도 있어요.", intent="safety"), "safety"),

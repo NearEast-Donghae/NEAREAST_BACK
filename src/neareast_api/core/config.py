@@ -44,6 +44,11 @@ class Settings(BaseModel):
     llm_timeout_seconds: float = Field(default=8, gt=0, le=120)
     # Whole-request budget for the model path; past it the built-in responder answers.
     chat_deadline_seconds: float = Field(default=12, gt=0, le=120)
+    # Bounded agent: the model may ask for up to chat_agent_max_steps read-only tools in a
+    # row before answering. Off: one tool at most (the earlier behaviour), so turning this
+    # off is the way back if anything goes wrong before a demo.
+    chat_agent: bool = False
+    chat_agent_max_steps: int = Field(default=4, ge=1, le=6)
     # Offline evaluation can opt into a file; the service uses standard logging.
     llm_usage_log: str | None = None
 
